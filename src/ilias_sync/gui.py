@@ -12,7 +12,7 @@ from PySide6.QtWidgets import (
     QApplication, QCheckBox, QComboBox, QDialog, QDialogButtonBox, QFileDialog, QFormLayout,
     QHBoxLayout, QHeaderView, QLabel, QLineEdit, QListWidget, QListWidgetItem, QMainWindow,
     QMessageBox, QPushButton, QScrollArea, QSplitter, QTableWidget, QTableWidgetItem,
-    QTextEdit, QVBoxLayout, QWidget,
+    QTextEdit, QVBoxLayout, QWidget, QSizePolicy,
 )
 
 from . import __version__
@@ -52,6 +52,7 @@ QSplitter::handle { background: #e2e4e8; width: 1px; }
 def label(text, name=None):
     item = QLabel(t(text))
     item.setWordWrap(True)
+    item.setSizePolicy(QSizePolicy.Policy.Preferred, QSizePolicy.Policy.Maximum)
     if name:
         item.setObjectName(name)
     return item
@@ -359,6 +360,8 @@ class MainWindow(QMainWindow):
         self.open_button = button("Open folder", self.open_folder)
         for item in (self.sync_button, self.courses_button, self.edit_button, self.open_button):
             actions.addWidget(item)
+        self.empty_spacer = QWidget()
+        content.addWidget(self.empty_spacer, 1)
         self.actions_widget = QWidget()
         self.actions_widget.setLayout(actions)
         content.addWidget(self.actions_widget)
@@ -416,6 +419,7 @@ class MainWindow(QMainWindow):
         busy = self.process is not None
         self.sidebar.setVisible(bool(self.settings.sources()))
         self.onboard_button.setVisible(source is None)
+        self.empty_spacer.setVisible(source is None)
         self.schedule_label.setVisible(source is not None)
         for item in (self.sync_button, self.edit_button, self.courses_button, self.open_button):
             item.setEnabled(source is not None and not busy)

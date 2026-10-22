@@ -7,6 +7,7 @@ import platform
 import shutil
 import subprocess
 import sys
+import tempfile
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -62,15 +63,13 @@ def main():
     target = {"darwin": "macOS", "win32": "Windows"}.get(sys.platform, "Linux")
     prefix = f"IliasSync-{__version__}-{target}-{arch}"
     if sys.platform == "darwin":
-        stage = ROOT / "build/dmg"
-        stage.mkdir(parents=True, exist_ok=True)
-        shutil.copytree(app, stage / app.name, symlinks=True, dirs_exist_ok=True)
-        applications = stage / "Applications"
-        if not applications.exists():
-            applications.symlink_to("/Applications", target_is_directory=True)
         package = dist / (prefix + ".dmg")
-        subprocess.run(["hdiutil", "create", "-volname", "IliasSync", "-srcfolder", str(stage),
-                        "-ov", "-format", "UDZO", str(package)], check=True)
+        with tempfile.TemporaryDirectory(prefix="dmg-", dir=ROOT / "build") as staging:
+            stage = Path(staging)
+            shutil.copytree(app, stage / app.name, symlinks=True)
+            (stage / "Applications").symlink_to("/Applications", target_is_directory=True)
+            subprocess.run(["hdiutil", "create", "-volname", "IliasSync", "-srcfolder", str(stage),
+                            "-ov", "-format", "UDZO", str(package)], check=True)
     else:
         fmt = "zip" if sys.platform == "win32" else "gztar"
         package = Path(shutil.make_archive(str(dist / prefix), fmt, root_dir=dist, base_dir="IliasSync"))

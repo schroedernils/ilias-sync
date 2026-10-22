@@ -93,7 +93,8 @@ async def worker(args):
 def self_test():
     import tempfile
     from pathlib import Path
-    from .storage import Archive
+    from .storage import Archive, Source
+    from .engine import make_crawler
     with tempfile.TemporaryDirectory() as tmp:
         root = Path(tmp)
         raw = root / "file.pdf"
@@ -101,6 +102,7 @@ def self_test():
         archive = Archive(root / "state", root / "out")
         assert archive.publish("test:1", raw, "Course/File.pdf") == "added"
         assert archive.publish("test:1", raw, "Course/File.pdf") == "unchanged"
+        make_crawler(Source("Test", "https://ilias.example.edu", str(root / "downloads"), client_id="test"))
     from PySide6.QtCore import qVersion
     from PySide6.QtWidgets import QApplication
     # Exercise frozen Qt plugins and GUI imports without touching the user's profiles.
