@@ -15,6 +15,7 @@ The repository is currently **private** while the first preview is evaluated. Th
 - Deduplicate file objects linked from multiple locations. Preserve course/folder names in portable paths.
 - Keep prior versions before updates, preserve your local edits in place, and save remote changes as conflict copies.
 - Schedule with **launchd**, **Windows Task Scheduler**, or **systemd user timers**. The worker exits after each run; no background browser, resident polling daemon or telemetry.
+- Assign whole courses, subfolders or individual files to your own local destination folders. Specific file rules override folder and course rules. New assignments publish safe copies on the next run and retain copies at previous destinations.
 - System-following light/dark appearance, three-step setup, and grouped settings. Active runs offer Pause / Resume and Stop. Stop ends the current batch; disable automatic sync separately to remove the schedule.
 - Battery deferral, a single network task, request spacing, metadata-based incremental downloads, native timer scheduling and persistent error backoff.
 

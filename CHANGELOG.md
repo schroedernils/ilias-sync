@@ -2,7 +2,7 @@
 
 ## 0.1.0a2 — 2026-10-22
 
-Preserve the main workspace layout; replace setup with three focused steps and group settings by appearance and synchronization. Complete system-following light/dark palettes, optional overrides, live scheme changes, wide fields and readable scroll surfaces. Active runs expose Pause / Resume and Stop, including OS-scheduled runs observed while the app is open. Cancellation occurs at safe async boundaries and does not interrupt an atomic file publication. Paused time is excluded from the worker deadline. Schema 1; no data migration.
+Preserve the main workspace layout; replace setup with three focused steps and group settings by appearance and synchronization. Complete system-following light/dark palettes, optional overrides, live scheme changes, wide fields and readable scroll surfaces. Active runs expose Pause / Resume and Stop, including OS-scheduled runs observed while the app is open. Cancellation occurs at safe async boundaries and does not interrupt an atomic file publication. Paused time is excluded from the worker deadline. Course selection shows counts, search and an explicit scrollbar; read-only membership overview pagination is followed. Folder mapping supports course, subfolder and file destinations with most-specific precedence, keeping prior copies after reassignment. Stronger headings and a compact empty workspace. Schema 1 gains optional profile rules and manifest metadata; existing profiles remain readable.
 
 ## 0.1.0a1 — 2026-10-22
 

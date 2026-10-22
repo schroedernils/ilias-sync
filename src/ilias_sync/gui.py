@@ -7,12 +7,12 @@ from pathlib import Path
 from uuid import uuid4
 
 from PySide6.QtCore import QFileSystemWatcher, QProcess, Qt, QTimer, QUrl
-from PySide6.QtGui import QAction, QColor, QDesktopServices, QFont, QIcon, QPainter, QPixmap, QFontDatabase
+from PySide6.QtGui import QAction, QColor, QDesktopServices, QFont, QIcon, QPainter, QPixmap, QFontDatabase, QPalette
 from PySide6.QtWidgets import (
     QApplication, QCheckBox, QComboBox, QDialog, QDialogButtonBox, QFileDialog, QFormLayout,
     QHBoxLayout, QHeaderView, QLabel, QLineEdit, QListWidget, QListWidgetItem, QMainWindow,
     QMessageBox, QPushButton, QScrollArea, QSplitter, QTableWidget, QTableWidgetItem,
-    QTextEdit, QVBoxLayout, QWidget, QSizePolicy, QFrame, QStackedWidget,
+    QTextEdit, QVBoxLayout, QWidget, QSizePolicy, QFrame, QStackedWidget, QTreeWidget, QTreeWidgetItem,
 )
 
 from . import __version__
@@ -48,6 +48,19 @@ def save_buttons():
     buttons.button(QDialogButtonBox.StandardButton.Save).setText(t("Save"))
     buttons.button(QDialogButtonBox.StandardButton.Cancel).setText(t("Cancel"))
     return buttons
+
+
+class Dropdown(QComboBox):
+    """Keep a visible disclosure affordance with either native or custom palettes."""
+    def paintEvent(self, event):
+        super().paintEvent(event)
+        painter = QPainter(self)
+        painter.setRenderHint(QPainter.RenderHint.Antialiasing)
+        color = self.palette().color(QPalette.ColorRole.Text if self.isEnabled() else QPalette.ColorRole.PlaceholderText)
+        painter.setPen(color)
+        x, y = self.width() - 16, self.height() // 2
+        painter.drawLine(x-4, y-2, x, y+2)
+        painter.drawLine(x, y+2, x+4, y-2)
 
 
 def app_icon():
@@ -108,7 +121,7 @@ class SourceDialog(QDialog):
         self.client.setPlaceholderText(t("Detected when checking the address"))
         self.detect = button("Check address", self.probe)
         self.detect.setObjectName("quiet")
-        self.mode = QComboBox()
+        self.mode = Dropdown()
         for text, value in [("Username & password", "local"), ("Shibboleth SSO", "shibboleth"),
                             ("Browser session (MFA)", "session")]:
             self.mode.addItem(t(text), value)
@@ -347,7 +360,7 @@ class SourceDialog(QDialog):
                             login=self.mode.currentData(), idp_host=self.idp.text().strip(),
                             automatic_courses=self.automatic.isChecked(),
                             targets=[s.strip() for s in self.targets.toPlainText().splitlines() if s.strip()],
-                            videos=self.videos.isChecked(), **kwargs)
+                            videos=self.videos.isChecked(), folder_rules=self.existing.folder_rules if self.existing else {}, **kwargs)
             source.validate()
             if source.login != "session":
                 if not source.username:
@@ -373,13 +386,22 @@ class CoursesDialog(QDialog):
     def __init__(self, courses, source, settings, parent):
         super().__init__(parent)
         self.setWindowTitle(t("Choose courses"))
-        self.resize(620, 440)
+        self.resize(700, 540)
         layout = QVBoxLayout(self)
+        layout.setContentsMargins(24, 22, 24, 20)
+        layout.setSpacing(12)
+        layout.addWidget(label("Choose courses", "title"))
+        layout.addWidget(label(t("{count} courses and groups", count=len(courses)), "subtitle"))
+        search = QLineEdit()
+        search.setPlaceholderText(t("Search courses…"))
+        layout.addWidget(search)
         auto = QCheckBox(t("All joined courses, including new ones"))
         auto.setChecked(source.automatic_courses)
         layout.addWidget(auto)
         listing = QListWidget()
-        for course in courses:
+        listing.setVerticalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOn)
+        listing.setUniformItemSizes(True)
+        for course in sorted(courses, key=lambda c: c["name"].casefold()):
             item = QListWidgetItem(course["name"])
             item.setData(Qt.ItemDataRole.UserRole, course["url"])
             item.setFlags(item.flags() | Qt.ItemFlag.ItemIsUserCheckable)
@@ -388,6 +410,14 @@ class CoursesDialog(QDialog):
         listing.setEnabled(not auto.isChecked())
         auto.toggled.connect(lambda checked: listing.setEnabled(not checked))
         layout.addWidget(listing)
+        search.textChanged.connect(lambda text: [listing.item(i).setHidden(text.casefold() not in listing.item(i).text().casefold())
+                                                for i in range(listing.count())])
+        self.listing = listing
+        self.automatic = auto
+        self.search = search
+        extra = QLineEdit()
+        extra.setPlaceholderText(t("Missing a course? Paste its ILIAS link here."))
+        layout.addWidget(extra)
         buttons = save_buttons()
         layout.addWidget(buttons)
 
@@ -395,6 +425,9 @@ class CoursesDialog(QDialog):
             source.automatic_courses = auto.isChecked()
             source.targets = [listing.item(i).data(Qt.ItemDataRole.UserRole) for i in range(listing.count())
                               if listing.item(i).checkState() == Qt.CheckState.Checked]
+            if extra.text().strip():
+                source.targets.append(extra.text().strip())
+                source.automatic_courses = False
             try:
                 settings.save_source(source)
                 self.accept()
@@ -402,6 +435,151 @@ class CoursesDialog(QDialog):
                 QMessageBox.warning(self, t("Select courses"), message(str(exc)))
         buttons.accepted.connect(save)
         buttons.rejected.connect(self.reject)
+
+
+class FolderMappingDialog(QDialog):
+    def __init__(self, source, settings, parent=None):
+        super().__init__(parent)
+        self.source = source
+        self.settings = settings
+        self.rules = dict(source.folder_rules)
+        self.setWindowTitle(t("Folder mapping"))
+        self.resize(880, 620)
+        self.setMinimumSize(720, 520)
+        layout = QVBoxLayout(self)
+        layout.setContentsMargins(24, 22, 24, 20)
+        layout.setSpacing(12)
+        layout.addWidget(label("Folder mapping", "title"))
+        layout.addWidget(label("Choose destinations for courses, folders or individual files.", "subtitle"))
+        search = QLineEdit()
+        search.setPlaceholderText(t("Search courses and files…"))
+        layout.addWidget(search)
+        self.tree = QTreeWidget()
+        self.tree.setHeaderLabels([t("Course / content"), t("Download folder")])
+        self.tree.setColumnWidth(0, 400)
+        self.tree.setAccessibleName(t("Course folder assignments"))
+        self.tree.setVerticalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOn)
+        layout.addWidget(self.tree, 1)
+        state = data_dir() / 'sources' / source.id
+        courses = read_json(state / 'courses.json', [])
+        entries = read_json(state / 'manifest.json', {'files':{}})['files']
+        course_rows = {}
+        nodes = {}
+        for course in courses:
+            item = QTreeWidgetItem(self.tree, [course['name'], ''])
+            item.setData(0, Qt.ItemDataRole.UserRole, 'course/' + course['id'])
+            course_rows[course['id']] = item
+        import re
+        for identity, entry in sorted(entries.items(), key=lambda row: row[1]['path']):
+            logical = entry.get('logical')
+            course_id = entry.get('course_id')
+            if not logical:
+                original = entry.get('original_path', entry['path'])
+                parts = original.split('/')
+                match = re.search(r'\[(crs-\d+|grp-\d+)\]', parts[0])
+                if not match:
+                    continue
+                course_id = match[1]
+                logical = '/'.join([course_id, *parts[1:]])
+            if course_id not in course_rows:
+                item = QTreeWidgetItem(self.tree, [entry.get('course_name', course_id), ''])
+                item.setData(0, Qt.ItemDataRole.UserRole, 'course/' + course_id)
+                course_rows[course_id] = item
+            parent_item = course_rows[course_id]
+            parts = logical.split('/')
+            for index, name in enumerate(parts[1:-1], 1):
+                key = 'path/' + '/'.join(parts[:index+1])
+                if key not in nodes:
+                    item = QTreeWidgetItem(parent_item, [name, ''])
+                    item.setData(0, Qt.ItemDataRole.UserRole, key)
+                    nodes[key] = item
+                parent_item = nodes[key]
+            item = QTreeWidgetItem(parent_item, [parts[-1], ''])
+            item.setData(0, Qt.ItemDataRole.UserRole, 'file/' + identity)
+        self.tree.expandToDepth(0)
+        self.update_targets()
+        self.tree.currentItemChanged.connect(self.selected)
+        self.selected_label = label("Select a course or file.", "subtitle")
+        layout.addWidget(self.selected_label)
+        row = QHBoxLayout()
+        self.target = QLineEdit()
+        self.target.setPlaceholderText(t("Inherit parent destination"))
+        self.target.setReadOnly(True)
+        row.addWidget(self.target, 1)
+        self.choose_button = button("Choose folder…", self.choose)
+        self.reset_button = button("Reset", self.reset_rule)
+        row.addWidget(self.choose_button)
+        row.addWidget(self.reset_button)
+        layout.addLayout(row)
+        layout.addWidget(label("Changes apply on the next sync. Existing copies at previous destinations are kept.", "subtitle"))
+        if not entries:
+            layout.addWidget(label("Course contents appear after the first sync.", "subtitle"))
+        self.error = label("", "error")
+        self.error.hide()
+        layout.addWidget(self.error)
+        buttons = save_buttons()
+        buttons.accepted.connect(self.save)
+        buttons.rejected.connect(self.reject)
+        layout.addWidget(buttons)
+        self.choose_button.setEnabled(False)
+        self.reset_button.setEnabled(False)
+
+        def filter_tree(text):
+            def visit(item):
+                children = [visit(item.child(i)) for i in range(item.childCount())]
+                visible = text.casefold() in item.text(0).casefold() or any(children)
+                item.setHidden(not visible)
+                if text and visible:
+                    item.setExpanded(True)
+                return visible
+            for i in range(self.tree.topLevelItemCount()):
+                visit(self.tree.topLevelItem(i))
+        search.textChanged.connect(filter_tree)
+
+    def update_targets(self):
+        def visit(item):
+            key = item.data(0, Qt.ItemDataRole.UserRole)
+            item.setText(1, self.rules.get(key, t("Inherited")))
+            item.setToolTip(1, self.rules.get(key, self.source.destination))
+            for i in range(item.childCount()):
+                visit(item.child(i))
+        for i in range(self.tree.topLevelItemCount()):
+            visit(self.tree.topLevelItem(i))
+
+    def selected(self, item, previous=None):
+        self.choose_button.setEnabled(item is not None)
+        self.reset_button.setEnabled(item is not None)
+        if item:
+            self.selected_label.setText(item.text(0))
+            self.target.setText(self.rules.get(item.data(0, Qt.ItemDataRole.UserRole), ''))
+
+    def choose(self):
+        item = self.tree.currentItem()
+        if not item:
+            return
+        folder = QFileDialog.getExistingDirectory(self, t("Choose folder…"), self.target.text() or self.source.destination)
+        if folder:
+            self.rules[item.data(0, Qt.ItemDataRole.UserRole)] = folder
+            self.update_targets()
+            self.selected(item)
+
+    def reset_rule(self):
+        item = self.tree.currentItem()
+        if item:
+            self.rules.pop(item.data(0, Qt.ItemDataRole.UserRole), None)
+            self.update_targets()
+            self.selected(item)
+
+    def save(self):
+        previous = self.source.folder_rules
+        try:
+            self.source.folder_rules = self.rules
+            self.settings.save_source(self.source)
+            self.accept()
+        except ValueError as exc:
+            self.source.folder_rules = previous
+            self.error.setText(message(str(exc)))
+            self.error.show()
 
 
 class SettingsDialog(QDialog):
@@ -422,17 +600,17 @@ class SettingsDialog(QDialog):
         layout = QVBoxLayout(body)
         layout.setContentsMargins(0, 0, 0, 0)
         layout.setSpacing(18)
-        self.language = QComboBox()
+        self.language = Dropdown()
         self.language.addItem("Deutsch", "de")
         self.language.addItem("English", "en")
         self.language.setCurrentIndex(self.language.findData(settings.value.get("language", "de")))
-        self.appearance = QComboBox()
+        self.appearance = Dropdown()
         for title, value in [("Follow system", "system"), ("Light", "light"), ("Dark", "dark")]:
             self.appearance.addItem(t(title), value)
         self.appearance.setCurrentIndex(self.appearance.findData(settings.value.get("appearance", "system")))
         self.enabled = QCheckBox(t("Automatic sync"))
         self.enabled.setChecked(settings.value["scheduled"])
-        self.hours = QComboBox()
+        self.hours = Dropdown()
         for n in (1, 3, 6, 12, 24):
             self.hours.addItem(t("Every hour") if n == 1 else t("Every {n} hours", n=n), n)
         self.hours.setCurrentIndex(self.hours.findData(settings.value["interval_hours"]))
@@ -551,7 +729,11 @@ class MainWindow(QMainWindow):
         content.setAlignment(Qt.AlignmentFlag.AlignTop)
         content.setSpacing(10)
         self.source_title = label("Connect ILIAS", "title")
-        content.addWidget(self.source_title)
+        source_heading = QHBoxLayout()
+        source_heading.addWidget(self.source_title, 1)
+        self.routing_button = button("Folder mapping", self.folder_mapping)
+        source_heading.addWidget(self.routing_button)
+        content.addLayout(source_heading)
         self.destination = label("Add your university to download course files.", "subtitle")
         self.destination.setTextInteractionFlags(Qt.TextInteractionFlag.TextSelectableByMouse)
         content.addWidget(self.destination)
@@ -605,6 +787,9 @@ class MainWindow(QMainWindow):
         self.timeout.setSingleShot(True)
         self.timeout.timeout.connect(self.timeout_job)
         self.populate()
+        if not self.settings.sources():
+            self.resize(760, 480)
+            self.setMinimumSize(680, 430)
         self.run_watch = QFileSystemWatcher([str(data_dir())], self)
         self.run_watch.directoryChanged.connect(self.check_active_run)
         self.check_active_run()
@@ -630,9 +815,9 @@ class MainWindow(QMainWindow):
         self.onboard_button.setVisible(source is None)
         self.empty_spacer.setVisible(source is None)
         self.schedule_label.setVisible(source is not None)
-        for item in (self.sync_button, self.edit_button, self.courses_button, self.open_button):
+        for item in (self.sync_button, self.edit_button, self.courses_button, self.routing_button, self.open_button):
             item.setEnabled(source is not None and not busy)
-        for widget in (self.actions_widget, self.status, self.files, self.details_button):
+        for widget in (self.actions_widget, self.status, self.files, self.details_button, self.routing_button):
             widget.setVisible(source is not None)
         if not source:
             return
@@ -655,7 +840,9 @@ class MainWindow(QMainWindow):
         entries = read_json(state / "manifest.json", {"files": {}})["files"]
         self.files.setRowCount(len(entries))
         for row, entry in enumerate(sorted(entries.values(), key=lambda e: e["path"].casefold())):
-            self.files.setItem(row, 0, QTableWidgetItem(entry["path"]))
+            item = QTableWidgetItem(entry["path"])
+            item.setToolTip(str(Path(entry.get("root", source.destination)) / entry["path"]))
+            self.files.setItem(row, 0, item)
             self.files.setItem(row, 1, QTableWidgetItem(f"{entry.get('target_stat', [0])[0] / 1024:.0f} KB"))
 
     def add(self):
@@ -663,6 +850,8 @@ class MainWindow(QMainWindow):
             return
         dialog = SourceDialog(self.settings, parent=self)
         if dialog.exec():
+            self.setMinimumSize(900, 560)
+            self.resize(1140, 740)
             self.populate(dialog.source.id)
 
     def edit(self):
@@ -741,7 +930,7 @@ class MainWindow(QMainWindow):
     def refresh_controls(self):
         busy = self.process is not None or self.run_info is not None
         self.sources.setEnabled(not busy)
-        for item in (self.edit_button, self.courses_button):
+        for item in (self.edit_button, self.courses_button, self.routing_button):
             item.setEnabled(not busy and self.selected() is not None)
         self.sync_button.setEnabled(self.selected() is not None)
         self.sync_button.setText(t("Resume" if self.run_info and self.run_info["state"] == "paused" else "Pause" if busy else "Sync now"))
@@ -797,6 +986,12 @@ class MainWindow(QMainWindow):
         if self.process:
             self.stop_sync()
             self.activity.append(t("The job exceeded its time limit and was stopped. It can be retried safely."))
+
+    def folder_mapping(self):
+        source = self.selected()
+        if source and not self.process and not self.run_info:
+            FolderMappingDialog(source, self.settings, self).exec()
+            self.refresh()
 
     def open_folder(self):
         source = self.selected()

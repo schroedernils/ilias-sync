@@ -140,8 +140,11 @@ class Source:
     videos: bool = False
     enabled: bool = True
     id: str = field(default_factory=lambda: str(uuid4()))
+    folder_rules: dict[str, str] = field(default_factory=dict)
 
     def validate(self):
+        from .routing import validate_routes
+        validate_routes(self.folder_rules)
         UUID(self.id)
         self.url = server_url(self.url)
         if self.login not in {"local", "shibboleth", "session"}:
@@ -200,7 +203,36 @@ class Archive:
         self.journal_path = state / "publish-intents.json"
         self.journal = read_json(self.journal_path, {})
 
-    def publish(self, identity: str, raw: Path, proposed: str):
+    def publish(self, identity: str, raw: Path, proposed: str, *, destination=None, route='', metadata=None):
+        original_destination = self.destination
+        old = self.manifest["files"].get(identity)
+        self.destination = Path(destination) if destination else original_destination
+        self.destination.mkdir(parents=True, exist_ok=True)
+        # A changed explicit rule publishes a new safe copy. Never delete old or annotated files.
+        moved = old and (old.get('route', '') != route or
+                         Path(old.get('root', str(original_destination))).resolve() != self.destination.resolve())
+        if moved:
+            del self.manifest['files'][identity]
+        self._publication_metadata = {'root':str(self.destination.resolve()), 'route':route, **(metadata or {})}
+        if moved:
+            self._publication_metadata['prior_locations'] = [*old.get('prior_locations', []),
+                                                              {'root':old.get('root',str(original_destination)), 'path':old['path']}]
+        try:
+            action = self._publish(identity, raw, proposed)
+            entry = self.manifest['files'][identity]
+            changes = {key: value for key, value in self._publication_metadata.items() if entry.get(key) != value}
+            if changes:
+                entry.update(changes)
+                write_json(self.path, self.manifest)
+            return action
+        except BaseException:
+            if moved:
+                self.manifest['files'][identity] = old
+            raise
+        finally:
+            self.destination = original_destination
+
+    def _publish(self, identity: str, raw: Path, proposed: str):
         old = self.manifest["files"].get(identity)
         relative = old["path"] if old else proposed
         target = safe_path(self.destination, relative)
@@ -213,7 +245,7 @@ class Archive:
         action = "added"
         if target.exists():
             actual = sha256(target)
-            owned = old is not None or self.journal.get(identity) == {"path": relative, "sha256": digest}
+            owned = old is not None or self.journal.get(identity) == {"path": relative, "sha256": digest, "root": str(self.destination.resolve())}
             if actual == digest and owned:
                 action = "unchanged"
             elif old and actual == old["sha256"]:
@@ -237,11 +269,11 @@ class Archive:
         else:
             self._intent(identity, relative, digest)
             copy_file(raw, target)
-        self.manifest["files"][identity] = {"path": relative, "sha256": digest, "raw_stat": raw_stat,
+        self.manifest["files"][identity] = {**(old or {}), **self._publication_metadata, "path": relative, "sha256": digest, "raw_stat": raw_stat,
                                            "target_stat": [target.stat().st_size, target.stat().st_mtime_ns]}
         write_json(self.path, self.manifest)
         return action
 
     def _intent(self, identity, path, digest):
-        self.journal[identity] = {"path": path, "sha256": digest}
+        self.journal[identity] = {"path": path, "sha256": digest, "root": str(self.destination.resolve())}
         write_json(self.journal_path, self.journal)

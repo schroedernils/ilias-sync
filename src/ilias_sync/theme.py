@@ -21,8 +21,8 @@ QStackedWidget {{ background: transparent; border: none; }}
 QLabel {{ background: transparent; }}
 QLabel#eyebrow, QLabel#subtitle {{ color: {c['muted']}; }}
 QLabel#eyebrow {{ font-size: 12px; font-weight: 600; }}
-QLabel#title {{ font-size: 25px; font-weight: 600; }}
-QLabel#sectionTitle {{ font-size: 15px; font-weight: 600; }}
+QLabel#title {{ font-size: 29px; font-weight: 700; }}
+QLabel#sectionTitle {{ font-size: 16px; font-weight: 650; }}
 QLabel#step {{ color: {c['accent']}; font-size: 12px; font-weight: 600; }}
 QLabel#status {{ padding: 12px 14px; border-radius: 8px; background: {c['inset']}; }}
 QLabel#error {{ color: {c['error']}; }}
@@ -47,8 +47,8 @@ QCheckBox::indicator {{ width: 16px; height: 16px; }}
 QListWidget {{ background: {c['inset']}; border: 0; padding: 8px; border-radius: 8px; }}
 QListWidget::item {{ padding: 14px 12px; margin-bottom: 4px; border-radius: 6px; }}
 QListWidget::item:selected {{ background: {c['selection']}; color: {c['selected_text']}; }}
-QTableWidget {{ background: {c['surface']}; alternate-background-color: {c['inset']}; border: 1px solid {c['border']}; border-radius: 7px; gridline-color: {c['inset']}; }}
-QTableWidget::item:selected {{ background: {c['selection']}; color: {c['selected_text']}; }}
+QTreeWidget, QTableWidget {{ background: {c['surface']}; alternate-background-color: {c['inset']}; border: 1px solid {c['border']}; border-radius: 7px; gridline-color: {c['inset']}; }}
+QTreeWidget::item:selected, QTableWidget::item:selected {{ background: {c['selection']}; color: {c['selected_text']}; }}
 QHeaderView::section {{ background: {c['inset']}; color: {c['text']}; padding: 10px; border: none; font-weight: 600; }}
 QTextEdit#activity {{ font-size: 12px; color: {c['muted']}; }}
 QSplitter::handle {{ background: {c['border']}; width: 1px; }}

@@ -84,6 +84,17 @@ DE = {
     "Automatic runs continue when this window is closed. Your computer must be awake and signed in.": "Automatische Läufe funktionieren auch bei geschlossenem Fenster. Dein Computer muss wach und angemeldet sein.",
     "Pause": "Pausieren", "Resume": "Fortsetzen", "Stop": "Beenden", "Paused": "Pausiert", "Stopped": "Beendet", "Stopping…": "Wird beendet …",
 
+    "Folder mapping": "Ordner zuordnen", "{count} courses and groups": "{count} Kurse und Gruppen",
+    "Search courses…": "Kurse suchen …", "Missing a course? Paste its ILIAS link here.": "Kurs fehlt? ILIAS-Link hier einfügen.",
+    "Choose destinations for courses, folders or individual files.": "Lege Ziele für Kurse, Unterordner oder einzelne Dateien fest.",
+    "Search courses and files…": "Kurse und Dateien suchen …", "Course / content": "Kurs / Inhalt",
+    "Course folder assignments": "Ordnerzuordnungen", "Select a course or file.": "Wähle einen Kurs oder eine Datei aus.",
+    "Inherit parent destination": "Ziel vom übergeordneten Ordner übernehmen", "Choose folder…": "Ordner wählen …",
+    "Reset": "Zurücksetzen", "Inherited": "Übernommen",
+    "Changes apply on the next sync. Existing copies at previous destinations are kept.": "Gilt ab der nächsten Synchronisierung. Kopien an bisherigen Zielen bleiben erhalten.",
+    "Course contents appear after the first sync.": "Kursinhalte erscheinen nach der ersten Synchronisierung.",
+    "Invalid folder rules.": "Ungültige Ordnerzuordnungen.", "Invalid folder rule key.": "Ungültige Ordnerzuordnung.",
+
 }
 
 

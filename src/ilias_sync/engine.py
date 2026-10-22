@@ -43,6 +43,23 @@ def memberships(soup, base):
     return list(found.values())
 
 
+def membership_navigation(soup, base):
+    """Read-only membership overview and pager links; never sorting/enrollment actions."""
+    urls = []
+    for link in soup.select('a[href]'):
+        url = urljoin(base + '/', link['href'])
+        parts = urlparse(url)
+        if parts.netloc != urlparse(base).netloc or parts.scheme != 'https':
+            continue
+        query = {k.lower(): v[0].lower() for k, v in parse_qs(parts.query).items() if v}
+        command = query.get('cmd', '')
+        member = query.get('baseclass') == 'ilmembershipoverviewgui' or query.get('cmdclass') == 'ilmembershipblockgui'
+        pager = any(x in key for key in query for x in ('offset', 'page', 'trows'))
+        if member and command in {'', 'show', 'showmemberships', 'gethtml'} and (pager or query.get('baseclass') == 'ilmembershipoverviewgui'):
+            urls.append(url)
+    return list(dict.fromkeys(urls))
+
+
 async def probe(url):
     """Get public login metadata without sending credentials."""
     from .storage import server_url
@@ -171,7 +188,21 @@ def make_crawler(source: Source, emit=lambda event: None, *, discover=False):
 
         async def _run(self):
             dashboard = await self._get_page(source.url + "/ilias.php?baseClass=ilDashboardGUI&cmd=show&view=2")
-            self.roots = memberships(dashboard.soup, source.url)
+            found = {r['id']: r for r in memberships(dashboard.soup, source.url)}
+            pending = membership_navigation(dashboard.soup, source.url)
+            visited = set()
+            while pending and len(visited) < 40:
+                url = pending.pop(0)
+                if url in visited:
+                    continue
+                visited.add(url)
+                page = await self._get_page(url)
+                found.update({r['id']: r for r in memberships(page.soup, source.url)})
+                pending.extend(u for u in membership_navigation(page.soup, source.url) if u not in visited)
+            if pending:
+                raise CrawlError('Course list exceeded its page limit. Add specific course links.')
+            self.roots = list(found.values())
+            write_json(data_dir() / 'sources' / source.id / 'courses.json', self.roots)
             # Also retain explicitly selected folder/course URLs, including institutions with a custom dashboard.
             selected = []
             for url in source.targets:
@@ -183,6 +214,9 @@ def make_crawler(source: Source, emit=lambda event: None, *, discover=False):
                 selected.append(next((r for r in self.roots if r["id"] == key),
                                      {"id": key, "name": "Course " + key, "url": absolute}))
             if discover:
+                known = {r['id'] for r in self.roots}
+                self.roots.extend(r for r in selected if r['id'] not in known)
+                write_json(data_dir() / 'sources' / source.id / 'courses.json', self.roots)
                 return
             roots = self.roots if source.automatic_courses else selected
             if not roots:
@@ -222,7 +256,9 @@ def make_crawler(source: Source, emit=lambda event: None, *, discover=False):
             # Cap depth and names for Windows; discarded hierarchy is still in the source link.
             if len(parts) > 5:
                 parts = parts[:3] + parts[-2:]
-            self.files[identity] = {"raw": raw, "path": "/".join(parts), "url": element.url}
+            self.files[identity] = {"raw": raw, "path": "/".join(parts), "url": element.url,
+                                    "course_id": self.current['id'], "course_name": self.current['name'],
+                                    "logical": '/'.join([self.current['id'], *parts[1:]])}
             return await super()._handle_file(element, raw, is_video)
 
         async def _stream_from_url(self, element, sink, bar, is_video):
@@ -293,7 +329,11 @@ async def synchronize(source: Source, emit=lambda event: None, *, discover=False
         if not raw.is_file() or item["raw"] not in crawler.report.known_files:
             unavailable.append(identity)
             continue
-        action = archive.publish(identity, raw, item["path"])
+        from .routing import route_file
+        destination, relative, route = route_file(source, identity, item['course_id'], item['logical'], item['path'])
+        action = archive.publish(identity, raw, relative, destination=destination, route=route,
+                                 metadata={'course_id':item['course_id'], 'course_name':item['course_name'],
+                                           'logical':item['logical'], 'original_path':item['path']})
         counts[action] += 1
         paths.add(item["raw"])
         emit({"event": "progress", "message": f"{action.capitalize()}: {raw.name}"})

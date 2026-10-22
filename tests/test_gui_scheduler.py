@@ -195,3 +195,28 @@ def test_controls_switch_to_pause_and_stop_for_background_run(app, source):
     assert window.sync_button.text() == 'Jetzt synchronisieren'
     assert not window.progress_timer.isActive()
     window.close()
+
+
+def test_course_list_reports_total_and_searches_beyond_first_view(app, source):
+    from ilias_sync.gui import CoursesDialog
+    from ilias_sync.storage import Settings
+    courses = [{'id':f'crs-{i}', 'name':f'Kurs {i:02}', 'url':f'https://campus.example.edu/go/crs/{i}'} for i in range(20)]
+    dialog = CoursesDialog(courses,source,Settings(),None)
+    assert dialog.listing.count() == 20
+    dialog.search.setText('Kurs 19')
+    assert sum(not dialog.listing.item(i).isHidden() for i in range(20)) == 1
+    dialog.close()
+
+
+def test_mapping_menu_builds_course_folder_file_hierarchy(app, source):
+    from ilias_sync.gui import FolderMappingDialog
+    from ilias_sync.storage import Settings, data_dir, write_json
+    state=data_dir()/'sources'/source.id
+    write_json(state/'courses.json',[{'id':'crs-1','name':'PSE','url':source.url+'/go/crs/1'}])
+    write_json(state/'manifest.json',{'files':{'file:1':{'path':'PSE/Material/Intro.pdf','logical':'crs-1/Material/Intro.pdf','course_id':'crs-1'}}})
+    dialog=FolderMappingDialog(source,Settings())
+    course=dialog.tree.topLevelItem(0)
+    assert course.text(0) == 'PSE'
+    assert course.child(0).text(0) == 'Material'
+    assert course.child(0).child(0).text(0) == 'Intro.pdf'
+    dialog.close()
