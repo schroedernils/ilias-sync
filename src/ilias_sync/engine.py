@@ -14,6 +14,7 @@ import aiohttp
 import certifi
 from bs4 import BeautifulSoup
 
+from .control import CURRENT, checkpoint
 from .security import LoginRequired, get_password
 from .storage import Archive, Source, clean_filename, clean_name, data_dir, write_json
 
@@ -107,6 +108,7 @@ def make_crawler(source: Source, emit=lambda event: None, *, discover=False):
             self.seen = set()
 
         async def _authenticate(self):
+            await checkpoint()
             if source.login == "session":
                 raise LoginRequired("Your browser session has expired. Import a new session to continue.")
             if source.login == "shibboleth":
@@ -152,6 +154,7 @@ def make_crawler(source: Source, emit=lambda event: None, *, discover=False):
                 self._auth.invalidate_credentials()
 
         async def _get_page(self, url, root_page_allowed=False):
+            await checkpoint()
             auth = await self._current_auth_id()
             for attempt in range(2):
                 async with self.session.get(url) as response:
@@ -193,6 +196,7 @@ def make_crawler(source: Source, emit=lambda event: None, *, discover=False):
                     await task
 
         async def _handle_ilias_element(self, parent_path, element, crawl_nested_courses=False):
+            await checkpoint()
             if element.type == T.COURSE:
                 return None
             identity = ref(element.url)
@@ -222,6 +226,7 @@ def make_crawler(source: Source, emit=lambda event: None, *, discover=False):
             return await super()._handle_file(element, raw, is_video)
 
         async def _stream_from_url(self, element, sink, bar, is_video):
+            await checkpoint()
             auth = await self._current_auth_id()
             extension = Path(element.name).suffix.casefold()
             for attempt in range(2):
@@ -239,9 +244,11 @@ def make_crawler(source: Source, emit=lambda event: None, *, discover=False):
                                 raise CrawlError("Server returned an invalid ZIP.")
                             if response.content_length:
                                 bar.set_total(response.content_length)
+                            await checkpoint()
                             sink.file.write(first)
                             bar.advance(len(first))
                             async for chunk in response.content.iter_chunked(256 * 1024):
+                                await checkpoint()
                                 sink.file.write(chunk)
                                 bar.advance(len(chunk))
                             sink.done()
@@ -269,7 +276,10 @@ async def synchronize(source: Source, emit=lambda event: None, *, discover=False
     source.validate()
     crawler = make_crawler(source, emit, discover=discover)
     start = time.monotonic()
-    await asyncio.wait_for(crawler.run(), timeout=90 if discover else 5400)
+    if CURRENT.get():
+        await crawler.run()
+    else:
+        await asyncio.wait_for(crawler.run(), timeout=90 if discover else 5400)
     if discover:
         return {"courses": crawler.roots}
     state = data_dir() / "sources" / source.id
@@ -278,6 +288,7 @@ async def synchronize(source: Source, emit=lambda event: None, *, discover=False
     unavailable = []
     paths = set()
     for identity, item in crawler.files.items():
+        await checkpoint()
         raw = state / "cache" / item["raw"]
         if not raw.is_file() or item["raw"] not in crawler.report.known_files:
             unavailable.append(identity)
@@ -287,6 +298,7 @@ async def synchronize(source: Source, emit=lambda event: None, *, discover=False
         paths.add(item["raw"])
         emit({"event": "progress", "message": f"{action.capitalize()}: {raw.name}"})
     for path in sorted(crawler.report.known_files):
+        await checkpoint()
         if path in paths or path.parts[0] == "files":
             continue
         raw = state / "cache" / path

@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.1.0a2 — 2026-10-22
+
+Preserve the main workspace layout; replace setup with three focused steps and group settings by appearance and synchronization. Complete system-following light/dark palettes, optional overrides, live scheme changes, wide fields and readable scroll surfaces. Active runs expose Pause / Resume and Stop, including OS-scheduled runs observed while the app is open. Cancellation occurs at safe async boundaries and does not interrupt an atomic file publication. Paused time is excluded from the worker deadline. Schema 1; no data migration.
+
 ## 0.1.0a1 — 2026-10-22
 
 First private preview: configurable ILIAS sources, Qt desktop UI, standard login and guarded SSO/session import, course selection/discovery, incremental downloads, archive/version/conflict protection, battery-aware native scheduling, headless one-shot jobs, tests and four native build targets across three operating systems. Schema 1. No migration from the earlier personal Google Drive script; that installation remains separate.

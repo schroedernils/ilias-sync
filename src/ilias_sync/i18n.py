@@ -74,6 +74,16 @@ DE = {
     "A selected course belongs to a different ILIAS server.": "Ein ausgewählter Kurs gehört zu einem anderen ILIAS-Server. Prüfe die Kurslinks.",
     "A download returned a login page. Sign in again.": "Download erfordert eine neue Anmeldung. Melde dich erneut an.",
     "Preview. Files and supported videos are downloaded; forums, tests, SCORM and custom plugins may be excluded. No automatic updates or verified publisher signature.": "Vorabversion. Dateien und unterstützte Videos werden heruntergeladen. Foren, Tests, SCORM und eigene Erweiterungen können fehlen. Keine automatischen Updates und keine verifizierte Herausgebersignatur.",
+    "No file selected": "Keine Datei ausgewählt", "Back": "Zurück", "Continue": "Weiter",
+    "Your university": "Deine Hochschule", "Sign in to ILIAS": "Bei ILIAS anmelden", "Choose your files": "Deine Dateien",
+    "Step {step} of 3": "Schritt {step} von 3", "Client ID…": "Client-ID …",
+    "Use the start address of your university's ILIAS.": "Verwende die Startadresse des ILIAS deiner Hochschule.",
+    "A folder in Google Drive or OneDrive works too.": "Auch ein Ordner in Google Drive oder OneDrive ist möglich.",
+    "Appearance": "Darstellung", "Theme": "Erscheinungsbild", "Follow system": "Wie System", "Light": "Hell", "Dark": "Dunkel",
+    "Synchronization": "Synchronisierung", "Interval": "Intervall",
+    "Automatic runs continue when this window is closed. Your computer must be awake and signed in.": "Automatische Läufe funktionieren auch bei geschlossenem Fenster. Dein Computer muss wach und angemeldet sein.",
+    "Pause": "Pausieren", "Resume": "Fortsetzen", "Stop": "Beenden", "Paused": "Pausiert", "Stopped": "Beendet", "Stopping…": "Wird beendet …",
+
 }
 
 

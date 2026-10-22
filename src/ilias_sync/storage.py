@@ -167,7 +167,7 @@ class Settings:
         self.root = data_dir()
         self.path = self.root / "settings.json"
         self.value = read_json(self.path, {"schema": 1, "sources": [], "interval_hours": 6,
-                                          "battery_saver": True, "scheduled": False, "language": "de"})
+                                          "battery_saver": True, "scheduled": False, "language": "de", "appearance": "system"})
         if self.value.get("schema") != 1:
             raise ValueError("This configuration was created by an incompatible app version.")
 

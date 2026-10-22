@@ -12,6 +12,7 @@ from pathlib import Path
 from filelock import FileLock, Timeout
 
 from . import __version__
+from .control import RunControl
 from .policy import due, next_run, on_battery
 from .security import LoginRequired
 from .storage import Settings, data_dir, read_json, write_json
@@ -59,8 +60,9 @@ async def worker(args):
             interval = settings.value["interval_hours"]
             started = time.time()
             write_json(path, {**previous, "state": "Checking courses", "started": started, "login_required": False})
+            control = RunControl(source, emit)
             try:
-                result = await synchronize(source, emit, discover=args.discover)
+                result = await control.run(synchronize(source, emit, discover=args.discover), deadline=90 if args.discover else 5400)
                 if args.discover:
                     write_json(path, previous)
                     emit({"event": "result", "result": result})
@@ -73,6 +75,13 @@ async def worker(args):
                 write_json(path, status)
                 emit({"event": "result", "profile": source.id, "result": status})
                 errors += int(bool(partial))
+            except asyncio.CancelledError:
+                if not control.stopped:
+                    raise
+                write_json(path, {**previous, "state": "Stopped", "finished": time.time(),
+                                  "next_run": next_run(interval), "login_required": False})
+                emit({"event": "stopped", "profile": source.id})
+                break
             except Exception as exc:
                 # Never print traceback, credential values, form data or server response bodies.
                 from PFERD.auth import AuthError

@@ -100,6 +100,8 @@ def test_source_dialog_only_shows_relevant_login_fields(app, source):
     from ilias_sync.storage import Settings
     set_language("de")
     dialog = SourceDialog(Settings(), source)
+    dialog.stack.setCurrentIndex(1)
+    dialog.update_step()
     dialog.show()
     assert dialog.password.isVisible()
     assert not dialog.idp.isVisible()
@@ -109,6 +111,8 @@ def test_source_dialog_only_shows_relevant_login_fields(app, source):
     assert not dialog.password.isVisible()
     assert dialog.note.isVisible()
     assert dialog.session.isVisible()
+    dialog.stack.setCurrentIndex(2)
+    dialog.update_step()
     dialog.automatic.setChecked(False)
     assert dialog.targets.isVisible()
     dialog.close()
@@ -125,4 +129,69 @@ def test_file_status_summarizes_skipped_types(app, source):
     window = MainWindow()
     assert "4 übersprungen" in window.status.text()
     assert "FORUM" not in window.status.text()
+    window.close()
+
+
+def test_onboarding_keeps_fields_wide_and_validates_each_step(app, source):
+    from ilias_sync.gui import SourceDialog
+    from ilias_sync.storage import Settings
+    dialog = SourceDialog(Settings(), source)
+    dialog.show()
+    app.processEvents()
+    assert dialog.url.width() > 420
+    assert dialog.stack.currentIndex() == 0
+    dialog.advance()
+    assert dialog.stack.currentIndex() == 1
+    dialog.user.clear()
+    dialog.advance()
+    assert dialog.stack.currentIndex() == 1
+    assert dialog.error.isVisible()
+    dialog.close()
+
+
+def test_theme_uses_os_signal_and_covers_scroll_content(app):
+    from PySide6.QtCore import Qt
+    from PySide6.QtGui import QPalette
+    from ilias_sync.theme import Theme, DARK, LIGHT
+    theme = Theme(app, 'system')
+    original = app.styleHints().colorScheme()
+    try:
+        app.styleHints().colorSchemeChanged.emit(Qt.ColorScheme.Dark)
+        app.processEvents()
+        assert app.palette().color(QPalette.ColorRole.Window).name() == DARK['window']
+        assert app.palette().color(QPalette.ColorRole.Text).name() == DARK['text']
+        app.styleHints().colorSchemeChanged.emit(Qt.ColorScheme.Light)
+        app.processEvents()
+        assert app.palette().color(QPalette.ColorRole.Base).name() == LIGHT['surface']
+    finally:
+        app.styleHints().setColorScheme(original)
+        theme.set_mode('light')
+        theme.deleteLater()
+
+
+def test_controls_switch_to_pause_and_stop_for_background_run(app, source):
+    import os
+    import psutil
+    from ilias_sync.gui import MainWindow
+    from ilias_sync.storage import Settings, data_dir, read_json, write_json
+    settings = Settings()
+    settings.save_source(source)
+    row = {'token':'test-run','source':source.id,'pid':os.getpid(),'created':psutil.Process().create_time(),'state':'running'}
+    write_json(data_dir() / 'active-run.json', row)
+    window = MainWindow()
+    window.show()
+    window.check_active_run()
+    assert window.sync_button.text() == 'Pausieren'
+    assert window.stop_button.isVisible()
+    window.sync_or_pause()
+    assert read_json(data_dir() / 'run-command.json', {})['action'] == 'pause'
+    write_json(data_dir() / 'active-run.json', {**row,'state':'paused'})
+    window.check_active_run()
+    assert window.sync_button.text() == 'Fortsetzen'
+    window.stop_sync()
+    assert read_json(data_dir() / 'run-command.json', {})['action'] == 'stop'
+    write_json(data_dir() / 'active-run.json', {**row,'state':'stopped'})
+    window.check_active_run()
+    assert window.sync_button.text() == 'Jetzt synchronisieren'
+    assert not window.progress_timer.isActive()
     window.close()

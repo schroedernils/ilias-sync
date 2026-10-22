@@ -12,3 +12,12 @@ Design references inform decisions rather than copying brand assets:
 - [Meta: Content design](https://www.meta.com/design-at-meta/blog/why-were-moving-from-content-strategy-to-content-design/): direct, human language, words and interactions designed together.
 
 These references are not endorsements. Qt Widgets provides a native desktop runtime; this is not a SwiftUI, WinUI or GTK application.
+
+
+## Alpha 2 correction
+
+The initial native macOS form mixed hard-coded light text with a system-dark scroll surface, and native form growth left narrow inputs. The correction explicitly defines every palette role, scroll background, input surface and disabled state in both schemes. `QStyleHints.colorSchemeChanged` updates the complete application palette; default follows the OS, with light/dark overrides in settings. The accepted workspace layout is retained.
+
+A local REA investigation identified the installed artifacts for ChatGPT, Google Drive, Spotify and Discord. Selected shipped CSS was inspected separately for semantic surface and state tokens; CSS-only graphs are asset inventory, not JavaScript behavioral evidence. Discord analysis covered its packaged bootstrap, not the full remotely loaded client. ChatGPT live UI was unavailable to the computer-use provider. Google Drive's actual dark preferences window was observed after explicit permission. GitHub Desktop and LocalSend were additional local candidates; native LocalSend metadata alone did not establish its UI behavior. Extracts, raw evidence and account-bearing screenshots are excluded from Git.
+
+Setup now separates university address, sign-in and files into three steps. Settings groups language/theme and background policy. The start button becomes Pause/Resume plus Stop during work. Stop ends this batch; a configured schedule remains enabled for its next run. No reference branding or source code is shipped.
