@@ -14,7 +14,7 @@ def main():
     from ilias_sync.gui import MainWindow, FolderMappingDialog, SourceDialog, SettingsDialog
     from ilias_sync.storage import Settings, Source, data_dir, write_json
     from ilias_sync.theme import Theme
-    output = Path(__file__).resolve().parents[1] / "website/assets"
+    output = Path(__file__).resolve().parents[1] / "docs/images"
     output.mkdir(parents=True, exist_ok=True)
     with tempfile.TemporaryDirectory(prefix="ilias-product-") as temporary:
         os.environ["ILIAS_SYNC_DATA_DIR"] = str(Path(temporary) / "state")

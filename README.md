@@ -1,19 +1,18 @@
 <div align="center">
-  <img src="website/assets/icon.svg" width="80" height="80" alt="IliasSync">
+  <img src="docs/images/icon.svg" width="80" height="80" alt="IliasSync">
   <h1>IliasSync</h1>
   <p><strong>Deine ILIAS-Kursdateien. Lokal gespeichert. Automatisch aktuell.</strong></p>
   <p>Für macOS, Windows und Linux. Mit deinen Ordnern und deinem Zeitplan.</p>
 </div>
 
 <picture>
-  <source media="(prefers-color-scheme: dark)" srcset="website/assets/app-dark.png">
-  <img src="website/assets/app-light.png" alt="IliasSync zeigt lokal gespeicherte Skripte und Übungsblätter sowie die Auswahl von Kursen und Ordnern.">
+  <source media="(prefers-color-scheme: dark)" srcset="docs/images/app-dark.png">
+  <img src="docs/images/app-light.png" alt="IliasSync zeigt lokal gespeicherte Skripte und Übungsblätter sowie die Auswahl von Kursen und Ordnern.">
 </picture>
 
 <p align="center"><sub>Echte App-Oberfläche mit erfundenen Kursen und Dateien.</sub></p>
 
 <p align="center">
-  <a href="https://schroedernils.github.io/ilias-sync/">Website</a> ·
   <a href="https://github.com/schroedernils/ilias-sync/releases/tag/v0.1.0-alpha.2">Downloads</a> ·
   <a href="#in-drei-schritten-starten">Einrichtung</a> ·
   <a href="https://github.com/schroedernils/ilias-sync/issues/new/choose">Problem melden</a> ·
@@ -56,7 +55,7 @@ Bei MFA oder einer eigenen Anmeldeseite kann ein Netscape-`cookies.txt`-Export n
 
 ## Deine Dateien und Ordner
 
-<img src="website/assets/folders.png" width="800" alt="Ordnerzuordnung mit Kursen, Unterordnern und einzelnen Dateien.">
+<img src="docs/images/folders.png" width="800" alt="Ordnerzuordnung mit Kursen, Unterordnern und einzelnen Dateien.">
 
 Die spezifischste Ordnerregel gewinnt: eine Dateiregel vor einer Unterordnerregel, eine Unterordnerregel vor einer Kursregel. Neue Ziele gelten ab dem nächsten Lauf; bisherige Kopien bleiben erhalten. Semester und Abkürzungen werden nicht aus beliebigen Kursnamen erraten.
 

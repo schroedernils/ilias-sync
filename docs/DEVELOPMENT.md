@@ -23,7 +23,6 @@ synthetische Kurse und keine echten Zugangsdaten in Tests, Screenshots oder CI.
 | `python -m ilias_sync --discover --profile <UUID>` | Beigetretene Kurse lesen |
 | `python scripts/build.py` | Natives Paket mit Lizenztexten und Prüfsumme bauen |
 | `python scripts/capture_product.py` | Reproduzierbare Qt-Screenshots mit synthetischen Beispielen |
-| `python3 -m http.server 4173 --directory website` | Statische Projektwebsite lokal ansehen |
 
 CLI-Ereignisse sind JSON Lines. Die GUI nutzt eine private Ereignisdatei, auch
 unter Windows mit dessen windowed Bootloader. Hintergrundläufe importieren kein Qt.
@@ -32,8 +31,3 @@ Die CI prüft macOS arm64/Intel, Windows x64 und Linux x64. Die Pakete führen e
 Offline-Test mit ihrer eingefrorenen Runtime aus. Qt bleibt dynamisch geladen und
 austauschbar. Siehe [Lizenzhinweise](LICENSES.md), [Architektur](ARCHITECTURE.md)
 und [Prüfgrenzen](VERIFICATION.md).
-
-Die Website hat keine Build-Abhängigkeiten, externen Fonts oder Trackingdienste.
-GitHub Pages veröffentlicht ausschließlich `website/`, nicht App-Konfiguration,
-REA-Extrakte oder andere Repository-Inhalte. Screenshots bleiben synthetisch.
-Die App- und Website-Workflows sind getrennt.
