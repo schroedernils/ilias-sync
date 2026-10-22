@@ -43,6 +43,7 @@ async def worker(args):
         emit({"event": "busy", "message": "Another synchronization is already running."})
         return 3
     errors = 0
+    batch_started = time.time()
     try:
         for source in settings.sources():
             if not source.enabled or (args.profile and source.id != args.profile):
@@ -56,7 +57,8 @@ async def worker(args):
                 emit({"event": "power", "message": "Scheduled run deferred while on battery."})
                 continue
             interval = settings.value["interval_hours"]
-            write_json(path, {**previous, "state": "Checking courses", "started": time.time(), "login_required": False})
+            started = time.time()
+            write_json(path, {**previous, "state": "Checking courses", "started": started, "login_required": False})
             try:
                 result = await synchronize(source, emit, discover=args.discover)
                 if args.discover:
@@ -66,7 +68,7 @@ async def worker(args):
                 partial = result["partial"] or result["warnings"] or result["errors"]
                 failures = previous.get("failures", 0) + 1 if partial else 0
                 status = {"state": "Completed with warnings" if partial else "Up to date", "finished": time.time(),
-                          "next_run": next_run(interval, failures), "failures": failures,
+                          "next_run": next_run(interval, failures, clock=batch_started), "failures": failures,
                           "login_required": False, "result": result}
                 write_json(path, status)
                 emit({"event": "result", "profile": source.id, "result": status})
@@ -100,6 +102,25 @@ def self_test():
         assert archive.publish("test:1", raw, "Course/File.pdf") == "added"
         assert archive.publish("test:1", raw, "Course/File.pdf") == "unchanged"
     from PySide6.QtCore import qVersion
+    from PySide6.QtWidgets import QApplication
+    # Exercise frozen Qt plugins and GUI imports without touching the user's profiles.
+    previous_root = os.environ.get("ILIAS_SYNC_DATA_DIR")
+    with tempfile.TemporaryDirectory() as gui_tmp:
+        os.environ["ILIAS_SYNC_DATA_DIR"] = gui_tmp
+        try:
+            from .gui import MainWindow
+            app = QApplication.instance() or QApplication([])
+            window = MainWindow()
+            window.show()
+            app.processEvents()
+            assert not window.progress_timer.isActive()
+            assert window.sync_button.text() == "Jetzt synchronisieren"
+            window.close()
+        finally:
+            if previous_root is None:
+                os.environ.pop("ILIAS_SYNC_DATA_DIR", None)
+            else:
+                os.environ["ILIAS_SYNC_DATA_DIR"] = previous_root
     emit({"event": "self-test", "ok": True, "version": __version__, "qt": qVersion()})
     return 0
 

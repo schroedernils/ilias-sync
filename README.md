@@ -15,7 +15,7 @@ The repository is currently **private** while the first preview is evaluated. Th
 - Deduplicate file objects linked from multiple locations. Preserve course/folder names in portable paths.
 - Keep prior versions before updates, preserve your local edits in place, and save remote changes as conflict copies.
 - Schedule with **launchd**, **Windows Task Scheduler**, or **systemd user timers**. The worker exits after each run; no background browser, resident polling daemon or telemetry.
-- Battery deferral, a single network task, request spacing, metadata-based incremental downloads, randomized due times and persistent error backoff.
+- Battery deferral, a single network task, request spacing, metadata-based incremental downloads, native timer scheduling and persistent error backoff.
 
 ## Download and run
 
@@ -27,15 +27,17 @@ Get the platform archive from [Releases](https://github.com/schroedernils/ilias-
 
 Do not move the executable after enabling background sync; if you do, disable and re-enable the schedule from the new location. Source data and passwords are kept outside the executable folder.
 
+The interface starts in German. Change it immediately under **Einstellungen → Sprache** (Deutsch / English).
+
 ## First sync
 
 1. **Add ILIAS** → enter the installation's root HTTPS address, such as `https://ilias.example.edu` or `https://example.edu/ilias`.
-2. **Detect installation** → verify the client ID. Some institutions require entering it manually; it is commonly present in a login URL as `client_id=…`.
+2. **Check address** → verify the client ID. Some institutions require entering it manually; it is commonly present in a login URL as `client_id=…`.
 3. Choose a sign-in method and a **dedicated local destination folder**. A folder inside Google Drive / OneDrive / another sync provider is possible; that provider is responsible for the subsequent cloud upload.
 4. Choose all joined courses or specific course/folder links. **Sync now**.
-5. Enable **Background sync** if desired. Scheduled runs defer on battery by default. Manual runs are always explicit and bypass this deferral.
+5. Enable **Settings → Automatic sync** if desired. Scheduled runs defer on battery by default. Manual runs are always explicit and bypass this deferral.
 
-For MFA/custom login: sign in through your own browser, export a Netscape-format `cookies.txt` for your ILIAS installation, and import it under **Browser session / MFA**. Treat that export like a password and remove your extra export when finished. IliasSync imports only cookies applicable to the configured host. It does not read your browser profile or password manager. When cookies expire, background attempts stop until you import a fresh session; **a session import cannot make MFA permanently unattended**.
+For MFA/custom login: sign in through your own browser, export a Netscape-format `cookies.txt` for your ILIAS installation, and import it under **Browser session (MFA)**. Treat that export like a password and remove your extra export when finished. IliasSync imports only cookies applicable to the configured host. It does not read your browser profile or password manager. When cookies expire, background attempts stop until you import a fresh session; **a session import cannot make MFA permanently unattended**.
 
 ## Files and recovery
 

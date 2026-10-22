@@ -15,7 +15,7 @@ import certifi
 from bs4 import BeautifulSoup
 
 from .security import LoginRequired, get_password
-from .storage import Archive, Source, clean_name, data_dir, write_json
+from .storage import Archive, Source, clean_filename, clean_name, data_dir, write_json
 
 
 def ref(url):
@@ -214,7 +214,7 @@ def make_crawler(source: Source, emit=lambda event: None, *, discover=False):
             raw = PurePath("files", tag, clean_name(element.name, 110))
             parts = [clean_name(self.current["name"], 55) + " [" + self.current["id"] + "]"]
             parts.extend(clean_name(p, 50) for p in element_path.parts[1:-1])
-            parts.append(clean_name(element.name, 100))
+            parts.append(clean_filename(element.name, 100))
             # Cap depth and names for Windows; discarded hierarchy is still in the source link.
             if len(parts) > 5:
                 parts = parts[:3] + parts[-2:]

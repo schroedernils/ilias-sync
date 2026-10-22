@@ -1,11 +1,10 @@
 """No busy loop, one worker, persisted backoff and explicit power/network failure states."""
-import random
 import time
 
 
-def next_run(interval_hours, failures=0, *, clock=None, jitter=True):
+def next_run(interval_hours, failures=0, *, clock=None):
     delay = min(48 * 3600, interval_hours * 3600 * 2 ** min(failures, 4))
-    return (time.time() if clock is None else clock) + delay + (random.uniform(0, 300) if jitter else 0)
+    return (time.time() if clock is None else clock) + delay
 
 
 def due(status, *, clock=None):

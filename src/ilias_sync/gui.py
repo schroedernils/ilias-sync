@@ -7,7 +7,7 @@ from pathlib import Path
 from uuid import uuid4
 
 from PySide6.QtCore import QProcess, Qt, QTimer, QUrl
-from PySide6.QtGui import QAction, QColor, QDesktopServices, QFont, QIcon, QPainter, QPixmap
+from PySide6.QtGui import QAction, QColor, QDesktopServices, QFont, QIcon, QPainter, QPixmap, QFontDatabase
 from PySide6.QtWidgets import (
     QApplication, QCheckBox, QComboBox, QDialog, QDialogButtonBox, QFileDialog, QFormLayout,
     QHBoxLayout, QHeaderView, QLabel, QLineEdit, QListWidget, QListWidgetItem, QMainWindow,
@@ -16,40 +16,41 @@ from PySide6.QtWidgets import (
 )
 
 from . import __version__
+from .i18n import message, set_language, t
 from .scheduler import command, install, uninstall
 from .security import import_session, store_password
 from .storage import Settings, Source, data_dir, read_json
 
 STYLE = """
-QWidget { font-family: 'Inter', 'Segoe UI', 'Helvetica Neue', sans-serif; font-size: 13px; }
-QMainWindow, QDialog { background: #f7f9f8; color: #182b26; }
-QLabel#eyebrow { color: #527267; font-size: 11px; font-weight: 700; }
-QLabel#title { font-size: 27px; font-weight: 650; }
-QLabel#subtitle { color: #5c7069; font-size: 13px; }
-QLabel#status { padding: 12px 16px; border-radius: 8px; background: #e5f0eb; color: #175841; }
-QPushButton { background: #fff; border: 1px solid #cbd8d1; border-radius: 6px; padding: 9px 15px; }
-QPushButton:hover { background: #edf4f0; border-color: #6b9985; }
-QPushButton:pressed { background: #d8e9df; }
-QPushButton:focus { border: 2px solid #167357; }
-QPushButton:disabled { color: #8a9891; background: #f1f4f2; }
-QPushButton#primary { background: #176a50; color: #fff; border-color: #176a50; font-weight: 600; }
-QPushButton#primary:hover { background: #10563f; }
-QPushButton#primary:disabled { background: #9eaea5; border-color: #9eaea5; }
-QLineEdit, QTextEdit, QComboBox { background: #fff; padding: 8px; border: 1px solid #cbd8d1; border-radius: 5px; }
-QLineEdit:focus, QTextEdit:focus { border: 2px solid #167357; }
-QListWidget { background: #edf2ee; border: 0; padding: 8px; }
+QWidget { font-size: 13px; color: #202124; }
+QMainWindow, QDialog { background: #fafafa; }
+QLabel#eyebrow { color: #60646b; font-size: 12px; font-weight: 600; }
+QLabel#title { font-size: 25px; font-weight: 600; }
+QLabel#subtitle { color: #60646b; }
+QLabel#status { padding: 12px 14px; border-radius: 8px; background: #eef1f5; }
+QPushButton { background: #fff; border: 1px solid #d2d6dc; border-radius: 7px; padding: 9px 14px; }
+QPushButton:hover { background: #f0f2f5; border-color: #8a939e; }
+QPushButton:pressed { background: #e4e8ed; }
+QPushButton:focus { border: 2px solid #2463b5; }
+QPushButton:disabled { color: #92969d; background: #f5f5f5; }
+QPushButton#primary { background: #2463b5; color: #fff; border-color: #2463b5; font-weight: 600; }
+QPushButton#primary:hover { background: #1b5197; }
+QPushButton#primary:disabled { background: #a4b6ce; border-color: #a4b6ce; }
+QLineEdit, QTextEdit, QComboBox { background: #fff; padding: 8px; border: 1px solid #d2d6dc; border-radius: 6px; }
+QLineEdit:focus, QTextEdit:focus { border: 2px solid #2463b5; }
+QListWidget { background: #f0f1f3; border: 0; padding: 8px; border-radius: 8px; }
 QListWidget::item { padding: 14px 12px; margin-bottom: 4px; border-radius: 6px; }
-QListWidget::item:selected { background: #d7e7de; color: #153b2d; }
-QTableWidget { background: white; border: 1px solid #dbe3de; border-radius: 7px; gridline-color: #edf2ee; }
-QHeaderView::section { background: #edf2ee; padding: 10px; border: 0; font-weight: 600; text-align: left; }
-QTextEdit#activity { font-family: 'SFMono-Regular', 'Consolas', monospace; font-size: 11px; color: #456054; }
+QListWidget::item:selected { background: #dce7f6; color: #173f71; }
+QTableWidget { background: white; border: 1px solid #dfe2e7; border-radius: 7px; gridline-color: #f0f1f3; }
+QHeaderView::section { background: #f0f1f3; padding: 10px; border: 0; font-weight: 600; }
+QTextEdit#activity { font-size: 12px; color: #60646b; }
 QCheckBox { spacing: 8px; padding: 5px 0; }
-QSplitter::handle { background: #dce5df; width: 1px; }
+QSplitter::handle { background: #e2e4e8; width: 1px; }
 """
 
 
 def label(text, name=None):
-    item = QLabel(text)
+    item = QLabel(t(text))
     item.setWordWrap(True)
     if name:
         item.setObjectName(name)
@@ -57,11 +58,18 @@ def label(text, name=None):
 
 
 def button(text, callback, primary=False):
-    item = QPushButton(text)
+    item = QPushButton(t(text))
     item.clicked.connect(callback)
     if primary:
         item.setObjectName("primary")
     return item
+
+
+def save_buttons():
+    buttons = QDialogButtonBox(QDialogButtonBox.StandardButton.Save | QDialogButtonBox.StandardButton.Cancel)
+    buttons.button(QDialogButtonBox.StandardButton.Save).setText(t("Save"))
+    buttons.button(QDialogButtonBox.StandardButton.Cancel).setText(t("Cancel"))
+    return buttons
 
 
 def app_icon():
@@ -69,7 +77,7 @@ def app_icon():
     pixmap.fill(Qt.GlobalColor.transparent)
     painter = QPainter(pixmap)
     painter.setRenderHint(QPainter.RenderHint.Antialiasing)
-    painter.setBrush(QColor("#176a50"))
+    painter.setBrush(QColor("#2463b5"))
     painter.setPen(Qt.PenStyle.NoPen)
     painter.drawRoundedRect(4, 4, 120, 120, 29, 29)
     painter.setPen(QColor("#ffffff"))
@@ -88,36 +96,33 @@ class SourceDialog(QDialog):
         self.process = None
         self.event_file = data_dir() / ("probe-" + str(uuid4()) + ".jsonl")
         self.source = None
-        self.setWindowTitle("Edit ILIAS source" if existing else "Add an ILIAS source")
+        self.setWindowTitle(t("Edit ILIAS source" if existing else "Add an ILIAS source"))
         self.resize(620, 740)
         outer = QVBoxLayout(self)
-        outer.addWidget(label("CONNECT YOUR CAMPUS", "eyebrow"))
-        outer.addWidget(label("Your ILIAS, your files.", "title"))
-        outer.addWidget(label("Use your university's HTTPS address. Downloads stay on your computer.", "subtitle"))
         scroll = QScrollArea()
         scroll.setWidgetResizable(True)
         pane = QWidget()
         form = QFormLayout(pane)
         form.setSpacing(12)
         self.name = QLineEdit(existing.name if existing else "")
-        self.name.setPlaceholderText("University / campus name")
+        self.name.setPlaceholderText(t("University / campus"))
         self.url = QLineEdit(existing.url if existing else "")
-        self.url.setPlaceholderText("https://ilias.example.edu")
+        self.url.setPlaceholderText(t("https://ilias.example.edu"))
         self.client = QLineEdit(existing.client_id if existing else "")
-        self.client.setPlaceholderText("Detected automatically when possible")
-        self.detect = button("Detect installation", self.probe)
+        self.client.setPlaceholderText(t("Detected when checking the address"))
+        self.detect = button("Check address", self.probe)
         self.mode = QComboBox()
-        for text, value in [("University username & password", "local"), ("Shibboleth SSO (advanced)", "shibboleth"),
-                            ("Browser session / MFA", "session")]:
-            self.mode.addItem(text, value)
+        for text, value in [("Username & password", "local"), ("Shibboleth SSO", "shibboleth"),
+                            ("Browser session (MFA)", "session")]:
+            self.mode.addItem(t(text), value)
         if existing:
             self.mode.setCurrentIndex(self.mode.findData(existing.login))
         self.user = QLineEdit(existing.username if existing else "")
         self.password = QLineEdit()
         self.password.setEchoMode(QLineEdit.EchoMode.Password)
-        self.password.setPlaceholderText("Leave blank to keep the saved password" if existing else "Stored only in your OS credential vault")
+        self.password.setPlaceholderText(t("Leave blank to keep saved password" if existing else "Saved in the system credential vault"))
         self.idp = QLineEdit(existing.idp_host if existing else "")
-        self.idp.setPlaceholderText("idp.example.edu — explicitly trusted SSO host")
+        self.idp.setPlaceholderText(t("idp.example.edu"))
         self.session = QLineEdit()
         self.session.setReadOnly(True)
         session_row = QWidget()
@@ -131,41 +136,52 @@ class SourceDialog(QDialog):
         destination_layout.setContentsMargins(0, 0, 0, 0)
         destination_layout.addWidget(self.destination)
         destination_layout.addWidget(button("Choose…", self.choose_folder))
-        self.automatic = QCheckBox("Discover all joined courses and groups, including new ones")
+        self.automatic = QCheckBox(t("All joined courses, including new ones"))
         self.automatic.setChecked(existing.automatic_courses if existing else True)
         self.targets = QTextEdit()
         self.targets.setMaximumHeight(90)
-        self.targets.setPlaceholderText("Optional direct course / folder URLs, one per line")
+        self.targets.setPlaceholderText(t("One course or folder URL per line"))
         if existing:
             self.targets.setPlainText("\n".join(existing.targets))
-        self.videos = QCheckBox("Include supported video downloads (more storage and data)")
+        self.videos = QCheckBox(t("Download videos"))
         self.videos.setChecked(existing.videos if existing else False)
-        for title, widget in [("Source name", self.name), ("ILIAS address", self.url), ("", self.detect),
-                              ("Sign-in method", self.mode), ("Client ID", self.client), ("Username", self.user),
-                              ("Password", self.password), ("Trusted SSO host", self.idp), ("Session import", session_row),
+        for title, widget in [("Name", self.name), ("ILIAS address", self.url), ("", self.detect),
+                              ("Sign-in", self.mode), ("Client ID", self.client), ("Username", self.user),
+                              ("Password", self.password), ("Trusted SSO host", self.idp), ("Browser session", session_row),
                               ("Download folder", destination_row), ("Courses", self.automatic),
-                              ("Specific links", self.targets), ("Media", self.videos)]:
-            form.addRow(title, widget)
-        self.note = label("Standard ILIAS login is supported. For MFA or custom SSO, import a Netscape cookies.txt "
-                          "export from your own browser. Sessions expire and may need to be imported again.", "subtitle")
+                              ("Course links", self.targets), ("", self.videos)]:
+            form.addRow(t(title), widget)
+        self.note = label("Import a cookies.txt export from your browser. When the session expires, import a new export.", "subtitle")
         form.addRow(self.note)
+        self.videos.setToolTip(t("Uses more storage and data."))
+        self.mode.currentIndexChanged.connect(lambda: self.fields_for_login(form, session_row))
+        self.automatic.toggled.connect(lambda: self.fields_for_login(form, session_row))
+        self.fields_for_login(form, session_row)
         scroll.setWidget(pane)
         outer.addWidget(scroll)
         self.error = label("")
         self.error.setStyleSheet("color: #a02e28")
         outer.addWidget(self.error)
-        buttons = QDialogButtonBox(QDialogButtonBox.StandardButton.Save | QDialogButtonBox.StandardButton.Cancel)
+        buttons = save_buttons()
         buttons.accepted.connect(self.save)
         buttons.rejected.connect(self.reject)
         outer.addWidget(buttons)
 
+    def fields_for_login(self, form, session_row):
+        mode = self.mode.currentData()
+        for widget, visible in [(self.client, mode == "local"), (self.user, mode != "session"),
+                                (self.password, mode != "session"), (self.idp, mode == "shibboleth"),
+                                (session_row, mode == "session"), (self.targets, not self.automatic.isChecked())]:
+            form.setRowVisible(widget, visible)
+        self.note.setVisible(mode == "session")
+
     def choose_folder(self):
-        folder = QFileDialog.getExistingDirectory(self, "Choose a dedicated download folder")
+        folder = QFileDialog.getExistingDirectory(self, t("Choose a dedicated download folder"))
         if folder:
             self.destination.setText(folder)
 
     def choose_session(self):
-        file, _ = QFileDialog.getOpenFileName(self, "Import your own browser session", filter="Netscape cookies (*.txt);;All files (*)")
+        file, _ = QFileDialog.getOpenFileName(self, t("Import browser session"), filter=t("Cookie files (*.txt);;All files (*)"))
         if file:
             self.session.setText(file)
             self.mode.setCurrentIndex(self.mode.findData("session"))
@@ -175,20 +191,29 @@ class SourceDialog(QDialog):
         try:
             url = server_url(self.url.text())
         except ValueError as exc:
-            self.error.setText(str(exc))
+            self.error.setText(message(str(exc)))
             return
+        self.error.clear()
+        self.error.setStyleSheet("color: #a02e28")
         self.detect.setEnabled(False)
         self.process = QProcess(self)
         self.event_file.write_text("", encoding="utf-8")
         cmd = command("--probe", url, "--event-file", str(self.event_file))
         self.process.setProgram(cmd[0])
         self.process.setArguments(cmd[1:])
+        self.probe_timeout = QTimer(self)
+        self.probe_timeout.setSingleShot(True)
+        self.probe_timeout.timeout.connect(self.process.kill)
+        self.probe_timeout.start(60000)
         self.process.finished.connect(self.probed)
+        self.process.errorOccurred.connect(lambda: self.detect.setEnabled(True))
         self.process.start()
 
     def probed(self):
+        self.probe_timeout.stop()
         self.detect.setEnabled(True)
         output = self.event_file.read_text(encoding="utf-8") if self.event_file.exists() else ""
+        self.event_file.unlink(missing_ok=True)
         for line in output.splitlines():
             try:
                 event = json.loads(line)
@@ -196,11 +221,19 @@ class SourceDialog(QDialog):
                     self.client.setText(event["result"]["client_id"])
                     if not self.name.text():
                         self.name.setText(event["result"]["title"][:70])
-                    self.error.setText("Installation detected." if self.client.text() else "Enter the client ID or use a browser session.")
+                    self.error.setStyleSheet("color: #175841" if self.client.text() else "color: #a02e28")
+                    self.error.setText(t("Address checked" if self.client.text() else "Enter the client ID or use a browser session."))
                 elif event["event"] == "error":
-                    self.error.setText(event["message"])
+                    self.error.setText(message(event["message"]))
             except (ValueError, KeyError):
                 pass
+
+    def done(self, result):
+        if self.process and self.process.state() != QProcess.ProcessState.NotRunning:
+            self.process.kill()
+            self.process.waitForFinished(1000)
+        self.event_file.unlink(missing_ok=True)
+        super().done(result)
 
     def save(self):
         try:
@@ -229,17 +262,16 @@ class SourceDialog(QDialog):
             self.accept()
         except Exception as exc:
             # Avoid arbitrary backend error text that might expose vault internals.
-            self.error.setText(str(exc) if isinstance(exc, (ValueError, RuntimeError)) else "The credential vault or folder is unavailable.")
+            self.error.setText(message(str(exc) if isinstance(exc, (ValueError, RuntimeError)) else "The credential vault or folder is unavailable."))
 
 
 class CoursesDialog(QDialog):
     def __init__(self, courses, source, settings, parent):
         super().__init__(parent)
-        self.setWindowTitle("Choose courses")
+        self.setWindowTitle(t("Choose courses"))
         self.resize(620, 440)
         layout = QVBoxLayout(self)
-        layout.addWidget(label("Follow your semester.", "title"))
-        auto = QCheckBox("Keep all joined courses in sync, including future courses")
+        auto = QCheckBox(t("All joined courses, including new ones"))
         auto.setChecked(source.automatic_courses)
         layout.addWidget(auto)
         listing = QListWidget()
@@ -249,8 +281,10 @@ class CoursesDialog(QDialog):
             item.setFlags(item.flags() | Qt.ItemFlag.ItemIsUserCheckable)
             item.setCheckState(Qt.CheckState.Checked if source.automatic_courses or course["url"] in source.targets else Qt.CheckState.Unchecked)
             listing.addItem(item)
+        listing.setEnabled(not auto.isChecked())
+        auto.toggled.connect(lambda checked: listing.setEnabled(not checked))
         layout.addWidget(listing)
-        buttons = QDialogButtonBox(QDialogButtonBox.StandardButton.Save | QDialogButtonBox.StandardButton.Cancel)
+        buttons = save_buttons()
         layout.addWidget(buttons)
 
         def save():
@@ -261,7 +295,7 @@ class CoursesDialog(QDialog):
                 settings.save_source(source)
                 self.accept()
             except ValueError as exc:
-                QMessageBox.warning(self, "Select courses", str(exc))
+                QMessageBox.warning(self, t("Select courses"), message(str(exc)))
         buttons.accepted.connect(save)
         buttons.rejected.connect(self.reject)
 
@@ -270,6 +304,7 @@ class MainWindow(QMainWindow):
     def __init__(self):
         super().__init__()
         self.settings = Settings()
+        set_language(self.settings.value.get("language", "de"))
         self.process = None
         self.buffer = ""
         self.job = None
@@ -278,7 +313,7 @@ class MainWindow(QMainWindow):
         self.progress_timer = QTimer(self)
         self.progress_timer.setInterval(1000)
         self.progress_timer.timeout.connect(self.read_output)
-        self.setWindowTitle("IliasSync")
+        self.setWindowTitle(t("IliasSync"))
         self.resize(1080, 740)
         self.setMinimumSize(760, 540)
         container = QWidget()
@@ -286,32 +321,37 @@ class MainWindow(QMainWindow):
         page.setContentsMargins(26, 26, 26, 20)
         header = QHBoxLayout()
         titles = QVBoxLayout()
-        titles.addWidget(label("ILIAS SYNC", "eyebrow"))
-        titles.addWidget(label("Your courses. On your computer.", "title"))
-        titles.addWidget(label("Quiet downloads, readable folders, and earlier versions kept safe.", "subtitle"))
+        titles.addWidget(label("IliasSync", "title"))
+        self.schedule_label = label(self.schedule_text(), "subtitle")
+        titles.addWidget(self.schedule_label)
         header.addLayout(titles, 1)
-        header.addWidget(button("Background sync…", self.background))
+        header.addWidget(button("Settings", self.background))
         page.addLayout(header)
         page.addSpacing(18)
         split = QSplitter()
         left = QWidget()
+        self.sidebar = left
         sidebar = QVBoxLayout(left)
         sidebar.setContentsMargins(0, 0, 8, 0)
-        sidebar.addWidget(label("SOURCES", "eyebrow"))
+        sidebar.addWidget(label("Sources", "eyebrow"))
         self.sources = QListWidget()
-        self.sources.setAccessibleName("ILIAS sources")
+        self.sources.setAccessibleName(t("ILIAS sources"))
         self.sources.currentRowChanged.connect(self.refresh)
         sidebar.addWidget(self.sources, 1)
-        sidebar.addWidget(button("+  Add ILIAS", self.add, True))
+        sidebar.addWidget(button("Add ILIAS", self.add, True))
         split.addWidget(left)
         right = QWidget()
         content = QVBoxLayout(right)
         content.setContentsMargins(16, 0, 0, 0)
-        self.source_title = label("A home for your course files.", "title")
+        content.setAlignment(Qt.AlignmentFlag.AlignTop)
+        content.setSpacing(10)
+        self.source_title = label("Connect ILIAS", "title")
         content.addWidget(self.source_title)
-        self.destination = label("Add your university to get started. No account with us, no server in between.", "subtitle")
+        self.destination = label("Add your university to download course files.", "subtitle")
         self.destination.setTextInteractionFlags(Qt.TextInteractionFlag.TextSelectableByMouse)
         content.addWidget(self.destination)
+        self.onboard_button = button("Add ILIAS", self.add, True)
+        content.addWidget(self.onboard_button, alignment=Qt.AlignmentFlag.AlignLeft)
         actions = QHBoxLayout()
         self.sync_button = button("Sync now", lambda: self.start("sync"), True)
         self.courses_button = button("Choose courses", lambda: self.start("discover"))
@@ -319,13 +359,16 @@ class MainWindow(QMainWindow):
         self.open_button = button("Open folder", self.open_folder)
         for item in (self.sync_button, self.courses_button, self.edit_button, self.open_button):
             actions.addWidget(item)
-        content.addLayout(actions)
-        self.status = label("Ready when you are.", "status")
-        self.status.setAccessibleName("Synchronization status")
+        self.actions_widget = QWidget()
+        self.actions_widget.setLayout(actions)
+        content.addWidget(self.actions_widget)
+        self.status = label("Not synchronized yet", "status")
+        self.status.setAccessibleName(t("Synchronization status"))
         content.addWidget(self.status)
         self.files = QTableWidget(0, 2)
-        self.files.setAccessibleName("Downloaded files")
-        self.files.setHorizontalHeaderLabels(["LOCAL FILE", "SIZE"])
+        self.files.setAccessibleName(t("Downloaded files"))
+        self.files.setHorizontalHeaderLabels([t("File"), t("Size")])
+        self.files.horizontalHeader().setDefaultAlignment(Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignVCenter)
         self.files.horizontalHeader().setSectionResizeMode(0, QHeaderView.ResizeMode.Stretch)
         self.files.horizontalHeader().setSectionResizeMode(1, QHeaderView.ResizeMode.ResizeToContents)
         self.files.verticalHeader().hide()
@@ -335,20 +378,18 @@ class MainWindow(QMainWindow):
         self.activity = QTextEdit()
         self.activity.setReadOnly(True)
         self.activity.setObjectName("activity")
-        self.activity.setAccessibleName("Activity for this session")
+        self.activity.setAccessibleName(t("Activity"))
         self.activity.setMaximumHeight(110)
         self.activity.document().setMaximumBlockCount(150)
-        self.activity.setPlaceholderText("Activity appears here during a sync. Closing this window leaves OS-scheduled runs enabled.")
+        self.details_button = button("Details", lambda: self.activity.setVisible(not self.activity.isVisible()))
+        content.addWidget(self.details_button, alignment=Qt.AlignmentFlag.AlignLeft)
         content.addWidget(self.activity)
+        self.activity.hide()
         split.addWidget(right)
         split.setSizes([235, 790])
         page.addWidget(split, 1)
-        footer = QHBoxLayout()
-        footer.addWidget(label("Local first · No telemetry · No automatic deletions", "subtitle"), 1)
-        footer.addWidget(label("Preview " + __version__, "subtitle"))
-        page.addLayout(footer)
         self.setCentralWidget(container)
-        about = QAction("About IliasSync", self)
+        about = QAction(t("About IliasSync"), self)
         about.triggered.connect(self.about)
         self.menuBar().addAction(about)
         self.timeout = QTimer(self)
@@ -373,8 +414,13 @@ class MainWindow(QMainWindow):
     def refresh(self):
         source = self.selected()
         busy = self.process is not None
+        self.sidebar.setVisible(bool(self.settings.sources()))
+        self.onboard_button.setVisible(source is None)
+        self.schedule_label.setVisible(source is not None)
         for item in (self.sync_button, self.edit_button, self.courses_button, self.open_button):
             item.setEnabled(source is not None and not busy)
+        for widget in (self.actions_widget, self.status, self.files, self.details_button):
+            widget.setVisible(source is not None)
         if not source:
             return
         self.source_title.setText(source.name)
@@ -382,10 +428,17 @@ class MainWindow(QMainWindow):
         state = data_dir() / "sources" / source.id
         status = read_json(state / "status.json", {})
         result = status.get("result", {})
-        text = status.get("state", "Not synchronized yet")
+        text = t(status.get("state", "Not synchronized yet"))
         if result:
-            text += f" · {result['files']} files · {result.get('unavailable', 0)} not released / unavailable"
-        self.status.setText(status.get("message", text))
+            text += " · " + t("{count} files", count=result['files'])
+            for key, template in [("unavailable", "{count} unavailable"), ("skipped", "{count} skipped"),
+                                  ("warnings", "{count} warnings"), ("errors", "{count} errors")]:
+                count = result.get(key, 0)
+                if isinstance(count, dict):
+                    count = sum(count.values())
+                if count:
+                    text += " · " + t(template, count=count)
+        self.status.setText(message(status["message"]) if status.get("message") else text)
         entries = read_json(state / "manifest.json", {"files": {}})["files"]
         self.files.setRowCount(len(entries))
         for row, entry in enumerate(sorted(entries.values(), key=lambda e: e["path"].casefold())):
@@ -418,14 +471,24 @@ class MainWindow(QMainWindow):
         self.buffer = ""
         self.process.readyReadStandardOutput.connect(self.read_output)
         self.process.finished.connect(self.finished)
-        self.process.errorOccurred.connect(lambda: self.status.setText("The worker could not start."))
+        self.process.errorOccurred.connect(self.worker_error)
         self.process.start()
         self.progress_timer.start()
         self.timeout.start((120 if action == "discover" else 5500) * 1000)
-        self.status.setText("Checking your ILIAS…")
+        self.status.setText(t("Checking ILIAS…"))
         self.refresh_controls()
 
+    def worker_error(self, error):
+        if error == QProcess.ProcessError.FailedToStart:
+            self.timeout.stop()
+            self.progress_timer.stop()
+            self.process.deleteLater()
+            self.process = None
+            self.status.setText(t("The worker could not start."))
+            self.refresh_controls()
+
     def refresh_controls(self):
+        self.sources.setEnabled(self.process is None)
         for item in (self.sync_button, self.edit_button, self.courses_button):
             item.setEnabled(self.process is None and self.selected() is not None)
 
@@ -446,11 +509,11 @@ class MainWindow(QMainWindow):
             except ValueError:
                 continue
             if event["event"] == "progress":
-                self.status.setText(event["message"])
-                self.activity.append(event["message"])
+                self.status.setText(message(event["message"]))
+                self.activity.append(message(event["message"]))
             elif event["event"] in {"error", "busy"}:
-                self.activity.append(event["message"])
-                self.status.setText(event["message"])
+                self.activity.append(message(event["message"]))
+                self.status.setText(message(event["message"]))
             elif event["event"] == "result" and self.job[0] == "discover":
                 self.pending_courses = event["result"]["courses"]
 
@@ -466,13 +529,13 @@ class MainWindow(QMainWindow):
             del self.pending_courses
             CoursesDialog(courses, self.job[1], self.settings, self).exec()
         elif exit_code and self.selected():
-            self.activity.append("Some items need attention. Existing files were kept.")
+            self.activity.append(t("Some items need attention. Existing files were kept."))
         self.refresh_controls()
 
     def timeout_job(self):
         if self.process:
             self.process.kill()
-            self.activity.append("The job exceeded its time limit and was stopped. It can be retried safely.")
+            self.activity.append(t("The job exceeded its time limit and was stopped. It can be retried safely."))
 
     def open_folder(self):
         source = self.selected()
@@ -481,40 +544,49 @@ class MainWindow(QMainWindow):
 
     def background(self):
         if self.process:
-            QMessageBox.information(self, "Sync is running", "Let the current job finish before changing its schedule.")
+            QMessageBox.information(self, t("Sync is running"), t("Let the current sync finish before changing settings."))
             return
         dialog = QDialog(self)
-        dialog.setWindowTitle("Background synchronization")
+        dialog.setWindowTitle(t("Settings"))
         layout = QVBoxLayout(dialog)
-        layout.addWidget(label("Work quietly. Then switch off.", "title"))
-        layout.addWidget(label("Uses your operating system's scheduler. No polling process or browser stays running "
-                               "between jobs. Your computer must be awake and signed in. Keep the app at its installed location.", "subtitle"))
-        enabled = QCheckBox("Enable scheduled synchronization")
+        form = QFormLayout()
+        language = QComboBox()
+        language.addItem("Deutsch", "de")
+        language.addItem("English", "en")
+        language.setCurrentIndex(language.findData(self.settings.value.get("language", "de")))
+        form.addRow(t("Language"), language)
+        layout.addLayout(form)
+        enabled = QCheckBox(t("Automatic sync"))
         enabled.setChecked(self.settings.value["scheduled"])
         hours = QComboBox()
         for n in (1, 3, 6, 12, 24):
-            hours.addItem(f"Every {n} hour{'s' if n != 1 else ''}", n)
+            hours.addItem(t("Every hour") if n == 1 else t("Every {n} hours", n=n), n)
         hours.setCurrentIndex(hours.findData(self.settings.value["interval_hours"]))
-        battery = QCheckBox("Defer scheduled downloads while on battery power")
+        battery = QCheckBox(t("Pause on battery power"))
         battery.setChecked(self.settings.value["battery_saver"])
         layout.addWidget(enabled)
         layout.addWidget(hours)
         layout.addWidget(battery)
+        enabled.toggled.connect(hours.setEnabled)
+        enabled.toggled.connect(battery.setEnabled)
+        hours.setEnabled(enabled.isChecked())
+        battery.setEnabled(enabled.isChecked())
+        layout.addWidget(label("Runs while you are signed in and the computer is awake. Keep the app at its installed location.", "subtitle"))
         error = label("")
         layout.addWidget(error)
-        buttons = QDialogButtonBox(QDialogButtonBox.StandardButton.Save | QDialogButtonBox.StandardButton.Cancel)
+        buttons = save_buttons()
         layout.addWidget(buttons)
 
         def save():
             try:
                 # Save policy before RunAtLoad can start a new process.
                 previous = dict(self.settings.value)
-                self.settings.value.update(interval_hours=hours.currentData(), battery_saver=battery.isChecked())
+                self.settings.value.update(interval_hours=hours.currentData(), battery_saver=battery.isChecked(), language=language.currentData())
                 self.settings.save()
                 try:
-                    if enabled.isChecked():
+                    if enabled.isChecked() and (not previous["scheduled"] or hours.currentData() != previous["interval_hours"]):
                         install(hours.currentData())
-                    elif previous["scheduled"]:
+                    elif not enabled.isChecked() and previous["scheduled"]:
                         uninstall()
                 except Exception:
                     self.settings.value = previous
@@ -523,22 +595,34 @@ class MainWindow(QMainWindow):
                 self.settings.value["scheduled"] = enabled.isChecked()
                 self.settings.save()
                 dialog.accept()
+                self.schedule_label.setText(self.schedule_text())
+                if previous.get("language", "de") != language.currentData():
+                    replacement = MainWindow()
+                    replacement.resize(self.size())
+                    replacement.populate(self.selected().id if self.selected() else None)
+                    QApplication.instance().main_window = replacement
+                    replacement.show()
+                    self.close()
             except Exception:
-                error.setText("The OS scheduler could not be updated. On Linux, a systemd user session is required.")
+                error.setText(t("The OS scheduler could not be updated. On Linux, a systemd user session is required."))
         buttons.accepted.connect(save)
         buttons.rejected.connect(dialog.reject)
         dialog.exec()
 
+    def schedule_text(self):
+        if not self.settings.value["scheduled"]:
+            return t("Automatic sync: off")
+        n = self.settings.value["interval_hours"]
+        return t("Automatic sync: hourly") if n == 1 else t("Automatic sync: every {n} hours", n=n)
+
     def about(self):
-        QMessageBox.about(self, "About IliasSync", "IliasSync " + __version__ + "\nGPL-3.0-or-later · Powered by PFERD and Qt\n\n"
-                          "Standard ILIAS files and supported media are synchronized. Tests, forums, SCORM and custom plugins "
-                          "may not be downloadable. This preview has no vendor signing or automatic updater.\n\n"
-                          "Source and license notices: github.com/schroedernils/ilias-sync")
+        QMessageBox.about(self, t("About IliasSync"), "IliasSync " + __version__ + "\nGPL-3.0-or-later · PFERD · Qt\n\n"
+                          + t("Preview. Files and supported videos are downloaded; forums, tests, SCORM and custom plugins may be excluded. No automatic updates or verified publisher signature.")
+                          + "\n\ngithub.com/schroedernils/ilias-sync")
 
     def closeEvent(self, event):
         if self.process:
-            QMessageBox.information(self, "A download is running", "Let this job finish before closing the window. "
-                                    "You can minimize it in the meantime.")
+            QMessageBox.information(self, t("A download is running"), t("Wait for the download to finish before closing. You can minimize this window."))
             event.ignore()
         else:
             self.event_path.unlink(missing_ok=True)
@@ -547,12 +631,14 @@ class MainWindow(QMainWindow):
 
 def run(args):
     application = QApplication(sys.argv[:1])
+    application.setFont(QFontDatabase.systemFont(QFontDatabase.SystemFont.GeneralFont))
     application.setApplicationName("IliasSync")
     application.setOrganizationName("IliasSync")
     application.setApplicationVersion(__version__)
     application.setWindowIcon(app_icon())
     application.setStyleSheet(STYLE)
     window = MainWindow()
+    application.main_window = window
     window.show()
     if args.render:
         QTimer.singleShot(200, lambda: (window.grab().save(args.render), application.quit()))

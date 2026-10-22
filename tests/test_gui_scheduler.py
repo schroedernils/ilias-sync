@@ -17,7 +17,7 @@ def test_empty_window_accessibility_and_no_idle_polling(app):
     assert window.sources.count() == 0
     assert not window.sync_button.isEnabled()
     assert not window.progress_timer.isActive()
-    assert window.files.accessibleName() == "Downloaded files"
+    assert window.files.accessibleName() == "Heruntergeladene Dateien"
     window.close()
 
 
@@ -68,3 +68,61 @@ def test_linux_timer_has_no_resident_loop(tmp_path, monkeypatch):
     assert "Type=oneshot" in service
     assert "RandomizedDelaySec=5min" in timer
     assert "OnUnitActiveSec=6h" in timer
+
+
+def test_language_change_is_immediate_and_persisted(app):
+    from PySide6.QtCore import QTimer
+    from PySide6.QtWidgets import QComboBox, QDialog, QDialogButtonBox, QPushButton
+    from ilias_sync.gui import MainWindow
+    from ilias_sync.storage import Settings
+    window = MainWindow()
+    window.show()
+    assert window.sync_button.text() == "Jetzt synchronisieren"
+
+    def change():
+        dialog = next(w for w in app.topLevelWidgets() if isinstance(w, QDialog) and w.isVisible())
+        language = next(w for w in dialog.findChildren(QComboBox) if w.findData("en") >= 0)
+        language.setCurrentIndex(language.findData("en"))
+        dialog.findChild(QDialogButtonBox).button(QDialogButtonBox.StandardButton.Save).click()
+    QTimer.singleShot(30, change)
+    window.background()
+    assert Settings().value["language"] == "en"
+    replacement = app.main_window
+    assert replacement.sync_button.text() == "Sync now"
+    assert any(b.text() == "Settings" for b in replacement.findChildren(QPushButton))
+    assert not replacement.progress_timer.isActive()
+    replacement.close()
+
+
+def test_source_dialog_only_shows_relevant_login_fields(app, source):
+    from ilias_sync.gui import SourceDialog
+    from ilias_sync.i18n import set_language
+    from ilias_sync.storage import Settings
+    set_language("de")
+    dialog = SourceDialog(Settings(), source)
+    dialog.show()
+    assert dialog.password.isVisible()
+    assert not dialog.idp.isVisible()
+    assert not dialog.note.isVisible()
+    assert not dialog.targets.isVisible()
+    dialog.mode.setCurrentIndex(dialog.mode.findData("session"))
+    assert not dialog.password.isVisible()
+    assert dialog.note.isVisible()
+    assert dialog.session.isVisible()
+    dialog.automatic.setChecked(False)
+    assert dialog.targets.isVisible()
+    dialog.close()
+
+
+def test_file_status_summarizes_skipped_types(app, source):
+    from ilias_sync.gui import MainWindow
+    from ilias_sync.storage import Settings, data_dir, write_json
+    settings = Settings()
+    settings.save_source(source)
+    write_json(data_dir() / "sources" / source.id / "status.json", {
+        "state": "Up to date", "result": {"files": 2, "skipped": {"FORUM": 1, "TEST": 3}, "warnings": 0}
+    })
+    window = MainWindow()
+    assert "4 übersprungen" in window.status.text()
+    assert "FORUM" not in window.status.text()
+    window.close()

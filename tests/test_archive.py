@@ -104,3 +104,12 @@ def test_corrupt_history_stops_replacement(tmp_path):
     with pytest.raises(OSError):
         archive.publish("file:1", raw, "Course/lecture.pdf")
     assert (tmp_path / "out/Course/lecture.pdf").read_bytes() == b"%PDF-1.4 original"
+
+
+def test_long_filename_keeps_extension_and_distinguishes_names():
+    from ilias_sync.storage import clean_filename
+    a = clean_filename("Vorlesung" * 40 + ".pdf")
+    b = clean_filename("Vorlesung" * 40 + " Ende.pdf")
+    assert a.endswith(".pdf")
+    assert len(a) <= 100
+    assert a != b

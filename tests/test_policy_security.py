@@ -35,8 +35,8 @@ def test_unknown_schema_refused():
 
 
 def test_backoff_and_login_block():
-    assert next_run(6, 0, clock=0, jitter=False) == 21600
-    assert next_run(6, 8, clock=0, jitter=False) == 48 * 3600
+    assert next_run(6, 0, clock=0) == 21600
+    assert next_run(6, 8, clock=0) == 48 * 3600
     assert not due({"login_required": True, "next_run": 0}, clock=1e12)
     assert due({"next_run": 1}, clock=2)
 

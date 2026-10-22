@@ -71,6 +71,15 @@ def clean_name(text: str, limit=70):
     return text
 
 
+def clean_filename(text: str, limit=100):
+    suffix = Path(text).suffix
+    if not re.fullmatch(r"\.[A-Za-z0-9]{1,10}", suffix):
+        suffix = ""
+    if suffix:
+        return clean_name(text[:-len(suffix)], limit - len(suffix)) + suffix
+    return clean_name(text, limit)
+
+
 def safe_path(root: Path, relative: str) -> Path:
     root = root.resolve()
     parts = relative.replace("\\", "/").split("/")
@@ -158,7 +167,7 @@ class Settings:
         self.root = data_dir()
         self.path = self.root / "settings.json"
         self.value = read_json(self.path, {"schema": 1, "sources": [], "interval_hours": 6,
-                                          "battery_saver": True, "scheduled": False})
+                                          "battery_saver": True, "scheduled": False, "language": "de"})
         if self.value.get("schema") != 1:
             raise ValueError("This configuration was created by an incompatible app version.")
 
