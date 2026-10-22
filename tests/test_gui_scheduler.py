@@ -267,3 +267,27 @@ def test_hover_edit_targets_its_source_and_keyboard_respects_busy(app):
     QTest.keyClick(listing, Qt.Key.Key_F2)
     assert requested == [1, 0]
     listing.close()
+
+
+def test_source_context_menu_edits_the_clicked_row(app):
+    from PySide6.QtCore import QTimer
+    from PySide6.QtWidgets import QMenu
+    from ilias_sync.gui import SourceList
+    listing = SourceList()
+    listing.addItems(['A', 'B'])
+    listing.resize(240, 240)
+    listing.show()
+    app.processEvents()
+    requested = []
+    listing.editRequested.connect(lambda: requested.append(listing.currentRow()))
+
+    def activate():
+        menu = listing.findChild(QMenu)
+        assert menu.actions()[0].text() == 'Bearbeiten'
+        menu.actions()[0].trigger()
+        menu.close()
+
+    QTimer.singleShot(20, activate)
+    listing.show_menu(listing.visualItemRect(listing.item(1)).center())
+    assert requested == [1]
+    listing.close()
