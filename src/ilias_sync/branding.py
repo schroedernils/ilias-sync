@@ -1,12 +1,33 @@
 """One supplied identity, with native application and compact UI representations."""
 from pathlib import Path
+from functools import lru_cache
 import sys
 
-from PySide6.QtCore import QEvent, QSize, Qt
-from PySide6.QtGui import QIcon, QPalette
-from PySide6.QtWidgets import QLabel
+from PySide6.QtCore import QEvent, QRectF, QSize, Qt
+from PySide6.QtGui import QIcon, QPalette, QPainter, QPixmap
+from PySide6.QtSvg import QSvgRenderer
+from PySide6.QtWidgets import QApplication, QLabel
 
 ICONS = Path(__file__).resolve().parent / "assets" / "icons"
+
+
+@lru_cache(maxsize=128)
+def action_pixmap(name, color, size, ratio):
+    svg = (ICONS / "actions" / (name + ".svg")).read_text().replace("currentColor", color)
+    renderer = QSvgRenderer(svg.encode())
+    pixmap = QPixmap(round(size * ratio), round(size * ratio))
+    pixmap.setDevicePixelRatio(ratio)
+    pixmap.fill(Qt.GlobalColor.transparent)
+    painter = QPainter(pixmap)
+    renderer.render(painter, QRectF(0, 0, size, size))
+    painter.end()
+    return pixmap
+
+
+def paint_action(painter, widget, name, color, size):
+    painter.setOpacity(color.alphaF())
+    pixmap = action_pixmap(name, color.name(), size, widget.devicePixelRatioF())
+    painter.drawPixmap((widget.width() - size) // 2, (widget.height() - size) // 2, pixmap)
 
 
 def app_icon():
@@ -30,9 +51,11 @@ class BrandMark(QLabel):
         self.update_icon()
 
     def update_icon(self):
-        dark = self.palette().color(QPalette.ColorRole.Window).lightness() < 128
-        name = "IliasSync-Legacy-Dark.svg" if dark else "IliasSync-Legacy.svg"
-        self.setPixmap(QIcon(str(ICONS / "SVG" / name)).pixmap(QSize(44, 44), self.devicePixelRatioF()))
+        dark = QApplication.palette().color(QPalette.ColorRole.Window).lightness() < 128
+        name = "IliasSync-Dark.iconset" if dark else "IliasSync.iconset"
+        # The supplied raster retains the alpha mask with every Qt SVG backend.
+        path = ICONS / "macOS" / name / "icon_128x128.png"
+        self.setPixmap(QIcon(str(path)).pixmap(QSize(44, 44), self.devicePixelRatioF()))
 
     def changeEvent(self, event):
         super().changeEvent(event)

@@ -1,97 +1,87 @@
-# IliasSync
+<div align="center">
+  <img src="website/assets/icon.svg" width="80" height="80" alt="IliasSync">
+  <h1>IliasSync</h1>
+  <p><strong>Deine ILIAS-Kursdateien. Lokal gespeichert. Automatisch aktuell.</strong></p>
+  <p>Für macOS, Windows und Linux. Mit deinen Ordnern und deinem Zeitplan.</p>
+</div>
 
-**Your courses. On your computer.**
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="website/assets/app-dark.png">
+  <img src="website/assets/app-light.png" alt="IliasSync zeigt lokal gespeicherte Skripte und Übungsblätter sowie die Auswahl von Kursen und Ordnern.">
+</picture>
 
-A small desktop app that downloads ILIAS course materials into ordinary local folders and keeps them current. Built for macOS, Windows and Linux with Qt and [PFERD](https://github.com/Garmelon/PFERD).
+<p align="center"><sub>Echte App-Oberfläche mit erfundenen Kursen und Dateien.</sub></p>
 
-The repository is currently **private** while the first preview is evaluated. The source is licensed under GPL-3.0-or-later for a future open-source release; a private repository is not publicly accessible open source yet. IliasSync is independent of the ILIAS project and universities.
+<p align="center">
+  <a href="https://schroedernils.github.io/ilias-sync/">Website</a> ·
+  <a href="https://github.com/schroedernils/ilias-sync/releases/tag/v0.1.0-alpha.2">Downloads</a> ·
+  <a href="#in-drei-schritten-starten">Einrichtung</a> ·
+  <a href="https://github.com/schroedernils/ilias-sync/issues/new/choose">Problem melden</a> ·
+  <a href="docs/DEVELOPMENT.md">Entwicklung</a>
+</p>
 
-## What it does
+> **Private Alpha:** Das Repository und seine Downloads benötigen derzeit eine GitHub-Freigabe. Die öffentliche Öffnung ist geplant. Diese Vorabversion ist noch nicht an jeder Hochschule geprüft.
 
-- Multiple university / ILIAS installations, each with a separate destination.
-- Detect an installation's client ID, sign in, discover joined courses and groups, or select direct course/folder links.
-- Standard local ILIAS login, compatible Shibboleth forms with an explicitly trusted identity-provider host, and Netscape browser-session import for MFA/custom SSO.
-- Download supported documents, exercise files, course descriptions and links. Videos are opt-in.
-- Deduplicate file objects linked from multiple locations. Preserve course/folder names in portable paths.
-- Keep prior versions before updates, preserve your local edits in place, and save remote changes as conflict copies.
-- Schedule with **launchd**, **Windows Task Scheduler**, or **systemd user timers**. The worker exits after each run; no background browser, resident polling daemon or telemetry.
-- Assign whole courses, subfolders or individual files to your own local destination folders. Specific file rules override folder and course rules. New assignments publish safe copies on the next run and retain copies at previous destinations.
-- System-following light/dark appearance, three-step setup, and grouped settings. Active runs offer Pause / Resume and Stop. Stop ends the current batch; disable automatic sync separately to remove the schedule.
-- Battery deferral, a single network task, request spacing, metadata-based incremental downloads, native timer scheduling and persistent error backoff.
+## Was IliasSync für dich übernimmt
 
-## Download and run
+- **Dateien herunterladen:** Skripte, Folien und Übungsblätter aus deinen ausgewählten ILIAS-Kursen lokal ablegen und Änderungen nachladen.
+- **Ordnung behalten:** Eigene Zielordner für ganze Kurse, Unterordner oder einzelne Dateien. Auch ein Google-Drive- oder OneDrive-Ordner ist möglich.
+- **Nach Zeitplan arbeiten:** Automatische Läufe über das Betriebssystem, standardmäßig alle sechs Stunden. Im Akkubetrieb pausiert. Zwischen den Läufen bleibt kein Sync-Prozess aktiv.
+- **Kontrolle behalten:** Einen Lauf pausieren, fortsetzen oder beenden. Bereits gespeicherte Dateien bleiben erhalten.
+- **Lokal bleiben:** Kein zusätzliches IliasSync-Konto und keine App-Telemetrie. Passwörter liegen im Passwortspeicher deines Systems.
 
-Get the platform archive from [Releases](https://github.com/schroedernils/ilias-sync/releases). Access currently requires repository permission. Verify its SHA-256 against `SHA256SUMS`.
+Die Oberfläche startet auf Deutsch. Unter **Einstellungen → Allgemein** kannst du zu Englisch wechseln und Hell, Dunkel oder **Wie System** wählen.
 
-- **macOS 13+**: open the DMG, drag IliasSync to Applications, then launch it. Separate Apple Silicon and Intel builds are provided. This preview is ad-hoc signed, **not Developer ID signed or notarized**. macOS may require an explicit Open action under System Settings → Privacy & Security; only approve a download you trust.
-- **Windows 10/11 x64**: extract the whole ZIP to a permanent folder, then run `IliasSync.exe`. Keep `_internal` alongside it. The executable is **not Authenticode signed**; Windows may display a reputation warning.
-- **Linux x64, glibc 2.35+**: extract the tarball and run `./IliasSync/IliasSync`. A graphical desktop and Qt's system dependencies are required. On Ubuntu: `sudo apt install libegl1 libxkbcommon-x11-0 libxcb-cursor0 libdbus-1-3`. Password storage needs a working, unlocked Secret Service (e.g. GNOME Keyring) or KWallet. Scheduled runs require a systemd user session. For an application-menu entry, keep the extracted folder at its permanent location and run its optional `install-desktop.sh`.
+## Herunterladen
 
-Do not move the executable after enabling background sync; if you do, disable and re-enable the schedule from the new location. Source data and passwords are kept outside the executable folder.
+Alle Pakete stehen im [aktuellen Alpha-Release](https://github.com/schroedernils/ilias-sync/releases/tag/v0.1.0-alpha.2). Prüfe die Datei gegen `SHA256SUMS` im selben Release. Python und Qt sind enthalten; Java wird nicht benötigt.
 
-The interface starts in German. Change it immediately under **Einstellungen → Sprache** (Deutsch / English).
+| System | Paket | Installation |
+| --- | --- | --- |
+| **macOS 13+** | DMG für Apple Silicon oder Intel | Öffnen, IliasSync nach Programme ziehen und starten. |
+| **Windows 10/11 x64** | ZIP | Vollständig in einen festen Ordner entpacken, `IliasSync.exe` starten. `_internal` muss daneben bleiben. |
+| **Linux x64** | tar.gz; glibc 2.35+ | Entpacken und `./IliasSync/IliasSync` starten. Optional `install-desktop.sh` für einen Menüeintrag ausführen. |
 
-## First sync
+**Signaturstatus:** macOS ist ad-hoc signiert und nicht notarisiert. Windows hat keine Authenticode-Signatur. Es gibt noch keinen automatischen Updater. Details zu Linux-Bibliotheken, System-Passwortspeichern und Hintergrundläufen: [Installation](docs/INSTALLATION.md).
 
-1. **Add ILIAS** → enter the installation's root HTTPS address, such as `https://ilias.example.edu` or `https://example.edu/ilias`.
-2. **Check address** → verify the client ID. Some institutions require entering it manually; it is commonly present in a login URL as `client_id=…`.
-3. Choose a sign-in method and a **dedicated local destination folder**. A folder inside Google Drive / OneDrive / another sync provider is possible; that provider is responsible for the subsequent cloud upload.
-4. Choose all joined courses or specific course/folder links. **Sync now**.
-5. Enable **Settings → Automatic sync** if desired. Scheduled runs defer on battery by default. Manual runs are always explicit and bypass this deferral.
+## In drei Schritten starten
 
-For MFA/custom login: sign in through your own browser, export a Netscape-format `cookies.txt` for your ILIAS installation, and import it under **Browser session (MFA)**. Treat that export like a password and remove your extra export when finished. IliasSync imports only cookies applicable to the configured host. It does not read your browser profile or password manager. When cookies expire, background attempts stop until you import a fresh session; **a session import cannot make MFA permanently unattended**.
+1. **ILIAS hinzufügen:** Die HTTPS-Startadresse deiner Hochschule eintragen und prüfen.
+2. **Anmelden:** Hochschulzugang, unterstütztes SSO oder eine eigene Browsersitzung verwenden. Einen festen Zielordner auswählen.
+3. **Kurse wählen und synchronisieren:** Alle beigetretenen Kurse oder eine Auswahl. Bei Bedarf den Zeitplan unter **Einstellungen → Allgemein** aktivieren.
 
-## Files and recovery
+Du kannst mehrere ILIAS-Quellen hinzufügen. Der Stift neben dem Quellnamen öffnet **Bearbeiten**. Am Zielpfad stehen **Ordner zuordnen** und **Ordner öffnen** als Symbole mit Tooltips. Das Zahnrad öffnet die Einstellungen.
 
-Downloads are staged in private application data, checked, then atomically published to your destination. The app never deletes downloaded files because an object disappears from ILIAS. Previous contents go under `Versions/<original path>/<hash>.<extension>`. These are normal files: copy a version to another folder to restore it. Local edits are never intentionally overwritten; remote updates get an `[ILIAS …]` conflict suffix. Different ILIAS objects are not merged just because their bytes or names match.
+Bei MFA oder einer eigenen Anmeldeseite kann ein Netscape-`cookies.txt`-Export nötig sein. Die App importiert nur Cookies für den eingestellten ILIAS-Host und liest dein Browserprofil nicht selbst. Eine Sitzung kann ablaufen; dann ist ein neuer Import nötig. Behandle solche Exporte wie ein Passwort. [Mehr zur Anmeldung](docs/INSTALLATION.md#anmeldung).
 
-The app maintains a manifest outside the download folder. Back up both application data and the download destination. Versions are not automatically pruned; storage grows over time. A general-purpose cloud sync folder is **not** independently verified disaster recovery. The app does not confirm cloud upload completion. Network or permission failures retain existing files and are reported as needing attention.
+## Deine Dateien und Ordner
 
-## Compatibility boundary
+<img src="website/assets/folders.png" width="800" alt="Ordnerzuordnung mit Kursen, Unterordnern und einzelnen Dateien.">
 
-**Nutzung & Hintergrund:** IliasSync ist ein unabhängiges Projekt. Beachte die
-Hochschulregeln und Rechte an Kursmaterialien, insbesondere bei Cloud-Ablage
-oder Weitergabe. Die App arbeitet mit einem PFERD-Slot und einer Sekunde Abstand
-zwischen Aufgabenstarts. Das ist kein festes HTTP-Anfragelimit. Details zu
-Serverlast, Betriebssystemen, Anmeldung und den beiden Referenzprojekten stehen
-unter [Nutzung & Kompatibilität](docs/USAGE.md) und in **Einstellungen → Info**.
+Die spezifischste Ordnerregel gewinnt: eine Dateiregel vor einer Unterordnerregel, eine Unterordnerregel vor einer Kursregel. Neue Ziele gelten ab dem nächsten Lauf; bisherige Kopien bleiben erhalten. Semester und Abkürzungen werden nicht aus beliebigen Kursnamen erraten.
 
+Verschwindet ein Inhalt aus ILIAS, löscht IliasSync deine lokale Kopie nicht automatisch. Ältere Dateiinhalte werden unter `Versions/` aufbewahrt. Bei erkannten lokalen Änderungen bekommt die neue Serverversion einen eigenen Konfliktnamen. [Dateierhalt und Wiederherstellung](docs/RECOVERY.md).
 
-This is an **early preview**, not a promise that every ILIAS installation works. PFERD supports common ILIAS layouts, but themes, plugins, versions and authentication differ. Standard uploaded files and supported exercise/media objects are the primary scope. Forums, online tests, surveys, SCORM, wikis and some external plugins are intentionally omitted and counted. Not-yet-released material is retained as unavailable, not bypassed. No access restrictions, enrollment, license acceptance, or submissions are automated. A new university can be configured without changing code, but a custom layout may require an adapter fix.
+Ein Cloud-Zielordner ist möglich. **Den Upload übernimmt dein Cloud-Client; IliasSync bestätigt ihn nicht.** Sichere App-Daten und Zielordner. Eine Cloud-Synchronisierung allein ist kein geprüfter Wiederherstellungsplan.
 
-Platform CI tests and packaging are not proof of successful real-university login on every platform. See [verification](docs/VERIFICATION.md), [architecture](docs/ARCHITECTURE.md), [security](SECURITY.md) and [third-party notices](THIRD_PARTY_NOTICES.md).
+## Was du vor der Nutzung wissen solltest
 
-## Website
+**Kompatibilität:** ILIAS-Versionen, Hochschuldesigns, Plugins und SSO/MFA unterscheiden sich. Eine eigene Adresse ist konfigurierbar, aber nicht jede Installation funktioniert ohne Anpassung. Foren, Tests, Umfragen, SCORM und manche externen Inhalte sind kein vollständiges Offline-Abbild. Übersprungene und nicht verfügbare Inhalte werden im Ergebnis ausgewiesen.
 
-Die eigenständige Projektseite liegt unter [`website/`](website/). Sie verwendet
-ausschließlich App-Screenshots mit synthetischen Kursen und Dateien, lokale
-Assets und Systemschriften. Kein Analytics, kein Cookie-Banner und keine
-zusätzlichen Webdienste. GitHub protokolliert beim Hosting Zugriffsdaten nach
-seinen eigenen Bedingungen. Die Website kann öffentlich sein, während das
-Repository und seine Downloadpakete weiterhin GitHub-Zugriff erfordern.
+**Serverlast:** Ein PFERD-Arbeitsslot und eine Sekunde Abstand zwischen Aufgabenstarts begrenzen die Parallelität. Das ist kein festes HTTP-Anfragelimit. Automatische Läufe sind frühestens stündlich möglich. Die Vorgaben deiner Hochschule gehen vor.
 
-Für die lokale Vorschau: `python3 -m http.server 4173 --directory website`.
+**Nutzungsrechte:** IliasSync ist unabhängig und kein offizielles Angebot einer Hochschule oder des ILIAS-Projekts. Nutze nur berechtigte Zugänge und beachte Hochschulregeln sowie Rechte an Kursmaterialien, besonders bei Cloud-Ablage und Weitergabe. Die Softwarelizenz erteilt keine Rechte an heruntergeladenen Inhalten.
 
-## Develop
+[Nutzung, Plattformen & Quellen](docs/USAGE.md) · [Was tatsächlich geprüft wurde](docs/VERIFICATION.md) · [Sicherheit](SECURITY.md)
 
-```sh
-python3.12 -m venv .venv
-# Windows: .venv\Scripts\activate
-source .venv/bin/activate
-python -m pip install -e '.[dev]'
-pytest
-ruff check .
-python -m ilias_sync
-```
+## Feedback und Beiträge
 
-Use `ILIAS_SYNC_DATA_DIR=/absolute/test/folder` to isolate development state. No test needs real account credentials. `python -m ilias_sync --self-test` runs an offline runtime check. `--sync` is a headless, due-only one-shot job; `--sync --profile <UUID>` forces a manual run. CLI output is JSON Lines. The GUI uses a private event file, also compatible with Windows' windowed bootloader.
+Eine Hochschule funktioniert nicht? [Erstelle einen Fehlerbericht](https://github.com/schroedernils/ilias-sync/issues/new/choose) mit Betriebssystem, App-Version, ILIAS-Version und den Schritten bis zum Fehler. **Keine Passwörter, Cookies, privaten Kursunterlagen oder ungeschwärzten Kontodaten anhängen.**
 
-```sh
-python scripts/build.py
-```
+Beiträge zu Fehlerbehebungen, Übersetzungen und synthetischen Testfällen sind willkommen. Lies zuerst [CONTRIBUTING.md](CONTRIBUTING.md). Technischer Einstieg: [Entwicklung](docs/DEVELOPMENT.md) und [Architektur](docs/ARCHITECTURE.md).
 
-Builds must run natively on their target OS/architecture. GitHub Actions runs tests and builds each release platform. Packages include dependency license notices and `SHA256SUMS`. Qt is dynamically bundled as an on-directory distribution so its libraries remain replaceable; see [license compliance](docs/LICENSES.md).
+## Lizenz und Grundlage
 
-## Contribute
+IliasSync steht unter [GPL-3.0-or-later](LICENSE). Die Downloadbibliothek [PFERD](https://github.com/Garmelon/PFERD) steht unter MIT. Qt und weitere Bibliotheken behalten ihre jeweiligen Lizenzen; [alle Hinweise](THIRD_PARTY_NOTICES.md) liegen auch den Paketen bei.
 
-Report installation URL (without tokens), ILIAS version, OS and the visible error. Please never attach cookies, passwords, personal course material, raw login pages or unredacted application state. Small synthetic fixtures for unsupported HTML structures are especially useful. No automatic updater or telemetry is included in this preview.
+[Ilias Downloader Tool](https://iliasdownloadertool.de/) und [ILIAS-Sync2Folder](https://viperinius.github.io/ILIAS-Sync2Folder/) dienen als Kontext für Dateiorganisation und Kompatibilitätsgrenzen. Ihr Code und ihre Grafiken werden nicht eingebunden. [Einordnung der Referenzen](docs/USAGE.md#was-wir-aus-anderen-projekten-lernen).

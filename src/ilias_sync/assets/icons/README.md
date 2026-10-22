@@ -11,8 +11,9 @@ distribution. `KIT-README-DE.md` records the supplied formats and provenance.
   16/32/64/128/256 PNGs. Runtime/taskbar icons use the same identity.
 - Linux: multi-resolution window icon and an optional user-installed desktop
   launcher with the supplied icon. No tray daemon is introduced.
-- UI header: supplied rounded SVG, with its dark variant following the UI palette.
+- UI header: supplied alpha-masked PNG, with its dark variant following the UI palette.
   Action icons remain action-specific, with translated tooltips/accessibility names.
+  They use unmodified Lucide 0.468.0 SVG paths and its bundled ISC/Feather-MIT license.
 - Menu-bar template artwork is retained for a future menu-bar UI; the current app
   has no always-running tray process. Don't use a colored app tile as a template.
 

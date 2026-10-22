@@ -56,6 +56,29 @@ async def test_commands_are_scoped_to_current_run(source):
     assert not control.stopped
 
 
+async def test_pause_during_checkpoint_yield_blocks_the_next_operation(source):
+    from ilias_sync.control import CURRENT
+    control = RunControl(source, lambda event: None)
+    token = CURRENT.set(control)
+    try:
+        passed = asyncio.Event()
+
+        async def operation():
+            await checkpoint()
+            passed.set()
+
+        task = asyncio.create_task(operation())
+        await asyncio.sleep(0)
+        control.gate.clear()
+        await asyncio.sleep(0)
+        assert not passed.is_set()
+        control.gate.set()
+        await task
+        assert passed.is_set()
+    finally:
+        CURRENT.reset(token)
+
+
 async def test_worker_stop_preserves_files_and_is_not_a_login_failure(source, monkeypatch):
     from pathlib import Path
     from ilias_sync.__main__ import worker

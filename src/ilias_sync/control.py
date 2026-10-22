@@ -33,11 +33,12 @@ def send_command(run, action):
 
 
 async def checkpoint():
+    # Let pending control commands run before checking the gate. Yielding after
+    # the gate check could let one more operation start after pause was recorded.
+    await asyncio.sleep(0)
     control = CURRENT.get()
     if control:
         await control.gate.wait()
-    # Yield between publications so stop is acted on only at safe boundaries.
-    await asyncio.sleep(0)
 
 
 class RunControl:

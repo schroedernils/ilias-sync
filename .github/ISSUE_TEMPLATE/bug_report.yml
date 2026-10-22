@@ -1,0 +1,37 @@
+name: Fehler melden
+description: Ein reproduzierbares Problem mit der App oder einer ILIAS-Installation.
+body:
+  - type: markdown
+    attributes:
+      value: 'Keine Passwörter, Cookies, Zugangstoken, privaten Kursdateien oder ungeschwärzten Kontodaten anhängen. Sicherheitslücken bitte gemäß SECURITY.md melden.'
+  - type: input
+    id: version
+    attributes:
+      label: App-Version
+      placeholder: 0.1.0a2
+    validations:
+      required: true
+  - type: dropdown
+    id: os
+    attributes:
+      label: Betriebssystem
+      options: [macOS Apple Silicon, macOS Intel, Windows x64, Linux x64]
+    validations:
+      required: true
+  - type: input
+    id: installation
+    attributes:
+      label: ILIAS-Version und Installation (optional)
+      description: Nur eine öffentliche Startadresse ohne Token oder persönliche Parameter.
+  - type: textarea
+    id: steps
+    attributes:
+      label: Schritte zum Fehler
+      description: Was hast du gemacht, was erwartet und was ist stattdessen passiert?
+    validations:
+      required: true
+  - type: textarea
+    id: evidence
+    attributes:
+      label: Bereinigte Fehlermeldung (optional)
+      description: Prüfe Screenshots und Texte vor dem Hochladen auf private Daten.

@@ -74,7 +74,7 @@ def test_linux_timer_has_no_resident_loop(tmp_path, monkeypatch):
 
 def test_language_change_is_immediate_and_persisted(app):
     from PySide6.QtCore import QTimer
-    from PySide6.QtWidgets import QComboBox, QDialog, QDialogButtonBox, QPushButton
+    from PySide6.QtWidgets import QComboBox, QDialog, QDialogButtonBox
     from ilias_sync.gui import MainWindow
     from ilias_sync.storage import Settings
     window = MainWindow()
@@ -91,7 +91,7 @@ def test_language_change_is_immediate_and_persisted(app):
     assert Settings().value["language"] == "en"
     replacement = app.main_window
     assert replacement.sync_button.text() == "Sync now"
-    assert any(b.text() == "Settings" for b in replacement.findChildren(QPushButton))
+    assert replacement.settings_button.accessibleName() == "Settings"
     assert not replacement.progress_timer.isActive()
     replacement.close()
 

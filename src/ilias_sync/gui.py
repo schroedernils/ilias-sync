@@ -7,7 +7,7 @@ from pathlib import Path
 from uuid import uuid4
 
 from PySide6.QtCore import QFileSystemWatcher, QProcess, Qt, QTimer, QUrl
-from PySide6.QtGui import QAction, QColor, QDesktopServices, QPainter, QFontDatabase, QPalette, QPainterPath, QPen
+from PySide6.QtGui import QAction, QColor, QDesktopServices, QPainter, QFontDatabase, QPalette
 from PySide6.QtWidgets import (
     QApplication, QCheckBox, QComboBox, QDialog, QDialogButtonBox, QFileDialog, QFormLayout,
     QHBoxLayout, QHeaderView, QLabel, QLineEdit, QListWidget, QListWidgetItem, QMainWindow,
@@ -16,7 +16,7 @@ from PySide6.QtWidgets import (
 )
 
 from . import __version__
-from .branding import BrandMark, app_icon
+from .branding import BrandMark, app_icon, paint_action
 from .info import info_html
 from .control import active_run, send_command
 from .theme import LIGHT, Theme, stylesheet
@@ -84,21 +84,9 @@ class RunButton(QPushButton):
         color = QColor('#ffffff' if self.action == 'stop' or not dark else '#132b4c')
         if not self.isEnabled():
             color.setAlpha(120)
-        painter.setPen(Qt.PenStyle.NoPen)
-        painter.setBrush(color)
-        painter.translate(self.width()/2, self.height()/2)
-        if self.action == 'pause':
-            painter.drawRoundedRect(-6, -7, 4, 14, 1, 1)
-            painter.drawRoundedRect(2, -7, 4, 14, 1, 1)
-        elif self.action == 'resume':
-            path = QPainterPath()
-            path.moveTo(-4, -7)
-            path.lineTo(7, 0)
-            path.lineTo(-4, 7)
-            path.closeSubpath()
-            painter.drawPath(path)
-        else:
-            painter.drawRoundedRect(-6, -6, 12, 12, 1, 1)
+        symbol = {'pause': 'pause', 'resume': 'play', 'stop': 'square'}[self.action]
+        paint_action(painter, self, symbol, color, 18)
+
 
 
 class IconButton(QPushButton):
@@ -118,38 +106,8 @@ class IconButton(QPushButton):
         color = self.palette().color(QPalette.ColorRole.WindowText)
         if not self.isEnabled():
             color.setAlpha(90)
-        p.setPen(QPen(color, 1.65, Qt.PenStyle.SolidLine, Qt.PenCapStyle.RoundCap, Qt.PenJoinStyle.RoundJoin))
-        p.setBrush(Qt.BrushStyle.NoBrush)
-        p.translate(self.width()/2, self.height()/2)
-        if self.symbol == 'edit':
-            path = QPainterPath()
-            path.moveTo(-7, 7)
-            path.lineTo(-5, 1)
-            path.lineTo(3, -7)
-            path.lineTo(7, -3)
-            path.lineTo(-1, 5)
-            path.closeSubpath()
-            p.drawPath(path)
-            p.drawLine(1, -5, 5, -1)
-        else:
-            path = QPainterPath()
-            path.moveTo(-9, 6)
-            path.lineTo(-9, -6)
-            path.lineTo(-2, -6)
-            path.lineTo(1, -3)
-            path.lineTo(9, -3)
-            path.lineTo(9, 6)
-            path.closeSubpath()
-            p.drawPath(path)
-            if self.symbol == 'folder-open':
-                p.drawLine(-3, 4, 5, -4)
-                p.drawLine(1, -4, 5, -4)
-                p.drawLine(5, -4, 5, 0)
-            else:
-                p.drawLine(-5, 0, 5, 0)
-                p.drawLine(-5, 3, 5, 3)
-                p.drawLine(-2, -1, -2, 1)
-                p.drawLine(2, 2, 2, 4)
+        paint_action(p, self, self.symbol, color, 18)
+
 
 
 class Dropdown(QComboBox):
@@ -803,7 +761,8 @@ class MainWindow(QMainWindow):
         self.schedule_label = label(self.schedule_text(), "subtitle")
         titles.addWidget(self.schedule_label)
         header.addLayout(titles, 1)
-        header.addWidget(button("Settings", self.background))
+        self.settings_button = IconButton("Settings", "settings", self.background)
+        header.addWidget(self.settings_button)
         page.addLayout(header)
         page.addSpacing(12)
         split = QSplitter()
@@ -816,7 +775,7 @@ class MainWindow(QMainWindow):
         self.sources.setAccessibleName(t("ILIAS sources"))
         self.sources.currentRowChanged.connect(self.refresh)
         sidebar.addWidget(self.sources, 1)
-        sidebar.addWidget(button("Add ILIAS", self.add, True))
+        sidebar.addWidget(button("Add ILIAS", self.add))
         split.addWidget(left)
         right = QWidget()
         content = QVBoxLayout(right)
@@ -825,17 +784,22 @@ class MainWindow(QMainWindow):
         content.setSpacing(10)
         self.source_title = label("Connect ILIAS", "title")
         source_heading = QHBoxLayout()
-        source_heading.addWidget(self.source_title, 1)
-        self.routing_button = IconButton("Folder mapping", "folder-map", self.folder_mapping)
-        self.edit_button = IconButton("Edit source", "edit", self.edit)
+        source_heading.addWidget(self.source_title)
+        self.routing_button = IconButton("Folder mapping", "folder-tree", self.folder_mapping)
+        self.edit_button = IconButton("Edit source", "pencil", self.edit)
         self.open_button = IconButton("Open folder", "folder-open", self.open_folder)
         source_heading.setSpacing(6)
-        for tool in (self.routing_button, self.edit_button, self.open_button):
-            source_heading.addWidget(tool)
+        source_heading.addWidget(self.edit_button)
+        source_heading.addStretch(1)
         content.addLayout(source_heading)
         self.destination = label("Add your university to download course files.", "subtitle")
         self.destination.setTextInteractionFlags(Qt.TextInteractionFlag.TextSelectableByMouse)
-        content.addWidget(self.destination)
+        destination_row = QHBoxLayout()
+        destination_row.setSpacing(6)
+        destination_row.addWidget(self.destination, 1)
+        destination_row.addWidget(self.routing_button)
+        destination_row.addWidget(self.open_button)
+        content.addLayout(destination_row)
         self.onboard_button = button("Add ILIAS", self.add, True)
         content.addWidget(self.onboard_button, alignment=Qt.AlignmentFlag.AlignLeft)
         actions = QHBoxLayout()

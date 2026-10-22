@@ -1,0 +1,16 @@
+name: Verbesserung vorschlagen
+description: Ein konkretes Problem oder einen gewünschten Arbeitsablauf beschreiben.
+body:
+  - type: textarea
+    id: problem
+    attributes:
+      label: Welches Problem möchtest du lösen?
+    validations:
+      required: true
+  - type: textarea
+    id: solution
+    attributes:
+      label: Wie würde ein guter Ablauf aussehen?
+      description: Bitte ohne private Kursdaten oder Zugangsinformationen.
+    validations:
+      required: true
