@@ -7,15 +7,17 @@ from pathlib import Path
 from uuid import uuid4
 
 from PySide6.QtCore import QFileSystemWatcher, QProcess, Qt, QTimer, QUrl
-from PySide6.QtGui import QAction, QColor, QDesktopServices, QFont, QIcon, QPainter, QPixmap, QFontDatabase, QPalette
+from PySide6.QtGui import QAction, QColor, QDesktopServices, QPainter, QFontDatabase, QPalette, QPainterPath, QPen
 from PySide6.QtWidgets import (
     QApplication, QCheckBox, QComboBox, QDialog, QDialogButtonBox, QFileDialog, QFormLayout,
     QHBoxLayout, QHeaderView, QLabel, QLineEdit, QListWidget, QListWidgetItem, QMainWindow,
     QMessageBox, QPushButton, QScrollArea, QSplitter, QTableWidget, QTableWidgetItem,
-    QTextEdit, QVBoxLayout, QWidget, QSizePolicy, QFrame, QStackedWidget, QTreeWidget, QTreeWidgetItem,
+    QTextEdit, QTextBrowser, QTabWidget, QVBoxLayout, QWidget, QSizePolicy, QFrame, QStackedWidget, QTreeWidget, QTreeWidgetItem,
 )
 
 from . import __version__
+from .branding import BrandMark, app_icon
+from .info import info_html
 from .control import active_run, send_command
 from .theme import LIGHT, Theme, stylesheet
 from .i18n import message, set_language, t
@@ -50,6 +52,106 @@ def save_buttons():
     return buttons
 
 
+class RunButton(QPushButton):
+    def __init__(self, text, callback, primary=False):
+        super().__init__(t(text))
+        self.action = None
+        self.clicked.connect(callback)
+        if primary:
+            self.setObjectName('primary')
+
+    def set_action(self, action=None):
+        self.action = action
+        name = t({'pause':'Pause', 'resume':'Resume', 'stop':'Stop'}.get(action, 'Sync now'))
+        self.setAccessibleName(name)
+        self.setToolTip(name)
+        self.setText('' if action else name)
+        if action:
+            self.setFixedSize(42, 36)
+        else:
+            self.setMinimumSize(0, 36)
+            self.setMaximumSize(16777215, 36)
+        self.update()
+
+    def paintEvent(self, event):
+        super().paintEvent(event)
+        if not self.action:
+            return
+        painter = QPainter(self)
+        painter.setRenderHint(QPainter.RenderHint.Antialiasing)
+        app = QApplication.instance()
+        dark = getattr(getattr(app, 'theme', None), 'dark', False)
+        color = QColor('#ffffff' if self.action == 'stop' or not dark else '#132b4c')
+        if not self.isEnabled():
+            color.setAlpha(120)
+        painter.setPen(Qt.PenStyle.NoPen)
+        painter.setBrush(color)
+        painter.translate(self.width()/2, self.height()/2)
+        if self.action == 'pause':
+            painter.drawRoundedRect(-6, -7, 4, 14, 1, 1)
+            painter.drawRoundedRect(2, -7, 4, 14, 1, 1)
+        elif self.action == 'resume':
+            path = QPainterPath()
+            path.moveTo(-4, -7)
+            path.lineTo(7, 0)
+            path.lineTo(-4, 7)
+            path.closeSubpath()
+            painter.drawPath(path)
+        else:
+            painter.drawRoundedRect(-6, -6, 12, 12, 1, 1)
+
+
+class IconButton(QPushButton):
+    def __init__(self, name, symbol, callback):
+        super().__init__('')
+        self.symbol = symbol
+        self.setObjectName('iconControl')
+        self.setAccessibleName(t(name))
+        self.setToolTip(t(name))
+        self.setFixedSize(34, 34)
+        self.clicked.connect(callback)
+
+    def paintEvent(self, event):
+        super().paintEvent(event)
+        p = QPainter(self)
+        p.setRenderHint(QPainter.RenderHint.Antialiasing)
+        color = self.palette().color(QPalette.ColorRole.WindowText)
+        if not self.isEnabled():
+            color.setAlpha(90)
+        p.setPen(QPen(color, 1.65, Qt.PenStyle.SolidLine, Qt.PenCapStyle.RoundCap, Qt.PenJoinStyle.RoundJoin))
+        p.setBrush(Qt.BrushStyle.NoBrush)
+        p.translate(self.width()/2, self.height()/2)
+        if self.symbol == 'edit':
+            path = QPainterPath()
+            path.moveTo(-7, 7)
+            path.lineTo(-5, 1)
+            path.lineTo(3, -7)
+            path.lineTo(7, -3)
+            path.lineTo(-1, 5)
+            path.closeSubpath()
+            p.drawPath(path)
+            p.drawLine(1, -5, 5, -1)
+        else:
+            path = QPainterPath()
+            path.moveTo(-9, 6)
+            path.lineTo(-9, -6)
+            path.lineTo(-2, -6)
+            path.lineTo(1, -3)
+            path.lineTo(9, -3)
+            path.lineTo(9, 6)
+            path.closeSubpath()
+            p.drawPath(path)
+            if self.symbol == 'folder-open':
+                p.drawLine(-3, 4, 5, -4)
+                p.drawLine(1, -4, 5, -4)
+                p.drawLine(5, -4, 5, 0)
+            else:
+                p.drawLine(-5, 0, 5, 0)
+                p.drawLine(-5, 3, 5, 3)
+                p.drawLine(-2, -1, -2, 1)
+                p.drawLine(2, 2, 2, 4)
+
+
 class Dropdown(QComboBox):
     """Keep a visible disclosure affordance with either native or custom palettes."""
     def paintEvent(self, event):
@@ -63,22 +165,6 @@ class Dropdown(QComboBox):
         painter.drawLine(x, y+2, x+4, y-2)
 
 
-def app_icon():
-    pixmap = QPixmap(128, 128)
-    pixmap.fill(Qt.GlobalColor.transparent)
-    painter = QPainter(pixmap)
-    painter.setRenderHint(QPainter.RenderHint.Antialiasing)
-    painter.setBrush(QColor("#2463b5"))
-    painter.setPen(Qt.PenStyle.NoPen)
-    painter.drawRoundedRect(4, 4, 120, 120, 29, 29)
-    painter.setPen(QColor("#ffffff"))
-    font = QFont("Arial", 67, QFont.Weight.Bold)
-    painter.setFont(font)
-    painter.drawText(pixmap.rect(), Qt.AlignmentFlag.AlignCenter, "↓")
-    painter.end()
-    return QIcon(pixmap)
-
-
 class SourceDialog(QDialog):
     def __init__(self, settings, existing=None, parent=None):
         super().__init__(parent)
@@ -88,8 +174,8 @@ class SourceDialog(QDialog):
         self.event_file = data_dir() / ("probe-" + str(uuid4()) + ".jsonl")
         self.source = None
         self.setWindowTitle(t("Edit ILIAS source" if existing else "Add an ILIAS source"))
-        self.resize(640, 650)
-        self.setMinimumSize(560, 580)
+        self.resize(620, 580)
+        self.setMinimumSize(560, 540)
         outer = QVBoxLayout(self)
         outer.setContentsMargins(28, 24, 28, 22)
         outer.setSpacing(16)
@@ -593,6 +679,8 @@ class SettingsDialog(QDialog):
         outer.setContentsMargins(26, 24, 26, 22)
         outer.setSpacing(16)
         outer.addWidget(label("Settings", "title"))
+        self.tabs = QTabWidget()
+        outer.addWidget(self.tabs, 1)
         scroll = QScrollArea()
         scroll.setWidgetResizable(True)
         body = QWidget()
@@ -640,7 +728,12 @@ class SettingsDialog(QDialog):
         layout.addWidget(label("Automatic runs continue when this window is closed. Your computer must be awake and signed in.", "subtitle"))
         layout.addStretch(1)
         scroll.setWidget(body)
-        outer.addWidget(scroll, 1)
+        self.tabs.addTab(scroll, t("General"))
+        self.info = QTextBrowser()
+        self.info.setOpenExternalLinks(True)
+        self.info.setHtml(info_html())
+        self.info.setAccessibleName(t("About & usage"))
+        self.tabs.addTab(self.info, t("Info"))
         self.error = label("", "error")
         self.error.hide()
         outer.addWidget(self.error)
@@ -697,12 +790,14 @@ class MainWindow(QMainWindow):
         self.progress_timer.setInterval(1000)
         self.progress_timer.timeout.connect(self.read_output)
         self.setWindowTitle(t("IliasSync"))
-        self.resize(1080, 740)
-        self.setMinimumSize(760, 540)
+        self.resize(940, 640)
+        self.setMinimumSize(800, 500)
         container = QWidget()
         page = QVBoxLayout(container)
-        page.setContentsMargins(26, 26, 26, 20)
+        page.setContentsMargins(22, 20, 22, 18)
         header = QHBoxLayout()
+        header.setSpacing(12)
+        header.addWidget(BrandMark())
         titles = QVBoxLayout()
         titles.addWidget(label("IliasSync", "title"))
         self.schedule_label = label(self.schedule_text(), "subtitle")
@@ -710,7 +805,7 @@ class MainWindow(QMainWindow):
         header.addLayout(titles, 1)
         header.addWidget(button("Settings", self.background))
         page.addLayout(header)
-        page.addSpacing(18)
+        page.addSpacing(12)
         split = QSplitter()
         left = QWidget()
         self.sidebar = left
@@ -731,8 +826,12 @@ class MainWindow(QMainWindow):
         self.source_title = label("Connect ILIAS", "title")
         source_heading = QHBoxLayout()
         source_heading.addWidget(self.source_title, 1)
-        self.routing_button = button("Folder mapping", self.folder_mapping)
-        source_heading.addWidget(self.routing_button)
+        self.routing_button = IconButton("Folder mapping", "folder-map", self.folder_mapping)
+        self.edit_button = IconButton("Edit source", "edit", self.edit)
+        self.open_button = IconButton("Open folder", "folder-open", self.open_folder)
+        source_heading.setSpacing(6)
+        for tool in (self.routing_button, self.edit_button, self.open_button):
+            source_heading.addWidget(tool)
         content.addLayout(source_heading)
         self.destination = label("Add your university to download course files.", "subtitle")
         self.destination.setTextInteractionFlags(Qt.TextInteractionFlag.TextSelectableByMouse)
@@ -740,14 +839,15 @@ class MainWindow(QMainWindow):
         self.onboard_button = button("Add ILIAS", self.add, True)
         content.addWidget(self.onboard_button, alignment=Qt.AlignmentFlag.AlignLeft)
         actions = QHBoxLayout()
-        self.sync_button = button("Sync now", self.sync_or_pause, True)
-        self.stop_button = button("Stop", self.stop_sync)
+        self.sync_button = RunButton("Sync now", self.sync_or_pause, True)
+        self.stop_button = RunButton("Stop", self.stop_sync)
+        self.stop_button.setObjectName("stopControl")
+        self.stop_button.set_action("stop")
         self.stop_button.hide()
         self.courses_button = button("Choose courses", lambda: self.start("discover"))
-        self.edit_button = button("Edit source", self.edit)
-        self.open_button = button("Open folder", self.open_folder)
-        for item in (self.sync_button, self.stop_button, self.courses_button, self.edit_button, self.open_button):
+        for item in (self.sync_button, self.stop_button, self.courses_button):
             actions.addWidget(item)
+        actions.addStretch(1)
         self.empty_spacer = QWidget()
         content.addWidget(self.empty_spacer, 1)
         self.actions_widget = QWidget()
@@ -777,7 +877,7 @@ class MainWindow(QMainWindow):
         content.addWidget(self.activity)
         self.activity.hide()
         split.addWidget(right)
-        split.setSizes([235, 790])
+        split.setSizes([200, 700])
         page.addWidget(split, 1)
         self.setCentralWidget(container)
         about = QAction(t("About IliasSync"), self)
@@ -788,8 +888,8 @@ class MainWindow(QMainWindow):
         self.timeout.timeout.connect(self.timeout_job)
         self.populate()
         if not self.settings.sources():
-            self.resize(760, 480)
-            self.setMinimumSize(680, 430)
+            self.setMinimumSize(620, 390)
+            self.resize(660, 420)
         self.run_watch = QFileSystemWatcher([str(data_dir())], self)
         self.run_watch.directoryChanged.connect(self.check_active_run)
         self.check_active_run()
@@ -817,7 +917,7 @@ class MainWindow(QMainWindow):
         self.schedule_label.setVisible(source is not None)
         for item in (self.sync_button, self.edit_button, self.courses_button, self.routing_button, self.open_button):
             item.setEnabled(source is not None and not busy)
-        for widget in (self.actions_widget, self.status, self.files, self.details_button, self.routing_button):
+        for widget in (self.actions_widget, self.status, self.files, self.details_button, self.routing_button, self.edit_button, self.open_button):
             widget.setVisible(source is not None)
         if not source:
             return
@@ -850,8 +950,8 @@ class MainWindow(QMainWindow):
             return
         dialog = SourceDialog(self.settings, parent=self)
         if dialog.exec():
-            self.setMinimumSize(900, 560)
-            self.resize(1140, 740)
+            self.setMinimumSize(800, 500)
+            self.resize(940, 640)
             self.populate(dialog.source.id)
 
     def edit(self):
@@ -875,7 +975,7 @@ class MainWindow(QMainWindow):
         self.process.finished.connect(self.finished)
         self.process.errorOccurred.connect(self.worker_error)
         self.process.start()
-        self.sync_button.setText(t("Pause"))
+        self.sync_button.set_action("pause")
         self.stop_button.show()
         self.progress_timer.start()
         self.timeout.start((120 if action == "discover" else 5500) * 1000)
@@ -933,7 +1033,7 @@ class MainWindow(QMainWindow):
         for item in (self.edit_button, self.courses_button, self.routing_button):
             item.setEnabled(not busy and self.selected() is not None)
         self.sync_button.setEnabled(self.selected() is not None)
-        self.sync_button.setText(t("Resume" if self.run_info and self.run_info["state"] == "paused" else "Pause" if busy else "Sync now"))
+        self.sync_button.set_action("resume" if self.run_info and self.run_info["state"] == "paused" else "pause" if busy else None)
         self.stop_button.setVisible(busy)
         self.stop_button.setEnabled(busy and not (self.run_info and self.run_info["state"] == "stopping"))
 
@@ -1035,10 +1135,14 @@ class MainWindow(QMainWindow):
 
 
 def run(args):
+    if sys.platform == "win32":
+        import ctypes
+        ctypes.windll.shell32.SetCurrentProcessExplicitAppUserModelID("org.iliassync.desktop")
     application = QApplication(sys.argv[:1])
     application.setFont(QFontDatabase.systemFont(QFontDatabase.SystemFont.GeneralFont))
     application.setApplicationName("IliasSync")
     application.setOrganizationName("IliasSync")
+    application.setDesktopFileName("org.iliassync.desktop")
     application.setApplicationVersion(__version__)
     application.setWindowIcon(app_icon())
     application.theme = Theme(application, Settings().value.get("appearance", "system"))

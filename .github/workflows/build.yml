@@ -1,7 +1,9 @@
 name: Test and package
 on:
   push:
+    paths-ignore: ['website/**', '.github/workflows/pages.yml']
   pull_request:
+    paths-ignore: ['website/**', '.github/workflows/pages.yml']
   workflow_dispatch:
 permissions:
   contents: read

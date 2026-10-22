@@ -1,6 +1,7 @@
 """Small explicit UI catalog; file names and server-provided course names stay intact."""
 LANGUAGE = "de"
 DE = {
+    "General": "Allgemein", "Info": "Info", "About & usage": "Über die App und Nutzung",
     "Settings": "Einstellungen", "Language": "Sprache", "Save": "Speichern", "Cancel": "Abbrechen",
     "Add ILIAS": "ILIAS hinzufügen", "Edit source": "Bearbeiten", "Choose courses": "Kurse auswählen",
     "Sync now": "Jetzt synchronisieren", "Open folder": "Ordner öffnen", "Details": "Details",

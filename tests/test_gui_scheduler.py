@@ -14,6 +14,8 @@ def app():
 def test_empty_window_accessibility_and_no_idle_polling(app):
     from ilias_sync.gui import MainWindow
     window = MainWindow()
+    assert window.width() <= 700
+    assert window.height() <= 450
     assert window.sources.count() == 0
     assert not window.sync_button.isEnabled()
     assert not window.progress_timer.isActive()
@@ -181,13 +183,17 @@ def test_controls_switch_to_pause_and_stop_for_background_run(app, source):
     window = MainWindow()
     window.show()
     window.check_active_run()
-    assert window.sync_button.text() == 'Pausieren'
+    assert window.sync_button.text() == ''
+    assert window.sync_button.accessibleName() == 'Pausieren'
+    assert window.stop_button.accessibleName() == 'Beenden'
+    assert window.stop_button.text() == ''
     assert window.stop_button.isVisible()
     window.sync_or_pause()
     assert read_json(data_dir() / 'run-command.json', {})['action'] == 'pause'
     write_json(data_dir() / 'active-run.json', {**row,'state':'paused'})
     window.check_active_run()
-    assert window.sync_button.text() == 'Fortsetzen'
+    assert window.sync_button.text() == ''
+    assert window.sync_button.accessibleName() == 'Fortsetzen'
     window.stop_sync()
     assert read_json(data_dir() / 'run-command.json', {})['action'] == 'stop'
     write_json(data_dir() / 'active-run.json', {**row,'state':'stopped'})
@@ -220,3 +226,18 @@ def test_mapping_menu_builds_course_folder_file_hierarchy(app, source):
     assert course.child(0).text(0) == 'Material'
     assert course.child(0).child(0).text(0) == 'Intro.pdf'
     dialog.close()
+
+
+def test_source_actions_are_compact_accessible_icons(app, source):
+    from ilias_sync.gui import MainWindow
+    from ilias_sync.storage import Settings
+    settings=Settings()
+    settings.save_source(source)
+    window=MainWindow()
+    assert window.width() <= 950
+    for action in (window.routing_button, window.edit_button, window.open_button):
+        assert action.text() == ''
+        assert action.toolTip()
+        assert action.accessibleName()
+        assert action.width() == 34
+    window.close()

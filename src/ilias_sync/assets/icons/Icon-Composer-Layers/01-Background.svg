@@ -1,0 +1,5 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1024" height="1024" viewBox="0 0 1024 1024"><defs>
+<linearGradient id="gold" x1="28%" y1="12%" x2="71%" y2="59%" gradientUnits="userSpaceOnUse"><stop stop-color="#FFF7A0"/><stop offset=".48" stop-color="#FFDA4E"/><stop offset="1" stop-color="#EBAF36"/></linearGradient>
+<radialGradient id="blue" cx="0" cy="0" r="1" gradientTransform="matrix(1250 750 -600 1000 0 0)" gradientUnits="userSpaceOnUse"><stop stop-color="#416C98"/><stop offset=".4" stop-color="#0D4A79"/><stop offset=".83" stop-color="#043C69"/><stop offset="1" stop-color="#023B68"/></radialGradient>
+<radialGradient id="dark" cx="0" cy="0" r="1" gradientTransform="matrix(1200 850 -600 1000 0 0)" gradientUnits="userSpaceOnUse"><stop stop-color="#26374A"/><stop offset=".55" stop-color="#102235"/><stop offset="1" stop-color="#081522"/></radialGradient>
+</defs><rect width="1024" height="1024" fill="url(#blue)"/></svg>

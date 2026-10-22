@@ -4,11 +4,14 @@ import importlib.metadata
 import json
 import os
 import platform
+import plistlib
 import shutil
 import subprocess
 import sys
 import tempfile
 from pathlib import Path
+
+from icon_assets import windows_icon
 
 ROOT = Path(__file__).resolve().parents[1]
 os.chdir(ROOT)
@@ -40,8 +43,13 @@ def notices():
 
 def main():
     notice_dir = notices()
+    icons = ROOT / "src/ilias_sync/assets/icons"
+    native_icon = (icons / "macOS/IliasSync.icns" if sys.platform == "darwin"
+                   else windows_icon(icons, ROOT / "build/IliasSync.ico") if sys.platform == "win32"
+                   else icons / "PNG/Default/IliasSync-Default-256.png")
     subprocess.run([sys.executable, "-m", "PyInstaller", "--noconfirm", "--clean", "--onedir", "--windowed",
-                    "--name", "IliasSync", "--paths", "src", "--collect-all", "PFERD",
+                    "--name", "IliasSync", "--icon", str(native_icon), "--paths", "src",
+                    "--collect-data", "ilias_sync", "--collect-all", "PFERD",
                     "--collect-submodules", "keyring.backends", "--recursive-copy-metadata", "PFERD",
                     "--copy-metadata", "keyring", "--add-data", str(notice_dir) + os.pathsep + "third-party-licenses",
                     "--osx-bundle-identifier", "org.iliassync.desktop", "scripts/launch.py"], check=True)
@@ -49,6 +57,12 @@ def main():
     if sys.platform == "darwin":
         app = dist / "IliasSync.app"
         binary = app / "Contents/MacOS/IliasSync"
+        info_path = app / "Contents/Info.plist"
+        info = plistlib.loads(info_path.read_bytes())
+        info.update(CFBundleShortVersionString=__version__, CFBundleVersion=__version__,
+                    NSHumanReadableCopyright="IliasSync contributors · GPL-3.0-or-later")
+        info_path.write_bytes(plistlib.dumps(info))
+        assert (app / "Contents/Resources" / info["CFBundleIconFile"]).read_bytes() == native_icon.read_bytes()
         subprocess.run(["codesign", "--force", "--deep", "--sign", "-", str(app)], check=True)
     else:
         binary = dist / "IliasSync" / ("IliasSync.exe" if sys.platform == "win32" else "IliasSync")
@@ -71,6 +85,10 @@ def main():
             subprocess.run(["hdiutil", "create", "-volname", "IliasSync", "-srcfolder", str(stage),
                             "-ov", "-format", "UDZO", str(package)], check=True)
     else:
+        if sys.platform.startswith("linux"):
+            shutil.copy2(ROOT / "scripts/install-desktop.sh", dist / "IliasSync/install-desktop.sh")
+            (dist / "IliasSync/install-desktop.sh").chmod(0o755)
+            shutil.copy2(icons / "PNG/Default/IliasSync-Default-256.png", dist / "IliasSync/IliasSync.png")
         fmt = "zip" if sys.platform == "win32" else "gztar"
         package = Path(shutil.make_archive(str(dist / prefix), fmt, root_dir=dist, base_dir="IliasSync"))
     digest = hashlib.sha256(package.read_bytes()).hexdigest()

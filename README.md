@@ -25,7 +25,7 @@ Get the platform archive from [Releases](https://github.com/schroedernils/ilias-
 
 - **macOS 13+**: open the DMG, drag IliasSync to Applications, then launch it. Separate Apple Silicon and Intel builds are provided. This preview is ad-hoc signed, **not Developer ID signed or notarized**. macOS may require an explicit Open action under System Settings → Privacy & Security; only approve a download you trust.
 - **Windows 10/11 x64**: extract the whole ZIP to a permanent folder, then run `IliasSync.exe`. Keep `_internal` alongside it. The executable is **not Authenticode signed**; Windows may display a reputation warning.
-- **Linux x64, glibc 2.35+**: extract the tarball and run `./IliasSync/IliasSync`. A graphical desktop and Qt's system dependencies are required. On Ubuntu: `sudo apt install libegl1 libxkbcommon-x11-0 libxcb-cursor0 libdbus-1-3`. Password storage needs a working, unlocked Secret Service (e.g. GNOME Keyring) or KWallet. Scheduled runs require a systemd user session.
+- **Linux x64, glibc 2.35+**: extract the tarball and run `./IliasSync/IliasSync`. A graphical desktop and Qt's system dependencies are required. On Ubuntu: `sudo apt install libegl1 libxkbcommon-x11-0 libxcb-cursor0 libdbus-1-3`. Password storage needs a working, unlocked Secret Service (e.g. GNOME Keyring) or KWallet. Scheduled runs require a systemd user session. For an application-menu entry, keep the extracted folder at its permanent location and run its optional `install-desktop.sh`.
 
 Do not move the executable after enabling background sync; if you do, disable and re-enable the schedule from the new location. Source data and passwords are kept outside the executable folder.
 
@@ -49,9 +49,28 @@ The app maintains a manifest outside the download folder. Back up both applicati
 
 ## Compatibility boundary
 
+**Nutzung & Hintergrund:** IliasSync ist ein unabhängiges Projekt. Beachte die
+Hochschulregeln und Rechte an Kursmaterialien, insbesondere bei Cloud-Ablage
+oder Weitergabe. Die App arbeitet mit einem PFERD-Slot und einer Sekunde Abstand
+zwischen Aufgabenstarts. Das ist kein festes HTTP-Anfragelimit. Details zu
+Serverlast, Betriebssystemen, Anmeldung und den beiden Referenzprojekten stehen
+unter [Nutzung & Kompatibilität](docs/USAGE.md) und in **Einstellungen → Info**.
+
+
 This is an **early preview**, not a promise that every ILIAS installation works. PFERD supports common ILIAS layouts, but themes, plugins, versions and authentication differ. Standard uploaded files and supported exercise/media objects are the primary scope. Forums, online tests, surveys, SCORM, wikis and some external plugins are intentionally omitted and counted. Not-yet-released material is retained as unavailable, not bypassed. No access restrictions, enrollment, license acceptance, or submissions are automated. A new university can be configured without changing code, but a custom layout may require an adapter fix.
 
 Platform CI tests and packaging are not proof of successful real-university login on every platform. See [verification](docs/VERIFICATION.md), [architecture](docs/ARCHITECTURE.md), [security](SECURITY.md) and [third-party notices](THIRD_PARTY_NOTICES.md).
+
+## Website
+
+Die eigenständige Projektseite liegt unter [`website/`](website/). Sie verwendet
+ausschließlich App-Screenshots mit synthetischen Kursen und Dateien, lokale
+Assets und Systemschriften. Kein Analytics, kein Cookie-Banner und keine
+zusätzlichen Webdienste. GitHub protokolliert beim Hosting Zugriffsdaten nach
+seinen eigenen Bedingungen. Die Website kann öffentlich sein, während das
+Repository und seine Downloadpakete weiterhin GitHub-Zugriff erfordern.
+
+Für die lokale Vorschau: `python3 -m http.server 4173 --directory website`.
 
 ## Develop
 

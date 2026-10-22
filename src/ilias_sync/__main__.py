@@ -101,6 +101,20 @@ async def worker(args):
 
 def self_test():
     import tempfile
+    previous_root = os.environ.get("ILIAS_SYNC_DATA_DIR")
+    with tempfile.TemporaryDirectory() as isolated_root:
+        os.environ["ILIAS_SYNC_DATA_DIR"] = isolated_root
+        try:
+            return _isolated_self_test()
+        finally:
+            if previous_root is None:
+                os.environ.pop("ILIAS_SYNC_DATA_DIR", None)
+            else:
+                os.environ["ILIAS_SYNC_DATA_DIR"] = previous_root
+
+
+def _isolated_self_test():
+    import tempfile
     from pathlib import Path
     from .storage import Archive, Source
     from .engine import make_crawler
@@ -120,7 +134,12 @@ def self_test():
         os.environ["ILIAS_SYNC_DATA_DIR"] = gui_tmp
         try:
             from .gui import MainWindow
+            from .branding import app_icon
             app = QApplication.instance() or QApplication([])
+            icon = app_icon()
+            assert not icon.isNull(), "Packaged application icon is missing"
+            assert not icon.pixmap(32, 32).isNull(), "Packaged icon cannot be decoded"
+            app.setWindowIcon(icon)
             window = MainWindow()
             window.show()
             app.processEvents()

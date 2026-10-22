@@ -24,6 +24,9 @@ ilias-sync = "ilias_sync.__main__:main"
 [tool.setuptools.packages.find]
 where = ["src"]
 
+[tool.setuptools.package-data]
+ilias_sync = ["assets/icons/**/*"]
+
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 asyncio_mode = "auto"

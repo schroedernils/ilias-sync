@@ -18,6 +18,10 @@ QWidget#formPane, QFrame#surface {{ background: {c['surface']}; border: 1px soli
 QFrame#surface QLabel, QWidget#formPane QLabel {{ background: transparent; border: none; }}
 QScrollArea, QScrollArea > QWidget > QWidget {{ background: {c['window']}; border: none; }}
 QStackedWidget {{ background: transparent; border: none; }}
+QTabWidget::pane {{ border: none; padding-top: 14px; background: {c['window']}; }}
+QTabBar::tab {{ background: {c['inset']}; color: {c['muted']}; padding: 8px 20px; border-radius: 6px; margin-right: 6px; }}
+QTabBar::tab:selected {{ background: {c['selection']}; color: {c['selected_text']}; }}
+QTextBrowser {{ border: none; background: {c['window']}; padding: 0; }}
 QLabel {{ background: transparent; }}
 QLabel#eyebrow, QLabel#subtitle {{ color: {c['muted']}; }}
 QLabel#eyebrow {{ font-size: 12px; font-weight: 600; }}
@@ -33,6 +37,12 @@ QPushButton:pressed {{ background: {c['selection']}; }}
 QPushButton:focus {{ border: 2px solid {c['accent']}; padding: 7px 13px; }}
 QPushButton:disabled {{ color: {c['disabled']}; background: {c['inset']}; }}
 QPushButton#primary {{ background: {c['accent']}; color: {c['on_accent']}; border-color: {c['accent']}; font-weight: 600; }}
+QPushButton#iconControl {{ background: transparent; border: 1px solid transparent; border-radius: 7px; padding: 0; min-height: 0; }}
+QPushButton#iconControl:hover {{ background: {c['hover']}; border-color: {c['border']}; }}
+QPushButton#iconControl:focus {{ border: 2px solid {c['accent']}; }}
+QPushButton#stopControl {{ background: #c53030; border-color: #c53030; color: #ffffff; padding: 0; }}
+QPushButton#stopControl:hover {{ background: #ae2525; border-color: #ae2525; }}
+QPushButton#stopControl:disabled {{ background: #773d3d; border-color: #773d3d; color: #dddddd; }}
 QPushButton#primary:disabled {{ background: {c['inset']}; color: {c['disabled']}; border-color: {c['border']}; }}
 QPushButton#quiet {{ background: transparent; border-color: transparent; color: {c['accent']}; text-align: left; padding-left: 0; }}
 QPushButton#quiet:hover {{ text-decoration: underline; }}
