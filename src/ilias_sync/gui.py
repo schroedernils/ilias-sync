@@ -6,11 +6,11 @@ import sys
 from pathlib import Path
 from uuid import uuid4
 
-from PySide6.QtCore import QFileSystemWatcher, QProcess, Qt, QTimer, QUrl
+from PySide6.QtCore import QFileSystemWatcher, QProcess, Qt, QTimer, QUrl, Signal
 from PySide6.QtGui import QAction, QColor, QDesktopServices, QPainter, QFontDatabase, QPalette
 from PySide6.QtWidgets import (
     QApplication, QCheckBox, QComboBox, QDialog, QDialogButtonBox, QFileDialog, QFormLayout,
-    QHBoxLayout, QHeaderView, QLabel, QLineEdit, QListWidget, QListWidgetItem, QMainWindow,
+    QHBoxLayout, QHeaderView, QLabel, QLineEdit, QListWidget, QListWidgetItem, QMainWindow, QMenu,
     QMessageBox, QPushButton, QScrollArea, QSplitter, QTableWidget, QTableWidgetItem,
     QTextEdit, QTextBrowser, QTabWidget, QVBoxLayout, QWidget, QSizePolicy, QFrame, QStackedWidget, QTreeWidget, QTreeWidgetItem,
 )
@@ -108,6 +108,68 @@ class IconButton(QPushButton):
             color.setAlpha(90)
         paint_action(p, self, self.symbol, color, 18)
 
+
+
+class SourceList(QListWidget):
+    editRequested = Signal()
+
+    def __init__(self):
+        super().__init__()
+        self.setObjectName('sourceList')
+        self.setMouseTracking(True)
+        self.viewport().setMouseTracking(True)
+        self.hovered = None
+        self.edit_button = IconButton('Edit source', 'pencil', self.edit_hovered)
+        self.edit_button.setParent(self.viewport())
+        self.edit_button.hide()
+        self.setContextMenuPolicy(Qt.ContextMenuPolicy.CustomContextMenu)
+        self.customContextMenuRequested.connect(self.show_menu)
+
+    def mouseMoveEvent(self, event):
+        super().mouseMoveEvent(event)
+        self.hovered = self.itemAt(event.position().toPoint())
+        if self.hovered is None:
+            self.edit_button.hide()
+            return
+        rect = self.visualItemRect(self.hovered)
+        self.edit_button.move(rect.right() - 38, rect.center().y() - 17)
+        self.edit_button.setVisible(self.edit_button.isEnabled())
+
+    def leaveEvent(self, event):
+        super().leaveEvent(event)
+        if not self.edit_button.underMouse():
+            self.edit_button.hide()
+
+    def edit_hovered(self):
+        if self.hovered and self.edit_button.isEnabled():
+            self.setCurrentItem(self.hovered)
+            self.editRequested.emit()
+
+    def show_menu(self, point):
+        item = self.itemAt(point)
+        if item is None:
+            return
+        self.setCurrentItem(item)
+        menu = QMenu(self)
+        action = menu.addAction(t('Edit source'))
+        action.setEnabled(self.edit_button.isEnabled())
+        action.triggered.connect(self.editRequested)
+        menu.exec(self.viewport().mapToGlobal(point))
+
+    def keyPressEvent(self, event):
+        if event.key() == Qt.Key.Key_F2 and self.currentItem() and self.edit_button.isEnabled():
+            self.editRequested.emit()
+        elif (event.key() == Qt.Key.Key_Menu or
+              (event.key() == Qt.Key.Key_F10 and event.modifiers() & Qt.KeyboardModifier.ShiftModifier)):
+            if self.currentItem():
+                self.show_menu(self.visualItemRect(self.currentItem()).center())
+        else:
+            super().keyPressEvent(event)
+
+    def clear(self):
+        self.hovered = None
+        self.edit_button.hide()
+        super().clear()
 
 
 class Dropdown(QComboBox):
@@ -771,7 +833,8 @@ class MainWindow(QMainWindow):
         sidebar = QVBoxLayout(left)
         sidebar.setContentsMargins(0, 0, 8, 0)
         sidebar.addWidget(label("Sources", "eyebrow"))
-        self.sources = QListWidget()
+        self.sources = SourceList()
+        self.sources.editRequested.connect(self.edit)
         self.sources.setAccessibleName(t("ILIAS sources"))
         self.sources.currentRowChanged.connect(self.refresh)
         sidebar.addWidget(self.sources, 1)
@@ -786,10 +849,9 @@ class MainWindow(QMainWindow):
         source_heading = QHBoxLayout()
         source_heading.addWidget(self.source_title)
         self.routing_button = IconButton("Folder mapping", "folder-tree", self.folder_mapping)
-        self.edit_button = IconButton("Edit source", "pencil", self.edit)
+        self.edit_button = self.sources.edit_button
         self.open_button = IconButton("Open folder", "folder-open", self.open_folder)
         source_heading.setSpacing(6)
-        source_heading.addWidget(self.edit_button)
         source_heading.addStretch(1)
         content.addLayout(source_heading)
         self.destination = label("Add your university to download course files.", "subtitle")
@@ -881,7 +943,7 @@ class MainWindow(QMainWindow):
         self.schedule_label.setVisible(source is not None)
         for item in (self.sync_button, self.edit_button, self.courses_button, self.routing_button, self.open_button):
             item.setEnabled(source is not None and not busy)
-        for widget in (self.actions_widget, self.status, self.files, self.details_button, self.routing_button, self.edit_button, self.open_button):
+        for widget in (self.actions_widget, self.status, self.files, self.details_button, self.routing_button, self.open_button):
             widget.setVisible(source is not None)
         if not source:
             return

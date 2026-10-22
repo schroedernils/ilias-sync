@@ -49,7 +49,7 @@ Alle Pakete stehen im [aktuellen Alpha-Release](https://github.com/schroedernils
 2. **Anmelden:** Hochschulzugang, unterstütztes SSO oder eine eigene Browsersitzung verwenden. Einen festen Zielordner auswählen.
 3. **Kurse wählen und synchronisieren:** Alle beigetretenen Kurse oder eine Auswahl. Bei Bedarf den Zeitplan unter **Einstellungen → Allgemein** aktivieren.
 
-Du kannst mehrere ILIAS-Quellen hinzufügen. Der Stift neben dem Quellnamen öffnet **Bearbeiten**. Am Zielpfad stehen **Ordner zuordnen** und **Ordner öffnen** als Symbole mit Tooltips. Das Zahnrad öffnet die Einstellungen.
+Du kannst mehrere ILIAS-Quellen hinzufügen. Fahre links über eine Quelle, um den Stift zum **Bearbeiten** einzublenden, oder nutze Rechtsklick → **Bearbeiten**. Mit der Tastatur geht auch F2. Am Zielpfad stehen **Ordner zuordnen** und **Ordner öffnen** als Symbole mit Tooltips. Das Zahnrad öffnet die Einstellungen.
 
 Bei MFA oder einer eigenen Anmeldeseite kann ein Netscape-`cookies.txt`-Export nötig sein. Die App importiert nur Cookies für den eingestellten ILIAS-Host und liest dein Browserprofil nicht selbst. Eine Sitzung kann ablaufen; dann ist ein neuer Import nötig. Behandle solche Exporte wie ein Passwort. [Mehr zur Anmeldung](docs/INSTALLATION.md#anmeldung).
 

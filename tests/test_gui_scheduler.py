@@ -241,3 +241,29 @@ def test_source_actions_are_compact_accessible_icons(app, source):
         assert action.accessibleName()
         assert action.width() == 34
     window.close()
+
+
+def test_hover_edit_targets_its_source_and_keyboard_respects_busy(app):
+    from PySide6.QtCore import Qt
+    from PySide6.QtTest import QTest
+    from ilias_sync.gui import SourceList
+    listing = SourceList()
+    listing.addItems(['Hochschule A\na.example.edu', 'Hochschule B\nb.example.edu'])
+    listing.resize(260, 260)
+    listing.show()
+    app.processEvents()
+    assert not listing.edit_button.isVisible()
+    requested = []
+    listing.editRequested.connect(lambda: requested.append(listing.currentRow()))
+    QTest.mouseMove(listing.viewport(), listing.visualItemRect(listing.item(1)).center())
+    app.processEvents()
+    assert listing.edit_button.isVisible()
+    listing.edit_button.click()
+    assert requested == [1]
+    listing.setCurrentRow(0)
+    QTest.keyClick(listing, Qt.Key.Key_F2)
+    assert requested == [1, 0]
+    listing.edit_button.setEnabled(False)
+    QTest.keyClick(listing, Qt.Key.Key_F2)
+    assert requested == [1, 0]
+    listing.close()

@@ -57,6 +57,7 @@ QCheckBox::indicator {{ width: 16px; height: 16px; }}
 QListWidget {{ background: {c['inset']}; border: 0; padding: 8px; border-radius: 8px; }}
 QListWidget::item {{ padding: 14px 12px; margin-bottom: 4px; border-radius: 6px; }}
 QListWidget::item:selected {{ background: {c['selection']}; color: {c['selected_text']}; }}
+QListWidget#sourceList::item {{ padding-right: 42px; }}
 QTreeWidget, QTableWidget {{ background: {c['surface']}; alternate-background-color: {c['inset']}; border: 1px solid {c['border']}; border-radius: 7px; gridline-color: {c['inset']}; }}
 QTreeWidget::item:selected, QTableWidget::item:selected {{ background: {c['selection']}; color: {c['selected_text']}; }}
 QHeaderView::section {{ background: {c['inset']}; color: {c['text']}; padding: 10px; border: none; font-weight: 600; }}
