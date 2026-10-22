@@ -1,0 +1,68 @@
+name: Publish checked preview
+on:
+  workflow_dispatch:
+    inputs:
+      run_id:
+        description: Successful Test and package run for all four platforms
+        required: true
+permissions:
+  contents: write
+  actions: read
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Verify source run
+        id: source
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RUN_ID: ${{ inputs.run_id }}
+        run: |
+          [[ "$RUN_ID" =~ ^[0-9]+$ ]]
+          gh run view "$RUN_ID" --json conclusion,headSha,jobs > /tmp/source-run.json
+          python - <<'PY'
+          import json, os
+          from pathlib import Path
+          run = json.loads(Path('/tmp/source-run.json').read_text())
+          assert run['conclusion'] == 'success'
+          names = {'build (macos-15, macOS-arm64)', 'build (macos-15-intel, macOS-x64)',
+                   'build (windows-2022, Windows-x64)', 'build (ubuntu-22.04, Linux-x64)'}
+          assert {j['name'] for j in run['jobs'] if j['conclusion'] == 'success'} == names
+          with open(os.environ['GITHUB_OUTPUT'], 'a') as out:
+              out.write('sha=' + run['headSha'] + '\n')
+          PY
+      - uses: actions/download-artifact@v4
+        with:
+          run-id: ${{ inputs.run_id }}
+          github-token: ${{ github.token }}
+          pattern: IliasSync-*
+          path: release-assets
+          merge-multiple: true
+      - name: Validate package checksums
+        run: |
+          python - <<'PY'
+          import hashlib
+          from pathlib import Path
+          root = Path('release-assets')
+          sums = sorted(root.glob('*.sha256'))
+          assert len(sums) == 4
+          lines = []
+          for sidecar in sums:
+              package = root / sidecar.name.removesuffix('.sha256')
+              expected, name = sidecar.read_text().strip().split('  ', 1)
+              assert name == package.name
+              assert package.is_file()
+              assert hashlib.sha256(package.read_bytes()).hexdigest() == expected
+              lines.append(expected + '  ' + name)
+          (root / 'SHA256SUMS').write_text('\n'.join(lines) + '\n')
+          PY
+      - name: Publish private alpha release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          SOURCE_SHA: ${{ steps.source.outputs.sha }}
+        run: |
+          gh release create v0.1.0-alpha.2 release-assets/* \
+            --target "$SOURCE_SHA" --prerelease \
+            --title "IliasSync 0.1.0 Alpha 2" \
+            --notes-file docs/releases/0.1.0-alpha.2.md
