@@ -1,0 +1,11 @@
+# Security
+
+Passwords are stored only in approved OS-backed keyring backends: macOS Keychain, Windows Credential Manager, Secret Service or KWallet. There is no plaintext fallback. A locked/unavailable vault is a visible error. Importing a browser session is an explicit user action; the app never reads browser databases. Imported/session-renewal cookies remain in a user-private application-data directory and are not claimed to be encrypted at rest. Back up or delete this directory with the same care as a password store.
+
+HTTPS certificate verification is required; there is no ignore-certificate switch. Standard-login credentials are posted only to the configured origin. Shibboleth credentials/SAML posts are constrained to the configured ILIAS host and the identity-provider hostname explicitly supplied by the user. MFA cannot be silently bypassed. Use session import if an identity provider is incompatible. Never share a session export or configuration directory with another person.
+
+No telemetry, cloud backend, remote code execution, automatic update download, or service-role key is part of the app. PFERD follows ILIAS content and supported media URLs as needed; external linked media may reside on a university CDN. Internal metadata and cookies remain outside the download directory. File paths are sanitized for common Windows restrictions and checked against traversal/symlinks. Download destinations must not overlap source destinations or app state.
+
+Local files that have changed since publication are preserved; remote changes get a conflict copy. Local edits concurrent with an atomic replacement have a small race window. Use separate copies for active annotation. Previously staged, valid files are retained on partial failures, but this preview is not a transaction across an entire course. Missing or corrupt version archives stop replacement instead of overwriting the current file.
+
+Report vulnerabilities privately to the repository owner using GitHub's private reporting feature if available. Otherwise request a private contact without including exploit credentials. Do not open an issue containing account secrets. This preview has no security audit or vendor-signed distribution claim.

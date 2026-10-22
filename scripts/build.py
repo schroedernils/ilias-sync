@@ -1,0 +1,83 @@
+"""Native on-directory packages with replaceable Qt libraries, notices and SHA-256."""
+import hashlib
+import importlib.metadata
+import json
+import os
+import platform
+import shutil
+import subprocess
+import sys
+from pathlib import Path
+
+ROOT = Path(__file__).resolve().parents[1]
+os.chdir(ROOT)
+os.environ.setdefault("PYINSTALLER_CONFIG_DIR", str(ROOT / "build/pyinstaller-cache"))
+sys.path.insert(0, str(ROOT / "src"))
+from ilias_sync import __version__  # noqa: E402
+
+
+def notices():
+    output = ROOT / "build/notices"
+    output.mkdir(parents=True, exist_ok=True)
+    versions = {}
+    for dist in importlib.metadata.distributions():
+        name = dist.metadata.get("Name", "unknown")
+        versions[name] = dist.version
+        for file in dist.files or []:
+            if any(word in file.name.lower() for word in ("license", "copying", "copyright", "notice")):
+                source = Path(dist.locate_file(file))
+                if source.is_file():
+                    target = output / name / str(file).replace("../", "").replace("..\\", "")
+                    target.parent.mkdir(parents=True, exist_ok=True)
+                    shutil.copy2(source, target)
+    (output / "versions.json").write_text(json.dumps(versions, indent=2), encoding="utf-8")
+    for name in ("LICENSE", "THIRD_PARTY_NOTICES.md", "README.md"):
+        shutil.copy2(ROOT / name, output / name)
+    shutil.copytree(ROOT / "docs", output / "docs", dirs_exist_ok=True)
+    return output
+
+
+def main():
+    notice_dir = notices()
+    subprocess.run([sys.executable, "-m", "PyInstaller", "--noconfirm", "--clean", "--onedir", "--windowed",
+                    "--name", "IliasSync", "--paths", "src", "--collect-all", "PFERD",
+                    "--collect-submodules", "keyring.backends", "--recursive-copy-metadata", "PFERD",
+                    "--copy-metadata", "keyring", "--add-data", str(notice_dir) + os.pathsep + "third-party-licenses",
+                    "--osx-bundle-identifier", "org.iliassync.desktop", "scripts/launch.py"], check=True)
+    dist = ROOT / "dist"
+    if sys.platform == "darwin":
+        app = dist / "IliasSync.app"
+        binary = app / "Contents/MacOS/IliasSync"
+        subprocess.run(["codesign", "--force", "--deep", "--sign", "-", str(app)], check=True)
+    else:
+        binary = dist / "IliasSync" / ("IliasSync.exe" if sys.platform == "win32" else "IliasSync")
+    # Windowed Windows processes do not expose stdout: require a checked event file.
+    event = ROOT / "build/packaged-self-test.jsonl"
+    event.unlink(missing_ok=True)
+    subprocess.run([str(binary), "--self-test", "--event-file", str(event)], check=True, timeout=90)
+    result = json.loads(event.read_text(encoding="utf-8").strip())
+    if not result.get("ok"):
+        raise RuntimeError("Packaged self-test failed")
+    arch = "arm64" if platform.machine().lower() in {"arm64", "aarch64"} else "x64"
+    target = {"darwin": "macOS", "win32": "Windows"}.get(sys.platform, "Linux")
+    prefix = f"IliasSync-{__version__}-{target}-{arch}"
+    if sys.platform == "darwin":
+        stage = ROOT / "build/dmg"
+        stage.mkdir(parents=True, exist_ok=True)
+        shutil.copytree(app, stage / app.name, symlinks=True, dirs_exist_ok=True)
+        applications = stage / "Applications"
+        if not applications.exists():
+            applications.symlink_to("/Applications", target_is_directory=True)
+        package = dist / (prefix + ".dmg")
+        subprocess.run(["hdiutil", "create", "-volname", "IliasSync", "-srcfolder", str(stage),
+                        "-ov", "-format", "UDZO", str(package)], check=True)
+    else:
+        fmt = "zip" if sys.platform == "win32" else "gztar"
+        package = Path(shutil.make_archive(str(dist / prefix), fmt, root_dir=dist, base_dir="IliasSync"))
+    digest = hashlib.sha256(package.read_bytes()).hexdigest()
+    (dist / (package.name + ".sha256")).write_text(digest + "  " + package.name + "\n", encoding="utf-8")
+    print(package)
+
+
+if __name__ == "__main__":
+    main()

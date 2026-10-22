@@ -1,0 +1,35 @@
+[build-system]
+requires = ["setuptools>=77"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "ilias-sync-desktop"
+version = "0.1.0a1"
+description = "Quiet, local-first ILIAS synchronization for macOS, Windows and Linux"
+readme = "README.md"
+requires-python = ">=3.12,<3.14"
+license = "GPL-3.0-or-later"
+authors = [{name = "Nils Schröder"}]
+dependencies = [
+  "PFERD==3.9.4", "PySide6-Essentials==6.10.0", "keyring==25.7.0",
+  "platformdirs==4.5.0", "psutil==7.1.0", "filelock==3.20.0"
+]
+
+[project.optional-dependencies]
+dev = ["pytest==8.4.2", "pytest-asyncio==1.2.0", "pyinstaller==6.16.0", "ruff==0.14.1"]
+
+[project.scripts]
+ilias-sync = "ilias_sync.__main__:main"
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+asyncio_mode = "auto"
+
+[tool.ruff]
+line-length = 120
+
+[tool.ruff.lint]
+select = ["E4", "E7", "E9", "F"]
