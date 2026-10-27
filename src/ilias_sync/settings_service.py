@@ -2,6 +2,10 @@
 from copy import deepcopy
 
 
+class ScheduleRestoreError(RuntimeError):
+    pass
+
+
 def apply_settings(settings, candidate, *, install, uninstall):
     previous = deepcopy(settings.value)
     def schedule(value):
@@ -15,18 +19,18 @@ def apply_settings(settings, candidate, *, install, uninstall):
     # Persist first so a RunAtLoad worker sees the new policy. Roll back both
     # configuration and native scheduling if installation or the write fails.
     settings.value = deepcopy(candidate)
+    native_attempted = False
     try:
         settings.save()
         if changed:
+            native_attempted = True
             schedule(candidate)
     except Exception:
         settings.value = previous
         settings.save()
-        if changed:
+        if native_attempted:
             try:
                 schedule(previous)
             except Exception:
-                # The caller reports failure rather than pretending the OS
-                # scheduler matches configuration; preserve the original error.
-                pass
+                raise ScheduleRestoreError('The previous system schedule could not be restored. Reapply the schedule before relying on automatic sync.') from None
         raise

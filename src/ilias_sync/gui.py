@@ -7,10 +7,10 @@ from dataclasses import replace
 from pathlib import Path
 from uuid import uuid4
 
-from PySide6.QtCore import QFileSystemWatcher, QProcess, Qt, QTimer, QUrl, Signal
+from PySide6.QtCore import QFileSystemWatcher, QProcess, Qt, QTimer, QUrl, Signal, QTime
 from PySide6.QtGui import QAction, QColor, QDesktopServices, QPainter, QFontDatabase, QPalette
 from PySide6.QtWidgets import (
-    QTabBar, QApplication, QCheckBox, QComboBox, QDialog, QDialogButtonBox, QFileDialog, QFormLayout,
+    QTimeEdit, QTabBar, QApplication, QCheckBox, QComboBox, QDialog, QDialogButtonBox, QFileDialog, QFormLayout,
     QHBoxLayout, QHeaderView, QLabel, QLineEdit, QListWidget, QListWidgetItem, QMainWindow, QMenu,
     QMessageBox, QPushButton, QScrollArea, QSplitter, QTableWidget, QTableWidgetItem,
     QTextEdit, QTextBrowser, QTabWidget, QVBoxLayout, QWidget, QSizePolicy, QFrame, QStackedWidget, QTreeWidget, QTreeWidgetItem,
@@ -920,107 +920,243 @@ class SettingsDialog(QDialog):
     def __init__(self, settings, parent=None):
         super().__init__(parent)
         self.settings = settings
-        self.setWindowTitle(t("Settings"))
-        self.resize(590, 550)
-        self.setMinimumWidth(550)
+        self.setWindowTitle(t('Settings'))
+        self.resize(590, 350)
+        self.setMinimumSize(480, 310)
         outer = QVBoxLayout(self)
-        outer.setContentsMargins(26, 24, 26, 22)
-        outer.setSpacing(16)
-        outer.addWidget(label("Settings", "title"))
+        outer.setContentsMargins(24, 22, 24, 20)
+        outer.setSpacing(12)
+        outer.addWidget(label('Settings', 'title'))
         self.tabs = QTabWidget()
         outer.addWidget(self.tabs, 1)
+        self.language = Dropdown()
+        for title, value in [('Deutsch', 'de'), ('English', 'en')]:
+            self.language.addItem(title, value)
+        self.language.setCurrentIndex(self.language.findData(settings.value.get('language', 'de')))
+        self.appearance = Dropdown()
+        for title, value in [('Follow system', 'system'), ('Light', 'light'), ('Dark', 'dark')]:
+            self.appearance.addItem(t(title), value)
+        self.appearance.setCurrentIndex(self.appearance.findData(settings.value.get('appearance', 'system')))
+        general, form = self.page()
+        form.addRow(t('Language'), self.language)
+        form.addRow(t('Theme'), self.appearance)
+        self.tabs.addTab(general, t('General'))
+        schedule, form = self.page()
+        self.enabled = QCheckBox(t('Automatic sync'))
+        self.enabled.setChecked(settings.value['scheduled'])
+        form.addRow(self.enabled)
+        self.schedule_mode = Dropdown()
+        self.schedule_mode.addItem(t('At intervals'), 'interval')
+        self.schedule_mode.addItem(t('At fixed times'), 'times')
+        self.schedule_mode.setCurrentIndex(max(0, self.schedule_mode.findData(settings.value.get('schedule_mode', 'interval'))))
+        form.addRow(t('Schedule'), self.schedule_mode)
+        self.hours = Dropdown()
+        for n in (1, 3, 6, 12, 24):
+            self.hours.addItem(t('Every hour') if n == 1 else t('Every {n} hours', n=n), n)
+        self.hours.setCurrentIndex(self.hours.findData(settings.value['interval_hours']))
+        form.addRow(t('Interval'), self.hours)
+        self.times_panel = QWidget()
+        times = QVBoxLayout(self.times_panel)
+        times.setContentsMargins(0, 0, 0, 0)
+        times.setSpacing(7)
+        self.times_empty = label('Add a time for your daily sync.', 'subtitle')
+        times.addWidget(self.times_empty)
+        self.times_list = QListWidget()
+        self.times_list.setAccessibleName(t('Daily sync times'))
+        self.times_list.addItems(settings.value.get('sync_times', []))
+        self.times_list.setStyleSheet('QListWidget::item { padding: 5px 9px; margin: 0; }')
+        times.addWidget(self.times_list)
+        row = QHBoxLayout()
+        self.time_edit = QTimeEdit(QTime(9, 0))
+        self.time_edit.setDisplayFormat('HH:mm')
+        self.time_edit.setAccessibleName(t('Sync time'))
+        row.addWidget(self.time_edit)
+        self.add_time_button = button('Add time', self.add_time)
+        row.addWidget(self.add_time_button)
+        self.update_time_button = button('Update selected time', self.edit_time)
+        row.addWidget(self.update_time_button)
+        times.addLayout(row)
+        self.remove_time_button = button('Remove selected time', self.remove_time)
+        times.addWidget(self.remove_time_button, alignment=Qt.AlignmentFlag.AlignLeft)
+        form.addRow(t('Times'), self.times_panel)
+        self.battery = QCheckBox(t('Pause on battery power'))
+        self.battery.setChecked(settings.value['battery_saver'])
+        form.addRow(self.battery)
+        self.schedule_preview = label('', 'subtitle')
+        form.addRow(self.schedule_preview)
+        form.addRow(label('Schedules use the computer’s local time, including daylight saving changes. The OS decides when missed runs can resume; the computer must be awake, signed in and online.', 'subtitle'))
+        self.tabs.addTab(schedule, t('Schedule'))
+        self.error = label('', 'error')
+        self.error.hide()
+        outer.addWidget(self.error)
+        footer = QHBoxLayout()
+        footer.addWidget(button('Help & about', lambda: HelpDialog(self).exec()))
+        footer.addStretch()
+        self.buttons = save_buttons()
+        self.buttons.button(QDialogButtonBox.StandardButton.Save).setObjectName('primary')
+        self.buttons.accepted.connect(self.save)
+        self.buttons.rejected.connect(self.reject)
+        footer.addWidget(self.buttons)
+        outer.addWidget(label('Changes apply when you save. Appearance is previewed until then.', 'subtitle'))
+        outer.addLayout(footer)
+        self.appearance.currentIndexChanged.connect(self.preview_theme)
+        self.tabs.currentChanged.connect(self.update_schedule_fields)
+        self.enabled.toggled.connect(self.update_schedule_fields)
+        self.schedule_mode.currentIndexChanged.connect(self.update_schedule_fields)
+        self.hours.currentIndexChanged.connect(self.update_schedule_fields)
+        self.times_list.currentRowChanged.connect(self.select_time)
+        self.time_edit.timeChanged.connect(self.update_time_controls)
+        for widget, name in [(self.language, 'Language'), (self.appearance, 'Theme'), (self.hours, 'Interval'), (self.schedule_mode, 'Schedule')]:
+            widget.setAccessibleName(t(name))
+        self.update_schedule_fields()
+
+    def page(self):
         scroll = QScrollArea()
         scroll.setWidgetResizable(True)
         body = QWidget()
-        body.setObjectName("dialogBody")
-        layout = QVBoxLayout(body)
-        layout.setContentsMargins(0, 0, 0, 0)
-        layout.setSpacing(18)
-        self.language = Dropdown()
-        self.language.addItem("Deutsch", "de")
-        self.language.addItem("English", "en")
-        self.language.setCurrentIndex(self.language.findData(settings.value.get("language", "de")))
-        self.appearance = Dropdown()
-        for title, value in [("Follow system", "system"), ("Light", "light"), ("Dark", "dark")]:
-            self.appearance.addItem(t(title), value)
-        self.appearance.setCurrentIndex(self.appearance.findData(settings.value.get("appearance", "system")))
-        self.enabled = QCheckBox(t("Automatic sync"))
-        self.enabled.setChecked(settings.value["scheduled"])
-        self.hours = Dropdown()
-        for n in (1, 3, 6, 12, 24):
-            self.hours.addItem(t("Every hour") if n == 1 else t("Every {n} hours", n=n), n)
-        self.hours.setCurrentIndex(self.hours.findData(settings.value["interval_hours"]))
-        self.battery = QCheckBox(t("Pause on battery power"))
-        self.battery.setChecked(settings.value["battery_saver"])
-        self.enabled.toggled.connect(self.hours.setEnabled)
-        self.enabled.toggled.connect(self.battery.setEnabled)
-        self.hours.setEnabled(self.enabled.isChecked())
-        self.battery.setEnabled(self.enabled.isChecked())
-        for title, rows in [("Appearance", [("Language", self.language), ("Theme", self.appearance)]),
-                            ("Synchronization", [("", self.enabled), ("Interval", self.hours), ("", self.battery)])]:
-            layout.addWidget(label(title, "sectionTitle"))
-            panel = QFrame()
-            panel.setObjectName("surface")
-            form = QFormLayout(panel)
-            form.setContentsMargins(18, 14, 18, 14)
-            form.setVerticalSpacing(14)
-            form.setHorizontalSpacing(24)
-            form.setFieldGrowthPolicy(QFormLayout.FieldGrowthPolicy.AllNonFixedFieldsGrow)
-            for caption, widget in rows:
-                widget.setAccessibleName(t(caption) if caption else widget.text())
-                if caption:
-                    form.addRow(t(caption), widget)
-                else:
-                    form.addRow(widget)
-            layout.addWidget(panel)
-        layout.addWidget(label("Automatic runs continue when this window is closed. Your computer must be awake and signed in.", "subtitle"))
-        layout.addStretch(1)
+        body.setObjectName('dialogBody')
+        form = QFormLayout(body)
+        form.setContentsMargins(0, 12, 0, 4)
+        form.setSpacing(12)
+        form.setFieldGrowthPolicy(QFormLayout.FieldGrowthPolicy.AllNonFixedFieldsGrow)
         scroll.setWidget(body)
-        self.tabs.addTab(scroll, t("General"))
-        self.info = QTextBrowser()
-        self.info.setOpenExternalLinks(True)
-        self.info.setHtml(info_html())
-        self.info.setAccessibleName(t("About & usage"))
-        self.tabs.addTab(self.info, t("Info"))
-        self.error = label("", "error")
-        self.error.hide()
-        outer.addWidget(self.error)
-        buttons = save_buttons()
-        buttons.button(QDialogButtonBox.StandardButton.Save).setObjectName("primary")
-        buttons.accepted.connect(self.save)
-        buttons.rejected.connect(self.reject)
-        outer.addWidget(buttons)
-        self.appearance.currentIndexChanged.connect(self.preview_theme)
+        return scroll, form
+
+    def values(self):
+        return sorted({self.times_list.item(i).text() for i in range(self.times_list.count())})
+
+    def add_time(self):
+        value = self.time_edit.time().toString('HH:mm')
+        values = sorted(set(self.values()) | {value})
+        self.times_list.clear()
+        self.times_list.addItems(values)
+        self.times_list.setCurrentRow(values.index(value))
+        self.update_schedule_fields()
+
+    def select_time(self, row):
+        if row >= 0:
+            self.time_edit.setTime(QTime.fromString(self.times_list.item(row).text(), 'HH:mm'))
+        self.update_time_controls()
+
+    def edit_time(self):
+        row = self.times_list.currentRow()
+        if row < 0:
+            return
+        value = self.time_edit.time()
+        self.times_list.blockSignals(True)
+        self.times_list.takeItem(row)
+        self.times_list.blockSignals(False)
+        self.time_edit.setTime(value)
+        self.add_time()
+
+    def remove_time(self):
+        if self.times_list.currentRow() >= 0:
+            self.times_list.takeItem(self.times_list.currentRow())
+        self.update_schedule_fields()
+
+    def update_time_controls(self, *_):
+        value = self.time_edit.time().toString('HH:mm')
+        selected = self.times_list.currentRow() >= 0
+        self.add_time_button.setEnabled(value not in self.values())
+        self.update_time_button.setEnabled(selected and value not in self.values())
+        self.remove_time_button.setEnabled(selected)
+
+    def update_schedule_fields(self, *_):
+        from .presentation import schedule_expectation
+        fixed = self.schedule_mode.currentData() == 'times'
+        enabled = self.enabled.isChecked()
+        self.schedule_mode.setEnabled(enabled)
+        self.hours.setEnabled(enabled)
+        self.battery.setEnabled(enabled)
+        self.times_panel.setEnabled(enabled)
+        for widget, visible in [(self.hours, not fixed), (self.times_panel, fixed)]:
+            widget.setVisible(visible)
+            form = widget.parentWidget().layout()
+            if form.labelForField(widget):
+                form.labelForField(widget).setVisible(visible)
+        count = self.times_list.count()
+        self.times_empty.setVisible(not count)
+        self.times_list.setVisible(bool(count))
+        self.times_list.setFixedHeight(min(110, 12 + count * 31))
+        self.update_time_controls()
+        draft = {**self.settings.value, 'scheduled': enabled, 'schedule_mode': self.schedule_mode.currentData(),
+                 'sync_times': self.values(), 'interval_hours': self.hours.currentData()}
+        self.schedule_preview.setText(schedule_expectation(draft, {}) if not enabled or not fixed or count else t('Add at least one valid time (HH:MM).'))
+        self.resize(self.width(), 350 if self.tabs.currentIndex() == 0 else 590 if fixed else 460)
 
     def preview_theme(self):
         app = QApplication.instance()
-        if hasattr(app, "theme"):
+        if hasattr(app, 'theme'):
             app.theme.set_mode(self.appearance.currentData())
 
     def reject(self):
         app = QApplication.instance()
-        if hasattr(app, "theme"):
-            app.theme.set_mode(self.settings.value.get("appearance", "system"))
+        if hasattr(app, 'theme'):
+            app.theme.set_mode(self.settings.value.get('appearance', 'system'))
         super().reject()
 
     def save(self):
-        previous = dict(self.settings.value)
+        from .policy import normalize_times
+        from .settings_service import apply_settings, ScheduleRestoreError
+        times = self.values()
+        mode = self.schedule_mode.currentData()
         try:
-            self.settings.value.update(interval_hours=self.hours.currentData(), battery_saver=self.battery.isChecked(),
-                                       language=self.language.currentData(), appearance=self.appearance.currentData())
-            self.settings.save()
-            if self.enabled.isChecked() and (not previous["scheduled"] or self.hours.currentData() != previous["interval_hours"]):
-                install(self.hours.currentData())
-            elif not self.enabled.isChecked() and previous["scheduled"]:
-                uninstall()
-            self.settings.value["scheduled"] = self.enabled.isChecked()
-            self.settings.save()
+            if self.enabled.isChecked() and mode == 'times':
+                times = normalize_times(times)
+            candidate = {**self.settings.value, 'interval_hours': self.hours.currentData(), 'battery_saver': self.battery.isChecked(),
+                         'language': self.language.currentData(), 'appearance': self.appearance.currentData(),
+                         'schedule_mode': mode, 'sync_times': times, 'scheduled': self.enabled.isChecked()}
+            apply_settings(self.settings, candidate, install=install, uninstall=uninstall)
             self.accept()
-        except Exception:
-            self.settings.value = previous
-            self.settings.save()
-            self.error.setText(t("The OS scheduler could not be updated. On Linux, a systemd user session is required."))
+        except ValueError as exc:
+            self.error.setText(message(str(exc)))
             self.error.show()
+            self.tabs.setCurrentIndex(1)
+            self.time_edit.setFocus()
+        except ScheduleRestoreError as exc:
+            self.error.setText(message(str(exc)))
+            self.error.show()
+            self.tabs.setCurrentIndex(1)
+        except Exception:
+            self.error.setText(t('The OS scheduler could not be updated. On Linux, a systemd user session is required.'))
+            self.error.show()
+            self.tabs.setCurrentIndex(1)
+
+
+class HelpDialog(QDialog):
+    def __init__(self, parent=None):
+        super().__init__(parent)
+        self.setWindowTitle(t('Help & about'))
+        self.resize(670, 550)
+        self.setMinimumSize(480, 370)
+        layout = QVBoxLayout(self)
+        layout.setContentsMargins(24, 22, 24, 20)
+        layout.addWidget(label('Help & about', 'title'))
+        layout.addWidget(label('IliasSync ' + __version__ + ' · GPL-3.0-or-later', 'subtitle'))
+        from .info import info_sections, info_links
+        self.topics_data = info_sections()
+        split = QSplitter()
+        self.topics = QListWidget()
+        self.topics.setAccessibleName(t('Help topics'))
+        self.topics.setMaximumWidth(210)
+        self.topics.addItems([title for title, _ in self.topics_data] + [t('Project & references')])
+        split.addWidget(self.topics)
+        self.info = QTextBrowser()
+        self.info.setOpenExternalLinks(True)
+        self.info.setAccessibleName(t('About & usage'))
+        split.addWidget(self.info)
+        split.setSizes([180, 440])
+        layout.addWidget(split, 1)
+        def show_topic(index):
+            if index < len(self.topics_data):
+                title, body = self.topics_data[index]
+                self.info.setHtml('<h3>' + escape(title) + '</h3><p>' + escape(body) + '</p>')
+            else:
+                self.info.setHtml(info_links())
+            self.info.setAccessibleDescription(self.info.toPlainText())
+        self.topics.currentRowChanged.connect(show_topic)
+        self.topics.setCurrentRow(0)
+        layout.addWidget(button('Close', self.accept), alignment=Qt.AlignmentFlag.AlignRight)
 
 
 class MainWindow(QMainWindow):
