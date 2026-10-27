@@ -240,6 +240,8 @@ DE.update({
  'Start a sync to check the current courses and destinations.':'Starte eine Synchronisierung, um die aktuellen Kurse und Zielordner zu prüfen.',
  'Credential storage failed. Check the saved sign-in details before syncing again.':'Die Zugangsdaten konnten nicht sicher gespeichert werden. Prüfe die gespeicherte Anmeldung vor dem nächsten Sync.',
  'The previous system schedule could not be restored. Reapply the schedule before relying on automatic sync.':'Der bisherige Systemzeitplan konnte nicht wiederhergestellt werden. Speichere den Zeitplan erneut, bevor du dich auf automatische Läufe verlässt.',
+ 'The previous settings could not be restored. Check settings and reapply the schedule before relying on automatic sync.':'Die bisherigen Einstellungen konnten nicht wiederhergestellt werden. Prüfe die Einstellungen und speichere den Zeitplan erneut, bevor du dich auf automatische Läufe verlässt.',
+ 'No per-file counts recorded in this older result.':'In diesem älteren Ergebnis wurden keine einzelnen Dateizahlen erfasst.',
  'No new materials in this run.':'Keine neuen Materialien in diesem Lauf.',
  'Choose a different destination…':'Zielordner ändern …',
  'Update selected time':'Zeit ändern', 'Remove selected time':'Zeit entfernen',
@@ -254,6 +256,13 @@ DE.update({
  'Material files processed: {count}':'In diesem Lauf bestätigt: {count} Materialdateien',
  'Courses included in this check':'In dieser Prüfung enthaltene Kurse',
 })
+
+DE.update({
+ 'This time is already scheduled':'Diese Uhrzeit ist bereits eingeplant', 'Add a daily sync time':'Eine tägliche Sync-Uhrzeit hinzufügen',
+ 'The previous profile or sign-in could not be fully restored. Check university settings and sign-in before syncing again.':'Die bisherigen Hochschul- oder Anmeldedaten konnten nicht vollständig wiederhergestellt werden. Prüfe beides vor dem nächsten Sync.',
+})
+
+DE.update({'Change time':'Zeit ändern','Remove time':'Zeit entfernen'})
 
 def set_language(language):
     global LANGUAGE

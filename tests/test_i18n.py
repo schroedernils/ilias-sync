@@ -6,6 +6,7 @@ def test_course_names_and_file_names_are_not_interpreted_as_format_strings():
     set_language("de")
     assert message("Checking Mathe {A}") == "Prüfe Mathe {A}"
     assert message("Added: Set {a,b}.pdf") == "Neu: Set {a,b}.pdf"
+    assert message("Downloading Set {a,b}.pdf") == "Lade Set {a,b}.pdf herunter"
     assert t("Prüfe {A}") == "Prüfe {A}"
 
 

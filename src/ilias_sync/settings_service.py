@@ -7,7 +7,9 @@ class ScheduleRestoreError(RuntimeError):
 
 
 def apply_settings(settings, candidate, *, install, uninstall):
+    from .storage import atomic_write
     previous = deepcopy(settings.value)
+    previous_config = settings.path.read_bytes() if settings.path.exists() else None
     def schedule(value):
         if value['scheduled']:
             install(value['interval_hours'], times=value.get('sync_times', []) if value.get('schedule_mode') == 'times' else None)
@@ -27,10 +29,19 @@ def apply_settings(settings, candidate, *, install, uninstall):
             schedule(candidate)
     except Exception:
         settings.value = previous
-        settings.save()
+        restore_failed = False
+        try:
+            if previous_config is None:
+                settings.path.unlink(missing_ok=True)
+            elif not settings.path.exists() or settings.path.read_bytes() != previous_config:
+                atomic_write(settings.path, previous_config)
+        except Exception:
+            restore_failed = True
         if native_attempted:
             try:
                 schedule(previous)
             except Exception:
                 raise ScheduleRestoreError('The previous system schedule could not be restored. Reapply the schedule before relying on automatic sync.') from None
+        if restore_failed:
+            raise ScheduleRestoreError('The previous settings could not be restored. Check settings and reapply the schedule before relying on automatic sync.') from None
         raise
