@@ -42,6 +42,8 @@ def notices():
 
 
 def main():
+    from build_qt_compat import build
+    build()
     notice_dir = notices()
     icons = ROOT / "src/ilias_sync/assets/icons"
     native_icon = (icons / "macOS/IliasSync.icns" if sys.platform == "darwin"

@@ -156,6 +156,8 @@ def _isolated_self_test():
             from .gui import MainWindow
             from .branding import app_icon
             app = QApplication.instance() or QApplication([])
+            from .native_compat import protect_accessibility
+            protect_accessibility(app)
             icon = app_icon()
             assert not icon.isNull(), "Packaged application icon is missing"
             assert not icon.pixmap(32, 32).isNull(), "Packaged icon cannot be decoded"

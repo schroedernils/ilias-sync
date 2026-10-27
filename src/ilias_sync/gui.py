@@ -2109,6 +2109,8 @@ def run(args):
         import ctypes
         ctypes.windll.shell32.SetCurrentProcessExplicitAppUserModelID("org.iliassync.desktop")
     application = QApplication(sys.argv[:1])
+    from .native_compat import protect_accessibility
+    protect_accessibility(application)
     application.setFont(QFontDatabase.systemFont(QFontDatabase.SystemFont.GeneralFont))
     application.setApplicationName("IliasSync")
     application.setOrganizationName("IliasSync")

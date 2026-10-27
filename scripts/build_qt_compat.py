@@ -1,0 +1,21 @@
+"""Compile the pinned Qt 6.10 Cocoa ownership compatibility layer on macOS."""
+from pathlib import Path
+import subprocess
+import sys
+
+
+def build():
+    if sys.platform != 'darwin':
+        return
+    root = Path(__file__).resolve().parents[1]
+    output = root / 'src/ilias_sync/assets/native/libilias_qt_accessibility.dylib'
+    output.parent.mkdir(parents=True, exist_ok=True)
+    subprocess.run(['xcrun', 'clang++', '-dynamiclib', '-std=c++17', '-fno-objc-arc',
+                    '-mmacosx-version-min=13.0', '-framework', 'Foundation',
+                    '-o', str(output), str(root / 'src/ilias_sync/native/qt_accessibility.mm')], check=True)
+    subprocess.run(['codesign', '--force', '--sign', '-', str(output)], check=True)
+    return output
+
+
+if __name__ == '__main__':
+    print(build())

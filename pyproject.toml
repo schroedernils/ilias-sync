@@ -25,7 +25,7 @@ ilias-sync = "ilias_sync.__main__:main"
 where = ["src"]
 
 [tool.setuptools.package-data]
-ilias_sync = ["assets/icons/**/*"]
+ilias_sync = ["assets/icons/**/*", "assets/native/*", "native/*.mm"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]

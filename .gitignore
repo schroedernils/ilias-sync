@@ -9,3 +9,4 @@ dist/
 .local/
 *.spec
 .DS_Store
+src/ilias_sync/assets/native/*.dylib
