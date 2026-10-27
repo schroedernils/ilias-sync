@@ -1,6 +1,6 @@
 # Nutzung, Kompatibilität und verwandte Projekte
 
-Stand: 22. Oktober 2026. Dies sind Produktinformationen und Quellen zur Einordnung,
+Stand: 27. Oktober 2026. Dies sind Produktinformationen und Quellen zur Einordnung,
 keine Zusage, dass eine bestimmte Nutzung rechtlich erlaubt ist.
 
 ## Was vor dem ersten Lauf wichtig ist
@@ -21,14 +21,25 @@ zu automatisierten Zugriffen; pausiere den Lauf bei Problemen oder Rückfragen.
 
 ## Serverlast und Energie
 
-Der Adapter verwendet **einen PFERD-Arbeitsslot** und **eine Sekunde Abstand
-zwischen Aufgabenstarts** (`tasks=1`, `task_delay=1`). Das ist kein hartes
-HTTP-Anfragelimit: Eine Aufgabe kann mehrere Requests auslösen. Es wird kein
-Leistungsvorteil durch hundert parallele Downloads versprochen.
+Der Adapter verwendet **acht PFERD-Arbeitsslots** ohne zusätzliche Wartezeit
+zwischen Aufgaben (`tasks=8`, `task_delay=0`). Inhalte innerhalb eines Kurses
+werden parallel geprüft; Kurse werden weiterhin nacheinander verarbeitet.
+Ein lokaler Inhaltsindex prüft bekannte Seiten bei jedem Lauf frisch mit bis zu
+64 parallelen Seitenabrufen. Kurssuche und Verarbeitung laufen dabei überlappend.
+Unveränderte Parserergebnisse werden wiederverwendet,
+doppelte Abrufe zusammengefasst und bestätigte Objektrouten direkt aufgerufen.
+Bei unterstützten Kursübersichten reichen die aktuellen Materialzähler aus,
+um bereits leer bestätigte Termine auf neue Materialien zu prüfen. Unbekannte
+Termine und unbekannte Darstellungen werden regulär geprüft.
+Die Kurssuche, Dateiprüfung und sichere lokale Veröffentlichung bleiben erhalten.
+Erste Läufe und neue Ordner benötigen mehr Arbeit als unveränderte Folgeläufe;
+Downloads hängen zusätzlich von Größe und Verbindung ab. [Messung](SYNC_PERFORMANCE.md).
 
-Automatische Läufe sind frühestens stündlich möglich, standardmäßig alle sechs
-Stunden. Im Akkubetrieb werden sie standardmäßig verschoben. Nach Fehlern steigt
-der Abstand bis zum nächsten geplanten Versuch. Der Prozess beendet sich nach
+Automatische Läufe können stündlich oder in größeren Intervallen sowie zu mehreren
+festen täglichen Uhrzeiten stattfinden, standardmäßig alle sechs Stunden.
+Im Akkubetrieb werden sie standardmäßig verschoben. Nach Fehlern steigt bei
+Intervallplänen der Abstand bis zum nächsten Versuch; feste Uhrzeiten bleiben bestehen.
+Der Prozess beendet sich nach
 dem Lauf; es gibt keinen ständig aktiven Sync-Daemon. Die geöffnete Oberfläche
 fragt Fortschritt nur während eines aktiven Laufs ab. Eine gemessene
 Stromverbrauchs- oder universelle Serververträglichkeitsgarantie ist das nicht.
@@ -51,6 +62,55 @@ Kurse, Unterordner und einzelne Dateien lassen sich eigenen Zielen zuordnen.
 Semesterbezeichnungen werden nicht aus beliebigen Kursnamen erraten. Lokale
 Versionen ersetzen keinen vollständigen Backup- und Wiederherstellungstest.
 Die App bestätigt keine Cloud-Uploads; dafür ist dein Cloud-Client zuständig.
+
+## Ordnernamen, Dateiliste und feste Uhrzeiten
+
+Unter **Ordner zuordnen** lassen sich Kurs- und Unterordnernamen bearbeiten. Technische
+Kurs-IDs sind standardmäßig ausgeblendet und können dort eingeschaltet werden.
+Bei bestehenden verwalteten Ordnern gilt der neue Name ab dem nächsten Sync. Ordner
+werden mit ihren lokalen Inhalten umbenannt; bestehende fremde Zielordner werden nicht
+zusammengeführt oder überschrieben. Geänderte Zielorte behalten weiterhin ihre bisherigen Kopien.
+
+Die Ordneraktionen stehen rechts neben **Kurse auswählen**. Das Filtersymbol neben
+**Datei** blendet Kurs-, Dateityp- und Größenfilter unter der gemeinsamen Suche ein. Klicks auf **Datei**
+oder **Größe** wechseln die auf- und absteigende Sortierung; Größen werden numerisch verglichen.
+
+Die Hauptansicht zeigt die Materialien mit Dateinamen und darunter ihrem Kurs-/Ordnerkontext.
+Die Suche lässt sich auch mit Cmd+F bzw. Strg+F fokussieren. Doppelklick, Enter oder **Öffnen**
+öffnet eine ausgewählte Datei. Im Kontextmenü lässt sich der zugehörige Ordner öffnen.
+**Zuletzt geändert** zeigt neu hinzugefügte oder aktualisierte Dateien in zeitlicher Reihenfolge.
+Änderungszeiten werden erst ab dieser Version erfasst; bestehende Dateien erhalten keine erfundenen Zeitstempel.
+Kursbeschreibungen und Links stehen separat unter **Kursinformationen**, **Alle Dateien** zeigt beides.
+
+Der Status unterscheidet vollständige Prüfungen, nicht verfügbare Downloads, geschützte lokale Änderungen
+und Fehler. **Sync-Bericht** erklärt das Ergebnis und ausgeschlossene Inhalte wie Foren und Tests getrennt.
+Der Bericht enthält die letzten 20 Versuche und trennt betroffene Dateien, ausgeschlossene Inhalte
+und technischen Verlauf in Tabs. Ein unbekannter Grund wird nicht als fehlende Berechtigung ausgegeben.
+**Anmeldung prüfen** öffnet bei abgelaufener
+Anmeldung direkt den passenden Einrichtungsschritt; **Erneut versuchen** startet einen neuen Lauf.
+
+Unter **Einstellungen → Zeitplan** kann statt eines Intervalls **Zu festen Uhrzeiten**
+gewählt werden. Mehrere tägliche Uhrzeiten werden in der lokalen Zeitzone gespeichert.
+Computer und Benutzer müssen wie bisher für den Lauf verfügbar sein. Fehlende Anmeldung
+und der gewählte Akkuschutz gelten auch für feste Uhrzeiten. Zeitpläne werden erst beim
+Speichern der Einstellungen im Betriebssystem eingerichtet.
+
+Ein ausgewählter Zeitpunkt lässt sich ändern oder entfernen; doppelte Uhrzeiten werden verhindert.
+Die Vorschau zeigt den nächsten geplanten Termin, keine Ausführungsgarantie bei Schlaf, fehlendem Netz
+oder gesperrter Anmeldung. Allgemeine Einstellungen und Zeitplan bleiben bis **Speichern** Entwürfe;
+**Abbrechen** verwirft auch eine Vorschau des Erscheinungsbilds. **Hilfe & Info** ist ein eigener Lesedialog.
+
+Die letzte Prüfung gilt für die damaligen Kurse und Speicherziele. Nach einer Änderung dieser Auswahl
+fordert die Hauptansicht eine neue Prüfung an. Ein umbenannter Hochschultitel allein macht das Ergebnis
+nicht ungültig. Ältere Ergebnisse ohne erfassten Geltungsbereich erhalten keine aktuelle Erfolgsaussage.
+Ein fehlgeschlagener Versuch übernimmt niemals die Dateizahlen eines früheren erfolgreichen Laufs.
+
+Im Ordnerdialog zeigt die rechte Seite das wirksame Ziel samt Vererbung für das ausgewählte Element.
+**Übergeordnetes Ziel verwenden** entfernt nur dessen eigene Zielregel. **Originalnamen verwenden**
+setzt die Namensanpassung zurück. Ein neuer expliziter Zielort bedeutet neue Kopien beim nächsten Sync;
+lokale Inhalte am bisherigen Ort bleiben erhalten. Erkannte Namenskollisionen verhindern das Speichern.
+Bestehende Hochschulen werden direkt über Tabs bearbeitet; manuelle Kurs-/Ordnerlinks bleiben beim
+erneuten Speichern der Kursauswahl erhalten, bis sie ausdrücklich abgewählt werden.
 
 ## Was wir aus anderen Projekten lernen
 

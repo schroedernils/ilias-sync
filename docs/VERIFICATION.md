@@ -12,3 +12,40 @@ No university credentials, cookies, personal data or course PDFs are permitted i
 
 
 Alpha 2 was additionally checked with a built macOS review bundle and synthetic state: native folder picker selected a temporary destination and the saved rule was verified in the isolated profile; the folder tree expanded to a single file; an independent synthetic active worker was paused, resumed and stopped through the GUI and exited. Light/dark settings were changed live. Read-only discovery against the already configured Stuttgart account returned ten entries (seven courses and three groups); the original six visible rows were not the whole list. No account-bearing page or extracted reference resource is in Git. A successful discovery still does not prove complete file coverage.
+
+## Workflow redesign — local evidence, 27 October 2026
+
+The local macOS arm64 source passed **156 tests**, Ruff and whitespace checks. The synthetic Qt renderer produced
+**53 states** across light/dark, German/English, compact windows and enlarged text. This is implementation and rendered
+UI evidence, not a usability study or screen-reader certification. A temporary 5,000-file collection on this Mac took
+0.31 seconds to construct and first paint, and 0.017 seconds to search (single local measurement, not a platform SLA).
+Its idle progress timer remained stopped. No live crawl was started merely to validate the redesign.
+
+| Requested workflow | Direct evidence |
+| --- | --- |
+| Add a university | Synthetic three-step setup saves a complete profile with a mocked vault |
+| Edit without losing configuration | Direct-tab save preserves routing, manual links, enabled state and naming policy |
+| Select/manage courses | Retains non-discovered manual targets until explicitly unchecked |
+| Choose nested destination | Preview is checked against the same canonical routing function used by sync |
+| Inheritance/overrides | Parent propagation, selected override reset, name reset, cancellation and collision rejection |
+| Interval scheduling | Existing native-command tests plus settings draft/save/rollback tests |
+| Add/edit/remove fixed times | Selection, duplicate prevention, editing, removal and Cancel tested; DST preview checked |
+| Search/filter | Shared search, combined predicates, count consistency and refreshed course/type choices |
+| Find/open updated material | Recent ordering, actual Enter-to-open dispatch and missing-file recovery |
+| Interpret success | Last-attempt and applicable-last-success semantics, configuration scope and neutral legacy state |
+| Unavailable material | Warning separate from errors/exclusions; no unverified cause or automatic destructive removal |
+| Detailed report | Structured issues/exclusions/activity and bounded 20-attempt history |
+| Failure/interruption recovery | No reused old result, preserved archive tests, independent rollback after injected failures |
+| Keyboard | Main shortcuts, actual sort-header clicks, table Tab exit and selectable full paths |
+| Resize/long content | Compact/enlarged-text renders, control-bound checks and a long unbroken source title |
+
+A native Cocoa accessibility read exposed a Qt crash that the offscreen tests did not catch. The local compatibility
+layer has a deterministic native A/B regression: uncorrected placeholder destruction invalidates the table interface;
+25 corrected destructions preserve it. See [the bounded workaround](QT-COCOA-COMPAT.md). The final installed-dialog
+recheck is pending while the Mac is locked; the native ownership regression is not a substitute for that interaction check.
+
+The packaged macOS runtime passed its offline self-test and strict code-signature verification. Signing is ad hoc,
+not notarization. Windows/Linux native installation and spoken screen-reader behavior have not been verified in this pass.
+The existing account configuration and 66 published files were snapshotted locally before installing. After the package
+replacement, all 66 files matched their recorded SHA-256 hashes and settings were byte-identical. Native scheduling was generated/tested with fixtures; no example daily
+schedule was activated on the real account.

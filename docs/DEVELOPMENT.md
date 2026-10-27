@@ -9,6 +9,7 @@ source .venv/bin/activate
 python -m pip install -e '.[dev]'
 pytest
 ruff check .
+python scripts/build_qt_compat.py  # macOS: Cocoa ownership compatibility; other systems: no-op
 python -m ilias_sync
 ```
 
@@ -23,6 +24,7 @@ synthetische Kurse und keine echten Zugangsdaten in Tests, Screenshots oder CI.
 | `python -m ilias_sync --discover --profile <UUID>` | Beigetretene Kurse lesen |
 | `python scripts/build.py` | Natives Paket mit Lizenztexten und Prüfsumme bauen |
 | `python scripts/capture_product.py` | Reproduzierbare Qt-Screenshots mit synthetischen Beispielen |
+| `python scripts/review_interface.py` | Helle/dunkle UX-Zustände inklusive Fehler, Pause, Erststart und kompakter Fenster; Ausgabe unter `.local/redesign-review` |
 
 CLI-Ereignisse sind JSON Lines. Die GUI nutzt eine private Ereignisdatei, auch
 unter Windows mit dessen windowed Bootloader. Hintergrundläufe importieren kein Qt.
