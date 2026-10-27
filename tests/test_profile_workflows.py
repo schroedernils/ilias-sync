@@ -137,3 +137,22 @@ def test_cookie_draft_failure_keeps_original_session_and_settings(source, tmp_pa
         commit_profile(settings, source, session=str(tmp_path/'test.txt'), store=Mock(), import_cookies=invalid_import)
     assert settings.path.read_bytes() == previous
     assert cookies.read_bytes() == b'old-session-test-only'
+
+
+def test_rollback_continues_when_config_restore_itself_fails(source):
+    from ilias_sync.profile_service import commit_profile
+    settings=Settings()
+    settings.save_source(source)
+    source.username='new-user'
+    backend=Mock()
+    backend.get_password.return_value='old-secret'
+    state={'password':'old-secret'}
+    def store(_,secret):
+        state['password']=secret
+        if secret=='new-secret':
+            raise OSError('injected after vault mutation')
+    with patch('ilias_sync.profile_service.atomic_write',side_effect=OSError('injected config rollback failure')), patch('ilias_sync.security.vault',return_value=backend):
+        with pytest.raises(RuntimeError,match='fully restored'):
+            commit_profile(settings,source,password='new-secret',store=store,import_cookies=Mock())
+    assert state['password']=='old-secret'
+    assert settings.value['sources'][0]['username']=='test-user'
