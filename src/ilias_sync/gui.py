@@ -3,6 +3,7 @@ from __future__ import annotations
 
 import json
 import sys
+from dataclasses import replace
 from pathlib import Path
 from uuid import uuid4
 
@@ -615,26 +616,57 @@ class FolderMappingDialog(QDialog):
         self.source = source
         self.settings = settings
         self.rules = dict(source.folder_rules)
+        self.names = dict(source.folder_names)
+        self.name_errors = {}
+        self.name_drafts = {}
         self.setWindowTitle(t("Folder mapping"))
-        self.resize(880, 620)
-        self.setMinimumSize(720, 520)
+        self.resize(940, 640)
+        self.setMinimumSize(720, 500)
         layout = QVBoxLayout(self)
         layout.setContentsMargins(24, 22, 24, 20)
         layout.setSpacing(12)
-        layout.addWidget(label("Folder mapping", "title"))
-        layout.addWidget(label("Choose destinations for courses, folders or individual files.", "subtitle"))
-        search = QLineEdit()
-        search.setPlaceholderText(t("Search courses and files…"))
-        layout.addWidget(search)
+        layout.addWidget(label('Organize course folders', 'title'))
+        layout.addWidget(label('Select a course, folder or file to see where it will be saved.', 'subtitle'))
+        split = QSplitter()
+        split.setChildrenCollapsible(False)
+        left = QWidget()
+        left_layout = QVBoxLayout(left)
+        left_layout.setContentsMargins(0, 0, 12, 0)
+        self.search = QLineEdit()
+        self.search.setPlaceholderText(t('Search courses and files…'))
+        self.search.setClearButtonEnabled(True)
+        self.search.setAccessibleName(t('Search courses and files…'))
+        left_layout.addWidget(self.search)
+        tree_actions = QHBoxLayout()
+        tree_actions.addWidget(button('Expand all', lambda: self.tree.expandAll()))
+        tree_actions.addWidget(button('Collapse all', lambda: self.tree.collapseAll()))
+        left_layout.addLayout(tree_actions)
         self.tree = QTreeWidget()
-        self.tree.setHeaderLabels([t("Course / content"), t("Download folder")])
-        self.tree.setColumnWidth(0, 400)
-        self.tree.setAccessibleName(t("Course folder assignments"))
-        self.tree.setVerticalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOn)
-        layout.addWidget(self.tree, 1)
+        self.tree.setColumnCount(3)
+        self.tree.setHeaderLabels([t('Course / content'), t('Folder name'), t('Download folder')])
+        self.tree.setColumnHidden(1, True)
+        self.tree.setColumnHidden(2, True)
+        self.tree.header().hide()
+        self.tree.setAccessibleName(t('Course folder assignments'))
+        left_layout.addWidget(self.tree, 1)
+        split.addWidget(left)
+        editor = QScrollArea()
+        editor.setWidgetResizable(True)
+        body = QWidget()
+        self.editor_layout = QVBoxLayout(body)
+        self.editor_layout.setContentsMargins(16, 0, 0, 0)
+        self.editor_layout.setSpacing(10)
+        editor.setWidget(body)
+        split.addWidget(editor)
+        split.setSizes([380, 490])
+        layout.addWidget(split, 1)
+        self.show_ids = QCheckBox(t('Show course IDs in folder names'))
+        self.show_ids.setChecked(source.include_course_ids)
         state = data_dir() / 'sources' / source.id
         courses = read_json(state / 'courses.json', [])
         entries = read_json(state / 'manifest.json', {'files':{}})['files']
+        self.entries = entries
+        self.courses = courses
         course_rows = {}
         nodes = {}
         for course in courses:
@@ -671,21 +703,39 @@ class FolderMappingDialog(QDialog):
         self.tree.expandToDepth(0)
         self.update_targets()
         self.tree.currentItemChanged.connect(self.selected)
-        self.selected_label = label("Select a course or file.", "subtitle")
-        layout.addWidget(self.selected_label)
-        row = QHBoxLayout()
+        self.selected_label = label('Select a course or file.', 'sectionTitle')
+        self.editor_layout.addWidget(self.selected_label)
+        self.mapping_state = label('', 'subtitle')
+        self.editor_layout.addWidget(self.mapping_state)
+        self.editor_layout.addWidget(label('Folder name', 'eyebrow'))
+        self.folder_name = QLineEdit()
+        self.folder_name.setMaxLength(80)
+        self.folder_name.setAccessibleName(t('Folder name'))
+        self.folder_name.setEnabled(False)
+        self.folder_name.textEdited.connect(self.rename_selected)
+        self.editor_layout.addWidget(self.folder_name)
+        self.reset_name_button = button('Use original name', self.reset_name)
+        self.editor_layout.addWidget(self.reset_name_button, alignment=Qt.AlignmentFlag.AlignLeft)
+        self.editor_layout.addSpacing(8)
+        self.editor_layout.addWidget(label('Effective destination after the next sync', 'eyebrow'))
         self.target = QLineEdit()
-        self.target.setPlaceholderText(t("Inherit parent destination"))
         self.target.setReadOnly(True)
-        row.addWidget(self.target, 1)
-        self.choose_button = button("Choose folder…", self.choose)
-        self.reset_button = button("Reset", self.reset_rule)
-        row.addWidget(self.choose_button)
-        row.addWidget(self.reset_button)
-        layout.addLayout(row)
-        layout.addWidget(label("Changes apply on the next sync. Existing copies at previous destinations are kept.", "subtitle"))
+        self.target.setAccessibleName(t('Effective destination after the next sync'))
+        self.target.hide()
+        self.effective_path = label('', 'pathPreview')
+        self.effective_path.setTextInteractionFlags(Qt.TextInteractionFlag.TextSelectableByMouse | Qt.TextInteractionFlag.TextSelectableByKeyboard)
+        self.editor_layout.addWidget(self.effective_path)
+        self.choose_button = button('Choose a different destination…', self.choose)
+        self.reset_button = button('Use parent destination', self.reset_rule)
+        self.editor_layout.addWidget(self.choose_button)
+        self.editor_layout.addWidget(self.reset_button)
+        self.mapping_effect = label('', 'subtitle')
+        self.editor_layout.addWidget(self.mapping_effect)
+        self.editor_layout.addStretch()
+        layout.addWidget(self.show_ids)
         if not entries:
-            layout.addWidget(label("Course contents appear after the first sync.", "subtitle"))
+            self.editor_layout.addWidget(label('Course contents appear after the first sync.', 'subtitle'))
+        layout.addWidget(label('Destination changes create new copies at the next sync. Existing copies are kept. Name changes rename the managed folder and its local contents.', 'subtitle'))
         self.error = label("", "error")
         self.error.hide()
         layout.addWidget(self.error)
@@ -695,41 +745,129 @@ class FolderMappingDialog(QDialog):
         layout.addWidget(buttons)
         self.choose_button.setEnabled(False)
         self.reset_button.setEnabled(False)
+        self.show_ids.toggled.connect(self.update_targets)
 
         def filter_tree(text):
-            def visit(item):
-                children = [visit(item.child(i)) for i in range(item.childCount())]
-                visible = text.casefold() in item.text(0).casefold() or any(children)
+            def visit(item, parent_matches=False):
+                matched = parent_matches or text.casefold() in item.text(0).casefold()
+                children = [visit(item.child(i), matched) for i in range(item.childCount())]
+                visible = matched or any(children)
                 item.setHidden(not visible)
                 if text and visible:
                     item.setExpanded(True)
                 return visible
             for i in range(self.tree.topLevelItemCount()):
                 visit(self.tree.topLevelItem(i))
-        search.textChanged.connect(filter_tree)
+        self.search.textChanged.connect(filter_tree)
+        if self.tree.topLevelItemCount():
+            self.tree.setCurrentItem(self.tree.topLevelItem(0))
 
-    def update_targets(self):
+    def update_targets(self, *_):
+        from .naming import course_folders
+        preview = replace(self.source, folder_names=self.names, include_course_ids=self.show_ids.isChecked())
+        courses = []
+        for i in range(self.tree.topLevelItemCount()):
+            item = self.tree.topLevelItem(i)
+            courses.append({'id': item.data(0, Qt.ItemDataRole.UserRole)[7:], 'name': item.text(0)})
+        folder_names = course_folders(preview, courses)
         def visit(item):
             key = item.data(0, Qt.ItemDataRole.UserRole)
-            item.setText(1, self.rules.get(key, t("Inherited")))
-            item.setToolTip(1, self.rules.get(key, self.source.destination))
+            folder = folder_names.get(key[7:], '') if key.startswith('course/') else self.names.get(key, item.text(0))
+            item.setText(1, Path(self.rules[key]).name if key in self.rules and not key.startswith('file/') else folder)
+            item.setText(2, self.rules.get(key, t("Inherited")))
+            item.setToolTip(2, self.rules.get(key, self.source.destination))
+            item.setToolTip(0, item.text(0))
             for i in range(item.childCount()):
                 visit(item.child(i))
         for i in range(self.tree.topLevelItemCount()):
             visit(self.tree.topLevelItem(i))
+        self.courses = courses
+        if hasattr(self, 'target') and self.tree.currentItem():
+            self.show_effective_destination(self.tree.currentItem())
+
+    def show_effective_destination(self, item):
+        from .routing import mapping_preview
+        key = item.data(0, Qt.ItemDataRole.UserRole)
+        preview = replace(self.source, folder_rules=self.rules, folder_names=self.names,
+                          include_course_ids=self.show_ids.isChecked())
+        try:
+            path, origin = mapping_preview(preview, self.courses, key, self.entries)
+        except (KeyError, ValueError):
+            self.effective_path.setText(t('The destination will be available after the next sync.'))
+            return
+        self.target.setText(str(path))
+        self.target.setToolTip(str(path))
+        self.effective_path.setText(str(path))
+        custom = key in self.rules
+        self.mapping_state.setText(t('Custom destination for this item') if custom else
+                                   t('Uses the parent destination') if origin else t('Uses the university download folder'))
+        self.reset_button.setEnabled(custom)
+        self.reset_name_button.setEnabled(key in self.names)
+        if custom and not key.startswith('file/'):
+            self.reset_name_button.setEnabled(self.rules[key] != self.source.folder_rules.get(key))
+            self.reset_name_button.setText(t('Restore saved destination'))
+            self.mapping_effect.setText(t('Changing this name changes the custom destination. A new copy will be saved; existing files stay in the previous folder.'))
+        else:
+            self.reset_name_button.setText(t('Use original name'))
+            self.mapping_effect.setText(t('Subfolders follow this destination unless they have their own destination.')
+                                       if not key.startswith('file/') else t('Only this file is affected. Its filename stays unchanged.'))
 
     def selected(self, item, previous=None):
         self.choose_button.setEnabled(item is not None)
         self.reset_button.setEnabled(item is not None)
+        self.folder_name.setEnabled(item is not None and not item.data(0, Qt.ItemDataRole.UserRole).startswith('file/'))
         if item:
-            self.selected_label.setText(item.text(0))
-            self.target.setText(self.rules.get(item.data(0, Qt.ItemDataRole.UserRole), ''))
+            ancestors = []
+            current = item
+            while current:
+                ancestors.insert(0, current.text(0))
+                current = current.parent()
+            self.selected_label.setText(' / '.join(ancestors))
+            key = item.data(0, Qt.ItemDataRole.UserRole)
+            self.folder_name.setPlaceholderText(item.text(1))
+            self.folder_name.setText(Path(self.rules[key]).name if key in self.rules and not key.startswith('file/')
+                                     else self.names.get(key, ''))
+            if key in self.name_drafts:
+                self.folder_name.setText(self.name_drafts[key])
+            self.show_effective_destination(item)
+
+    def rename_selected(self, text):
+        item = self.tree.currentItem()
+        if not item:
+            return
+        key = item.data(0, Qt.ItemDataRole.UserRole)
+        if key.startswith('file/'):
+            return
+        self.name_drafts[key] = text
+        from .naming import validate_names
+        try:
+            if text.strip():
+                validate_names({key: text.strip()})
+            self.name_errors.pop(key, None)
+            self.error.hide()
+        except ValueError as exc:
+            self.name_errors[key] = str(exc)
+            self.error.setText(message(str(exc)))
+            self.error.show()
+            return
+        if key in self.rules:
+            if text.strip():
+                self.rules[key] = str(Path(self.rules[key]).parent / text.strip())
+                self.target.setText(self.rules[key])
+        elif text.strip():
+            self.names[key] = text.strip()
+        else:
+            self.names.pop(key, None)
+        self.update_targets()
 
     def choose(self):
         item = self.tree.currentItem()
         if not item:
             return
-        folder = QFileDialog.getExistingDirectory(self, t("Choose folder…"), self.target.text() or self.source.destination)
+        initial = self.target.text() or self.source.destination
+        if item.data(0, Qt.ItemDataRole.UserRole).startswith('file/'):
+            initial = str(Path(initial).parent)
+        folder = QFileDialog.getExistingDirectory(self, t("Choose folder…"), initial)
         if folder:
             self.rules[item.data(0, Qt.ItemDataRole.UserRole)] = folder
             self.update_targets()
@@ -739,17 +877,41 @@ class FolderMappingDialog(QDialog):
         item = self.tree.currentItem()
         if item:
             self.rules.pop(item.data(0, Qt.ItemDataRole.UserRole), None)
+            self.name_errors.pop(item.data(0, Qt.ItemDataRole.UserRole), None)
+            self.update_targets()
+            self.selected(item)
+
+    def reset_name(self):
+        item = self.tree.currentItem()
+        if item:
+            key = item.data(0, Qt.ItemDataRole.UserRole)
+            if key in self.rules:
+                if key in self.source.folder_rules:
+                    self.rules[key] = self.source.folder_rules[key]
+                else:
+                    self.rules.pop(key)
+            self.names.pop(key, None)
+            self.name_errors.pop(key, None)
+            self.name_drafts.pop(key, None)
             self.update_targets()
             self.selected(item)
 
     def save(self):
-        previous = self.source.folder_rules
+        previous = (self.source.folder_rules, self.source.folder_names, self.source.include_course_ids)
         try:
+            if self.name_errors:
+                raise ValueError(next(iter(self.name_errors.values())))
+            from .naming import validate_folder_changes
+            candidate = replace(self.source, folder_rules=self.rules, folder_names=self.names,
+                                include_course_ids=self.show_ids.isChecked())
+            validate_folder_changes(self.source, candidate, self.courses, self.entries)
             self.source.folder_rules = self.rules
+            self.source.folder_names = self.names
+            self.source.include_course_ids = self.show_ids.isChecked()
             self.settings.save_source(self.source)
             self.accept()
         except ValueError as exc:
-            self.source.folder_rules = previous
+            self.source.folder_rules, self.source.folder_names, self.source.include_course_ids = previous
             self.error.setText(message(str(exc)))
             self.error.show()
 
