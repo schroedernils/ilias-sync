@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+Distinguish settings-file access/write failures from native scheduler failures and retain unsaved input for retry.
+
 Make editing distinct from first-time setup; preserve manual course targets. Explain effective inherited folder paths,
 independent resets and safe rename/copy consequences. Add editable daily times, transactional schedule/profile recovery,
 separate topic-based help, scoped attempt history and structured known-cause reports. Unify search and inline filters,

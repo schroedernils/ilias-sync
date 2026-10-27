@@ -1317,7 +1317,7 @@ class SettingsDialog(QDialog):
 
     def save(self):
         from .policy import normalize_times
-        from .settings_service import apply_settings, ScheduleRestoreError
+        from .settings_service import apply_settings, ScheduleRestoreError, SettingsStorageError
         times = self.values()
         mode = self.schedule_mode.currentData()
         try:
@@ -1337,6 +1337,9 @@ class SettingsDialog(QDialog):
             self.error.setText(message(str(exc)))
             self.error.show()
             self.tabs.setCurrentIndex(1)
+        except SettingsStorageError as exc:
+            self.error.setText(message(str(exc)))
+            self.error.show()
         except Exception:
             self.error.setText(t('The OS scheduler could not be updated. On Linux, a systemd user session is required.'))
             self.error.show()

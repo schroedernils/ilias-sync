@@ -6,10 +6,17 @@ class ScheduleRestoreError(RuntimeError):
     pass
 
 
+class SettingsStorageError(RuntimeError):
+    pass
+
+
 def apply_settings(settings, candidate, *, install, uninstall):
     from .storage import atomic_write
     previous = deepcopy(settings.value)
-    previous_config = settings.path.read_bytes() if settings.path.exists() else None
+    try:
+        previous_config = settings.path.read_bytes() if settings.path.exists() else None
+    except OSError:
+        raise SettingsStorageError('Existing settings could not be read. Check access to the application data folder and try again.') from None
     def schedule(value):
         if value['scheduled']:
             install(value['interval_hours'], times=value.get('sync_times', []) if value.get('schedule_mode') == 'times' else None)
@@ -44,4 +51,6 @@ def apply_settings(settings, candidate, *, install, uninstall):
                 raise ScheduleRestoreError('The previous system schedule could not be restored. Reapply the schedule before relying on automatic sync.') from None
         if restore_failed:
             raise ScheduleRestoreError('The previous settings could not be restored. Check settings and reapply the schedule before relying on automatic sync.') from None
+        if not native_attempted:
+            raise SettingsStorageError('Settings could not be saved. Check available space and folder permissions, then try again. Your changes are still shown.') from None
         raise

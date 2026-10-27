@@ -15,7 +15,7 @@ Alpha 2 was additionally checked with a built macOS review bundle and synthetic 
 
 ## Workflow redesign — local evidence, 27 October 2026
 
-The local macOS arm64 source passed **156 tests**, Ruff and whitespace checks. The synthetic Qt renderer produced
+The local macOS arm64 source passed **157 tests**, Ruff and whitespace checks. The synthetic Qt renderer produced
 **53 states** across light/dark, German/English, compact windows and enlarged text. This is implementation and rendered
 UI evidence, not a usability study or screen-reader certification. A temporary 5,000-file collection on this Mac took
 0.31 seconds to construct and first paint, and 0.017 seconds to search (single local measurement, not a platform SLA).

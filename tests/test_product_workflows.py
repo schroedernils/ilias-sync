@@ -368,3 +368,23 @@ def test_report_does_not_invent_zero_counts_for_old_unavailable_only_result(app)
     assert '0 neu' not in dialog.summary.text()
     assert 'keine einzelnen Dateizahlen' in dialog.summary.text()
     dialog.close()
+
+
+def test_settings_write_failure_keeps_draft_and_does_not_blame_scheduler(app):
+    from ilias_sync.gui import SettingsDialog
+    settings = Settings()
+    settings.save()
+    original = settings.path.read_bytes()
+    dialog = SettingsDialog(settings)
+    dialog.language.setCurrentIndex(dialog.language.findData('en'))
+    with patch.object(settings, 'save', side_effect=OSError('injected disk write failure')), patch('ilias_sync.gui.install') as install, patch('ilias_sync.gui.uninstall') as uninstall:
+        dialog.save()
+    assert 'Einstellungen konnten nicht gespeichert' in dialog.error.text()
+    assert 'Zeitplan' not in dialog.error.text()
+    assert dialog.tabs.currentIndex() == 0
+    assert dialog.language.currentData() == 'en'
+    assert settings.value['language'] == 'de'
+    assert settings.path.read_bytes() == original
+    install.assert_not_called()
+    uninstall.assert_not_called()
+    dialog.reject()

@@ -242,6 +242,8 @@ DE.update({
  'The previous system schedule could not be restored. Reapply the schedule before relying on automatic sync.':'Der bisherige Systemzeitplan konnte nicht wiederhergestellt werden. Speichere den Zeitplan erneut, bevor du dich auf automatische Läufe verlässt.',
  'The previous settings could not be restored. Check settings and reapply the schedule before relying on automatic sync.':'Die bisherigen Einstellungen konnten nicht wiederhergestellt werden. Prüfe die Einstellungen und speichere den Zeitplan erneut, bevor du dich auf automatische Läufe verlässt.',
  'No per-file counts recorded in this older result.':'In diesem älteren Ergebnis wurden keine einzelnen Dateizahlen erfasst.',
+ 'Existing settings could not be read. Check access to the application data folder and try again.':'Die bestehenden Einstellungen konnten nicht gelesen werden. Prüfe den Zugriff auf den App-Datenordner und versuche es erneut.',
+ 'Settings could not be saved. Check available space and folder permissions, then try again. Your changes are still shown.':'Die Einstellungen konnten nicht gespeichert werden. Prüfe freien Speicherplatz und Ordnerrechte und versuche es erneut. Deine Änderungen bleiben im Dialog sichtbar.',
  'No new materials in this run.':'Keine neuen Materialien in diesem Lauf.',
  'Choose a different destination…':'Zielordner ändern …',
  'Update selected time':'Zeit ändern', 'Remove selected time':'Zeit entfernen',
