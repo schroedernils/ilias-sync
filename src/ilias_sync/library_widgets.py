@@ -11,6 +11,32 @@ from .presentation import file_context
 from .theme import DARK, LIGHT
 
 
+class ElidedLabel(QLabel):
+    """A single-line label that retains its complete text for tooltips and AT."""
+    def __init__(self, text='', parent=None):
+        super().__init__(parent)
+        self.full_text = text
+        self.setMinimumWidth(0)
+        self.setTextFormat(Qt.TextFormat.PlainText)
+        self.setText(text)
+
+    def minimumSizeHint(self):
+        return QSize(0, self.fontMetrics().height() + 4)
+
+    def sizeHint(self):
+        return QSize(min(400, self.fontMetrics().horizontalAdvance(self.full_text)), self.fontMetrics().height() + 4)
+
+    def setText(self, text):
+        self.full_text = text
+        self.setToolTip(text)
+        self.setAccessibleName(text)
+        super().setText(self.fontMetrics().elidedText(text, Qt.TextElideMode.ElideMiddle, max(1, self.width())))
+
+    def resizeEvent(self, event):
+        super().resizeEvent(event)
+        super().setText(self.fontMetrics().elidedText(self.full_text, Qt.TextElideMode.ElideMiddle, max(1, self.width())))
+
+
 class MaterialDelegate(QStyledItemDelegate):
     def paint(self, painter, option, index):
         if index.column() != 0:
@@ -198,3 +224,18 @@ class SyncPanel(QFrame):
         self.detail.setAccessibleName(detail)
         self.mark.set_tone(tone)
         self.progress.setVisible(busy)
+        self.update_minimum_height()
+
+    def resizeEvent(self, event):
+        super().resizeEvent(event)
+        self.update_minimum_height()
+
+    def update_minimum_height(self):
+        title_height = max(self.title.fontMetrics().height() + 2, self.title.heightForWidth(max(120, self.title.width())))
+        detail_height = max(self.detail.fontMetrics().height() + 2, self.detail.heightForWidth(max(120, self.detail.width())))
+        meta_height = max(self.meta.fontMetrics().height() + 2, self.meta.heightForWidth(max(120, self.width() - 36)))
+        minimum = 32 + max(42, title_height + detail_height + 4) + meta_height + 10
+        if not self.progress.isHidden():
+            minimum += 13
+        if self.minimumHeight() != minimum:
+            self.setMinimumHeight(minimum)

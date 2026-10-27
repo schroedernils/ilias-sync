@@ -6,10 +6,10 @@ from PySide6.QtGui import QColor, QPalette, QFontInfo
 
 LIGHT = dict(window='#fafafa', surface='#ffffff', inset='#f0f1f3', text='#202124', muted='#60646b',
              border='#d2d6dc', hover='#e9edf2', accent='#1265be', on_accent='#ffffff', selection='#dce9fa',
-             selected_text='#133f72', disabled='#8b9098', error='#b42318', success='#167347', warning='#8c5409', sidebar='#f0f2f5')
+             selected_text='#133f72', disabled='#8b9098', error='#b42318', success='#167347', warning='#8c5409', sidebar='#f0f2f5', input_border='#818893')
 DARK = dict(window='#191a1c', surface='#242529', inset='#202124', text='#f0f1f3', muted='#abb1ba',
             border='#44484f', hover='#32363d', accent='#8ab4f8', on_accent='#132b4c', selection='#304765',
-            selected_text='#e2edff', disabled='#858c96', error='#ffa49c', success='#87d8a8', warning='#ebbd79', sidebar='#171b22')
+            selected_text='#e2edff', disabled='#858c96', error='#ffa49c', success='#87d8a8', warning='#ebbd79', sidebar='#171b22', input_border='#848c99')
 
 
 def stylesheet(c):
@@ -25,6 +25,7 @@ QTabWidget::pane {{ border: none; padding-top: 14px; background: {c['window']}; 
 QTabBar::tab {{ background: {c['inset']}; color: {c['muted']}; padding: 8px 20px; border-radius: 6px; margin-right: 6px; }}
 QTabBar::tab:selected {{ background: {c['selection']}; color: {c['selected_text']}; }}
 QTextBrowser {{ border: none; background: {c['window']}; padding: 0; }}
+QTextBrowser:focus {{ border: none; padding: 0; }}
 QLabel {{ background: transparent; }}
 QLabel#eyebrow, QLabel#subtitle {{ color: {c['muted']}; }}
 QLabel#eyebrow {{ font-size: 12px; font-weight: 600; }}
@@ -63,14 +64,14 @@ QPushButton#stopControl:disabled {{ background: #773d3d; border-color: #773d3d; 
 QPushButton#primary:disabled {{ background: {c['inset']}; color: {c['disabled']}; border-color: {c['border']}; }}
 QPushButton#quiet {{ background: transparent; border-color: transparent; color: {c['accent']}; text-align: left; padding-left: 0; }}
 QPushButton#quiet:hover {{ text-decoration: underline; }}
-QLineEdit, QTextEdit, QComboBox, QTimeEdit {{ background: {c['surface']}; color: {c['text']}; padding: 9px 10px; border: 1px solid {c['border']}; border-radius: 7px; selection-background-color: {c['selection']}; selection-color: {c['selected_text']}; }}
+QLineEdit, QTextEdit, QComboBox, QTimeEdit {{ background: {c['surface']}; color: {c['text']}; padding: 9px 10px; border: 1px solid {c['input_border']}; border-radius: 7px; selection-background-color: {c['selection']}; selection-color: {c['selected_text']}; }}
 QLineEdit:focus, QTextEdit:focus, QComboBox:focus {{ border: 2px solid {c['accent']}; padding: 8px 9px; }}
 QLineEdit:disabled, QComboBox:disabled {{ color: {c['disabled']}; background: {c['inset']}; }}
 QComboBox::drop-down {{ subcontrol-origin: padding; subcontrol-position: top right; width: 26px; border: none; background: transparent; }}
 QComboBox QAbstractItemView {{ background: {c['surface']}; color: {c['text']}; selection-background-color: {c['selection']}; selection-color: {c['selected_text']}; }}
 QCheckBox {{ spacing: 9px; padding: 5px 0; background: transparent; }}
 QCheckBox:disabled {{ color: {c['disabled']}; }}
-QCheckBox::indicator {{ width: 16px; height: 16px; border: 1px solid {c['border']}; border-radius: 4px; background: {c['surface']}; }}
+QCheckBox::indicator {{ width: 16px; height: 16px; border: 1px solid {c['input_border']}; border-radius: 4px; background: {c['surface']}; }}
 QCheckBox::indicator:checked {{ border-color: {c['accent']}; background: {c['accent']}; image: url("{check.as_posix()}"); }}
 QCheckBox::indicator:hover {{ border-color: {c['accent']}; }}
 QListWidget {{ background: {c['inset']}; border: 0; padding: 8px; border-radius: 8px; }}
@@ -113,7 +114,7 @@ class Theme(QObject):
             system = self.app.style().standardPalette()
             c = dict(c)
             for key, role in [('window', 'Window'), ('surface', 'Base'), ('inset', 'Window'), ('sidebar', 'Window'),
-                              ('text', 'Text'), ('muted', 'Text'), ('border', 'Text'), ('hover', 'AlternateBase'),
+                              ('text', 'Text'), ('muted', 'Text'), ('border', 'Text'), ('input_border', 'Text'), ('hover', 'AlternateBase'),
                               ('accent', 'Highlight'), ('on_accent', 'HighlightedText'), ('selection', 'Highlight'),
                               ('selected_text', 'HighlightedText')]:
                 c[key] = system.color(getattr(QPalette.ColorRole, role)).name()
