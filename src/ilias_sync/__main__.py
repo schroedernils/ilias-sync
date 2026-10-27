@@ -13,9 +13,9 @@ from filelock import FileLock, Timeout
 
 from . import __version__
 from .control import RunControl
-from .policy import due, next_run, on_battery
+from .policy import due, next_scheduled_run, on_battery
 from .security import LoginRequired
-from .storage import Settings, data_dir, read_json, write_json
+from .storage import Settings, data_dir, read_json, write_json, record_attempt
 
 
 EVENT_FILE = None
@@ -52,46 +52,61 @@ async def worker(args):
             path = data_dir() / "sources" / source.id / "status.json"
             previous = read_json(path, {})
             manual = bool(args.profile)
-            if not manual and not due(previous):
+            if not manual and (previous.get('login_required') or
+                               (not getattr(args, 'scheduled_time', False) and not due(previous))):
                 continue
             if args.sync and not manual and settings.value["battery_saver"] and on_battery():
+                write_json(path, {**previous, 'deferred': 'battery', 'deferred_at': time.time()})
                 emit({"event": "power", "message": "Scheduled run deferred while on battery."})
                 continue
-            interval = settings.value["interval_hours"]
             started = time.time()
             write_json(path, {**previous, "state": "Checking courses", "started": started, "login_required": False})
             control = RunControl(source, emit)
             try:
-                result = await control.run(synchronize(source, emit, discover=args.discover), deadline=90 if args.discover else 5400)
+                result = await control.run(synchronize(source, control.report, discover=args.discover),
+                                           deadline=90 if args.discover else 5400)
                 if args.discover:
                     write_json(path, previous)
                     emit({"event": "result", "result": result})
                     continue
-                partial = result["partial"] or result["warnings"] or result["errors"]
-                failures = previous.get("failures", 0) + 1 if partial else 0
+                incomplete = result["partial"] or result["warnings"] or result["errors"]
+                partial = incomplete or result.get('unavailable', 0)
+                failures = previous.get("failures", 0) + 1 if incomplete else 0
                 status = {"state": "Completed with warnings" if partial else "Up to date", "finished": time.time(),
-                          "next_run": next_run(interval, failures, clock=batch_started), "failures": failures,
+                          "next_run": next_scheduled_run(settings.value, failures, clock=batch_started), "failures": failures,
                           "login_required": False, "result": result}
-                write_json(path, status)
+                record_attempt(path.parent, {**status, 'started': started}, previous)
                 emit({"event": "result", "profile": source.id, "result": status})
-                errors += int(bool(partial))
+                errors += int(bool(incomplete))
             except asyncio.CancelledError:
                 if not control.stopped:
                     raise
-                write_json(path, {**previous, "state": "Stopped", "finished": time.time(),
-                                  "next_run": next_run(interval), "login_required": False})
+                if args.discover:
+                    write_json(path, previous)
+                else:
+                    record_attempt(path.parent, {"state": "Stopped", 'started': started, "finished": time.time(),
+                                      "next_run": next_scheduled_run(settings.value), "login_required": False}, previous)
                 emit({"event": "stopped", "profile": source.id})
                 break
             except Exception as exc:
+                if args.discover:
+                    write_json(path, previous)
+                    emit({'event': 'error', 'profile': source.id, 'message': 'Course list could not be loaded. Check your connection or sign-in and try again.'})
+                    errors += 1
+                    continue
                 # Never print traceback, credential values, form data or server response bodies.
                 from PFERD.auth import AuthError
                 login = isinstance(exc, (LoginRequired, AuthError))
                 failures = previous.get("failures", 0) + 1
-                message = str(exc) if login else f"{type(exc).__name__}: sync could not complete. Existing files were retained."
+                from .storage import FolderCollisionError
+                collision = isinstance(exc, FolderCollisionError)
+                message = str(exc) if login or collision else f"{type(exc).__name__}: sync could not complete. Existing files were retained."
                 status = {"state": "Sign in again" if login else "Needs attention", "finished": time.time(),
-                          "next_run": next_run(interval, failures), "failures": failures,
+                          "next_run": next_scheduled_run(settings.value, failures), "failures": failures,
                           "login_required": login, "message": message}
-                write_json(path, status)
+                if collision:
+                    status['recovery'] = 'folders'
+                record_attempt(path.parent, {**status, 'started': started}, previous)
                 emit({"event": "error", "profile": source.id, "message": message})
                 errors += 1
     finally:
@@ -125,7 +140,12 @@ def _isolated_self_test():
         archive = Archive(root / "state", root / "out")
         assert archive.publish("test:1", raw, "Course/File.pdf") == "added"
         assert archive.publish("test:1", raw, "Course/File.pdf") == "unchanged"
-        make_crawler(Source("Test", "https://ilias.example.edu", str(root / "downloads"), client_id="test"))
+        crawler = make_crawler(Source("Test", "https://ilias.example.edu", str(root / "downloads"), client_id="test"))
+        from .page_index import PageData
+        sample = PageData(b'<div class="il-maincontrols-metabar"></div><div id="ilContentContainer">Files</div>',
+                          'https://ilias.example.edu')
+        assert sample.logged_in() and sample.fingerprint()
+        assert crawler._parse_page(sample).soup.select_one('#ilContentContainer').get_text() == 'Files'
     from PySide6.QtCore import qVersion
     from PySide6.QtWidgets import QApplication
     # Exercise frozen Qt plugins and GUI imports without touching the user's profiles.
@@ -161,6 +181,7 @@ def main():
     parser = argparse.ArgumentParser(description="IliasSync — quiet course-file synchronization")
     parser.add_argument("--version", action="version", version=__version__)
     parser.add_argument("--sync", action="store_true", help="Synchronize due sources, then exit (no GUI).")
+    parser.add_argument('--scheduled-time', action='store_true', help=argparse.SUPPRESS)
     parser.add_argument("--discover", action="store_true", help="List joined courses for --profile.")
     parser.add_argument("--profile", help="Source UUID; a manual run bypasses the due-time and battery policy.")
     parser.add_argument("--probe", help="Detect the client ID at an HTTPS installation URL.")

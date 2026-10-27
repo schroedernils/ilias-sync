@@ -86,14 +86,8 @@ class FixtureSession:
 
 async def test_full_synthetic_sync_and_repeat(source, monkeypatch):
     monkeypatch.setattr("aiohttp.ClientSession", FixtureSession)
-    original = make_crawler
-
-    def no_delay(*args, **kwargs):
-        crawler = original(*args, **kwargs)
-        crawler._limiter._task_delay = 0
-        return crawler
-    monkeypatch.setattr("ilias_sync.engine.make_crawler", no_delay)
-    result = await synchronize(source)
+    events = []
+    result = await synchronize(source, events.append)
     assert result["files"] == 1
     assert result["counts"]["added"] == 1
     files = list(Path(source.destination).rglob("*.pdf"))
@@ -102,6 +96,138 @@ async def test_full_synthetic_sync_and_repeat(source, monkeypatch):
     second = await synchronize(source)
     assert second["counts"] == {"unchanged": 1}
     assert not list(Path(source.destination).rglob("*ILIAS*"))
+    messages = [event['message'] for event in events if event['event'] == 'progress']
+    assert 'Checking Algorithms (1/1)' in messages
+    assert 'Checking Algorithms (1/1) / Lecture.pdf' in messages
+    assert 'Downloading Lecture.pdf' in messages
+    assert 'Saving files…' in messages
+    assert 'Saving course information…' in messages
+
+
+async def test_nested_folder_progress_identifies_current_course_and_folder(source, monkeypatch):
+    folder = '<div class="ilContainerListItemOuter"><img class="ilListItemIcon" src="fold.svg" alt="Ordner"/>' \
+             '<div class="il_ContainerListItem"><a class="il_ContainerItemTitle" href="/go/fold/456">Material</a></div></div>'
+
+    class NestedSession(FixtureSession):
+        def get(self, url, **kwargs):
+            if '/go/crs/123' in str(url):
+                return Response(url, page(folder))
+            return super().get(url, **kwargs)
+
+    monkeypatch.setattr('aiohttp.ClientSession', NestedSession)
+    events = []
+    result = await synchronize(source, events.append)
+    assert result['files'] == 1
+    messages = [event['message'] for event in events if event['event'] == 'progress']
+    assert 'Checking Algorithms (1/1) / Material' in messages
+    assert 'Checking Algorithms (1/1) / Material / Lecture.pdf' in messages
+
+
+async def test_parallel_folder_checks_preserve_files_course_ownership_and_routes(source, tmp_path, monkeypatch):
+    import asyncio
+    from urllib.parse import parse_qs, urlparse
+    from ilias_sync.storage import data_dir, read_json
+    active = 0
+    peak = 0
+    downloads = []
+
+    class DelayedPage(Response):
+        async def read(self):
+            nonlocal active, peak
+            active += 1
+            peak = max(peak, active)
+            try:
+                await asyncio.sleep(0.01)
+                return self.body
+            finally:
+                active -= 1
+
+    class ParallelSession(FixtureSession):
+        def get(self, url, **kwargs):
+            if 'Dashboard' in url:
+                body = ''.join(f'<a href="/go/crs/{i}">Course {i}</a>' for i in (1, 2))
+            elif '/go/crs/' in url:
+                course = int(url.rsplit('/', 1)[1])
+                body = ''.join(
+                    '<div class="ilContainerListItemOuter"><img class="ilListItemIcon" src="fold.svg" alt="Ordner"/>'
+                    f'<div class="il_ContainerListItem"><a class="il_ContainerItemTitle" href="/go/fold/{course * 100 + i}">'
+                    f'Material {i}</a></div></div>' for i in range(12))
+            elif '/go/fold/' in url:
+                identity = url.rsplit('/', 1)[1]
+                body = file_html().replace('ref_id=987', 'ref_id=' + identity).replace('>Lecture<', f'>Lecture {identity}<')
+            else:
+                identity = parse_qs(urlparse(url).query)['ref_id'][0]
+                downloads.append(identity)
+                return Response(url, b'%PDF-1.4 lecture ' + identity.encode(), kind='application/pdf')
+            return DelayedPage(url, page(body))
+
+    source.folder_rules = {'course/crs-2': str(tmp_path / 'Other destination')}
+    monkeypatch.setattr('aiohttp.ClientSession', ParallelSession)
+    result = await synchronize(source)
+    assert result['counts'] == {'added': 24}
+    assert result['unavailable'] == result['warnings'] == result['errors'] == 0
+    assert not result['partial']
+    assert 1 < peak <= 8
+    assert len(downloads) == len(set(downloads)) == 24
+    manifest = read_json(data_dir() / 'sources' / source.id / 'manifest.json', {})['files']
+    for entry in manifest.values():
+        course = int(entry['course_id'].removeprefix('crs-'))
+        assert entry['course_name'] == f'Course {course}'
+        prefix = f'Course {course}/' if course == 1 else ''
+        assert entry['path'].startswith(prefix + 'Material ')
+        assert entry['logical'].startswith(f'crs-{course}/Material ')
+        assert entry['root'] == (source.destination if course == 1 else source.folder_rules['course/crs-2'])
+        assert (Path(entry['root']) / entry['path']).read_bytes().startswith(b'%PDF-1.4 lecture ')
+    repeat = await synchronize(source)
+    assert repeat['counts'] == {'unchanged': 24}
+    assert len(downloads) == 24
+    assert active == 0
+
+
+async def test_stop_cancels_parallel_page_reads_before_publication(source, monkeypatch):
+    import asyncio
+    from ilias_sync.control import RunControl, send_command
+    from ilias_sync.storage import data_dir
+    entered = asyncio.Event()
+    active = 0
+    reads = []
+
+    class PendingPage(Response):
+        async def read(self):
+            nonlocal active
+            active += 1
+            reads.append(asyncio.current_task())
+            if active == 8:
+                entered.set()
+            try:
+                await asyncio.Event().wait()
+            finally:
+                active -= 1
+
+    class PendingSession(FixtureSession):
+        def get(self, url, **kwargs):
+            if '/go/crs/123' in url:
+                folders = ''.join(
+                    '<div class="ilContainerListItemOuter"><img class="ilListItemIcon" src="fold.svg" alt="Ordner"/>'
+                    f'<div class="il_ContainerListItem"><a class="il_ContainerItemTitle" href="/go/fold/{i}">'
+                    f'Material {i}</a></div></div>' for i in range(12))
+                return Response(url, page(folders))
+            if '/go/fold/' in url:
+                return PendingPage(url, page(file_html()))
+            return super().get(url, **kwargs)
+
+    monkeypatch.setattr('aiohttp.ClientSession', PendingSession)
+    control = RunControl(source, lambda event: None)
+    task = asyncio.create_task(control.run(synchronize(source)))
+    async with asyncio.timeout(4):
+        await entered.wait()
+        send_command(control.row, 'stop')
+        with pytest.raises(asyncio.CancelledError):
+            await task
+        await asyncio.gather(*reads, return_exceptions=True)
+    assert active == 0
+    assert not (data_dir() / 'sources' / source.id / 'manifest.json').exists()
+    assert not list(Path(source.destination).rglob('*.pdf'))
 
 
 async def test_http_error_is_not_a_download(source):

@@ -7,6 +7,7 @@ import os
 import re
 import shutil
 import tempfile
+import time
 import unicodedata
 from dataclasses import asdict, dataclass, field
 from pathlib import Path
@@ -31,6 +32,22 @@ def read_json(path: Path, default):
     if not path.exists():
         return default
     return json.loads(path.read_text(encoding="utf-8"))
+
+
+def record_attempt(state: Path, status, previous):
+    """Keep attempt outcomes distinct from the last fully successful check."""
+    result = status.get('result') or {}
+    success = status.get('state') == 'Up to date' and not any(
+        result.get(key) for key in ('partial', 'warnings', 'errors', 'unavailable'))
+    last_success = previous.get('last_success')
+    old_result = previous.get('result') or {}
+    if not last_success and previous.get('state') == 'Up to date' and not any(
+            old_result.get(key) for key in ('partial', 'warnings', 'errors', 'unavailable')):
+        last_success = previous.get('finished')
+    status['last_success'] = status.get('finished') if success else last_success
+    write_json(state / 'status.json', status)
+    history = read_json(state / 'history.json', [])
+    write_json(state / 'history.json', [status, *history][:20])
 
 
 def atomic_write(path: Path, value: bytes):
@@ -141,10 +158,16 @@ class Source:
     enabled: bool = True
     id: str = field(default_factory=lambda: str(uuid4()))
     folder_rules: dict[str, str] = field(default_factory=dict)
+    include_course_ids: bool = False
+    folder_names: dict[str, str] = field(default_factory=dict)
 
     def validate(self):
         from .routing import validate_routes
         validate_routes(self.folder_rules)
+        from .naming import validate_names
+        validate_names(self.folder_names)
+        if not isinstance(self.include_course_ids, bool):
+            raise ValueError('Invalid folder naming settings.')
         UUID(self.id)
         self.url = server_url(self.url)
         if self.login not in {"local", "shibboleth", "session"}:
@@ -173,6 +196,8 @@ class Settings:
                                           "battery_saver": True, "scheduled": False, "language": "de", "appearance": "system"})
         if self.value.get("schema") != 1:
             raise ValueError("This configuration was created by an incompatible app version.")
+        self.value.setdefault('schedule_mode', 'interval')
+        self.value.setdefault('sync_times', [])
 
     def sources(self):
         return [Source(**s) for s in self.value["sources"]]
@@ -193,6 +218,10 @@ class Settings:
         write_json(self.path, self.value)
 
 
+class FolderCollisionError(ValueError):
+    """A safe, actionable conflict; retrying cannot resolve it by itself."""
+
+
 class Archive:
     def __init__(self, state: Path, destination: Path):
         self.state = state
@@ -202,6 +231,47 @@ class Archive:
         self.manifest = read_json(self.path, {"schema": 1, "files": {}})
         self.journal_path = state / "publish-intents.json"
         self.journal = read_json(self.journal_path, {})
+        self.rename_path = state / 'folder-rename.json'
+        pending = read_json(self.rename_path, None)
+        if pending:
+            self._finish_folder_rename(pending)
+
+    def rename_folder(self, root, old, new):
+        if old == new:
+            return
+        before, after = safe_path(Path(root), old), safe_path(Path(root), new)
+        if not before.exists():
+            return
+        if not before.is_dir() or after.exists():
+            raise FolderCollisionError('A folder with this name already exists. Choose another name.')
+        pending = {'root': str(Path(root).resolve()), 'old': old, 'new': new}
+        write_json(self.rename_path, pending)
+        self._finish_folder_rename(pending)
+
+    def _finish_folder_rename(self, pending):
+        root, old, new = Path(pending['root']), pending['old'], pending['new']
+        before, after = safe_path(root, old), safe_path(root, new)
+        if before.exists():
+            if after.exists():
+                self.rename_path.unlink(missing_ok=True)
+                raise FolderCollisionError('A folder with this name already exists. Choose another name.')
+            after.parent.mkdir(parents=True, exist_ok=True)
+            before.rename(after)
+        elif not after.is_dir():
+            raise OSError('The folder rename could not be recovered.')
+        for entry in self.manifest['files'].values():
+            if Path(entry.get('root', self.destination)).resolve() != root.resolve():
+                continue
+            for field_name in ('path', 'original_path'):
+                relative = entry.get(field_name, '')
+                if relative.startswith(old + '/'):
+                    entry[field_name] = new + relative[len(old):]
+        for entry in self.journal.values():
+            if Path(entry.get('root', self.destination)).resolve() == root.resolve() and entry['path'].startswith(old + '/'):
+                entry['path'] = new + entry['path'][len(old):]
+        write_json(self.path, self.manifest)
+        write_json(self.journal_path, self.journal)
+        self.rename_path.unlink(missing_ok=True)
 
     def publish(self, identity: str, raw: Path, proposed: str, *, destination=None, route='', metadata=None):
         original_destination = self.destination
@@ -271,6 +341,8 @@ class Archive:
             copy_file(raw, target)
         self.manifest["files"][identity] = {**(old or {}), **self._publication_metadata, "path": relative, "sha256": digest, "raw_stat": raw_stat,
                                            "target_stat": [target.stat().st_size, target.stat().st_mtime_ns]}
+        if action != 'unchanged':
+            self.manifest['files'][identity].update(changed_at=time.time(), change=action)
         write_json(self.path, self.manifest)
         return action
 

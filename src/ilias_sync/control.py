@@ -52,11 +52,21 @@ class RunControl:
         self.stopped = False
         self.active_seconds = 0
         self.timed_out = False
+        self.last_progress_save = 0
 
     def save(self, state):
         self.row['state'] = state
         write_json(data_dir() / 'active-run.json', self.row)
         self.emit({'event': 'control', 'state': state})
+
+    def report(self, event):
+        if event.get('event') == 'progress':
+            self.row['message'] = event['message']
+            now = time.monotonic()
+            if now - self.last_progress_save >= 0.1:
+                write_json(data_dir() / 'active-run.json', self.row)
+                self.last_progress_save = now
+        self.emit(event)
 
     async def watch(self, task):
         last = time.monotonic()

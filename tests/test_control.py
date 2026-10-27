@@ -121,3 +121,25 @@ async def test_pause_time_is_excluded_from_job_deadline(source):
     send_command(control.row, 'resume')
     with pytest.raises(TimeoutError):
         await task
+
+
+async def test_worker_persists_progress_for_a_reopened_window(source, monkeypatch):
+    from ilias_sync.__main__ import worker
+    settings = Settings()
+    settings.save_source(source)
+    events = []
+    monkeypatch.setattr('ilias_sync.__main__.emit', events.append)
+
+    async def operation(source, emit, **kwargs):
+        emit({'event': 'progress', 'message': 'Checking Algorithms (1/2) / Material'})
+        row = active_run()
+        assert row['message'] == 'Checking Algorithms (1/2) / Material'
+        send_command(row, 'pause')
+        await until(lambda: active_run()['state'] == 'paused')
+        assert active_run()['message'] == row['message']
+        send_command(row, 'stop')
+        await asyncio.sleep(60)
+
+    monkeypatch.setattr('ilias_sync.engine.synchronize', operation)
+    assert await worker(SimpleNamespace(probe=None, profile=source.id, sync=True, discover=False)) == 0
+    assert {'event': 'progress', 'message': 'Checking Algorithms (1/2) / Material'} in events

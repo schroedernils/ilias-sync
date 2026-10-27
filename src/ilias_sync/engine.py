@@ -15,6 +15,7 @@ import certifi
 from bs4 import BeautifulSoup
 
 from .control import CURRENT, checkpoint
+from .page_index import PageData, PageIndex, decode_element, encode_element
 from .security import LoginRequired, get_password
 from .storage import Archive, Source, clean_filename, clean_name, data_dir, write_json
 
@@ -84,6 +85,8 @@ def make_crawler(source: Source, emit=lambda event: None, *, discover=False):
     from PFERD.auth import Authenticator
     from PFERD.config import Config
     from PFERD.crawl import CrawlError
+    from PFERD.crawl.crawler import anoncritical
+    from PFERD.crawl.ilias.async_helper import _iorepeat
     from PFERD.crawl.ilias.ilias_web_crawler import IliasWebCrawler, IliasWebCrawlerSection
     from PFERD.crawl.ilias.kit_ilias_html import IliasElementType as T, IliasPage, IliasSoup
     from PFERD.logging import log
@@ -123,6 +126,22 @@ def make_crawler(source: Source, emit=lambda event: None, *, discover=False):
             self.skipped = Counter()
             self.current = None
             self.seen = set()
+            self.download_issues = {}
+            self.course_label = ""
+            self.page_labels = {}
+            self.empty_meetings = set()
+            self.course_folders = {}
+            self.active_roots = []
+            self.page_index = PageIndex(data_dir() / 'sources' / source.id / 'page-index.json', source,
+                                        self._fetch_page)
+
+        async def run(self):
+            success = False
+            try:
+                await super().run()
+                success = self.error_free
+            finally:
+                await self.page_index.close(success and not discover)
 
         async def _authenticate(self):
             await checkpoint()
@@ -170,23 +189,125 @@ def make_crawler(source: Source, emit=lambda event: None, *, discover=False):
             if not IliasPage.is_logged_in(result):
                 self._auth.invalidate_credentials()
 
-        async def _get_page(self, url, root_page_allowed=False):
+        async def _fetch_page(self, url):
             await checkpoint()
             auth = await self._current_auth_id()
+            expects_export = parse_qs(urlparse(url).query).get('cmd', [''])[0].lower() == 'exporthtml'
             for attempt in range(2):
                 async with self.session.get(url) as response:
                     response.raise_for_status()
-                    soup = IliasSoup(soupify(await response.read()), str(response.url))
-                    if IliasPage.is_logged_in(soup):
-                        # ILIAS show/hide-session controls are navigation, never child folders.
-                        for link in soup.soup.select('a[href*="crs_next_sess"], a[href*="crs_prev_sess"]'):
-                            link.decompose()
-                        return self._verify_page(soup, url, root_page_allowed)
+                    data = PageData(await response.read(), str(response.url))
+                    # Link exports have no normal ILIAS chrome; match PFERD's existing resolver contract.
+                    query = {k.lower(): v[0].lower() for k, v in parse_qs(urlparse(data.url).query).items()}
+                    link_export = 'cmdnode' in query and query.get('cmd') == 'exporthtml'
+                    unavailable_link = (query.get('baseclass') == 'illinkresourcehandlergui'
+                                        and query.get('cmd') == 'infoscreen')
+                    logged_in = data.logged_in()
+                    if logged_in is None:
+                        logged_in = IliasPage.is_logged_in(IliasSoup(soupify(data.body), data.url))
+                    accepted = (link_export or unavailable_link) if expects_export else logged_in
+                    if accepted:
+                        return data
                 if not attempt:
                     await self.authenticate(auth)
             raise LoginRequired("Sign-in expired or was rejected by ILIAS.")
 
+        def _parse_page(self, data, root_page_allowed=False):
+            soup = IliasSoup(BeautifulSoup(data.body, 'lxml'), data.url)
+            # ILIAS show/hide-session controls are navigation, never child folders.
+            for link in soup.soup.select('a[href*="crs_next_sess"], a[href*="crs_prev_sess"]'):
+                link.decompose()
+            return self._verify_page(soup, data.url, root_page_allowed)
+
+        async def _get_page(self, url, root_page_allowed=False):
+            await checkpoint()
+            self._page_progress(url)
+            return self._parse_page(await self.page_index.page(url), root_page_allowed)
+
+        def _page_progress(self, url):
+            if self.current:
+                emit({"event": "progress", "message": "Checking " + self.page_labels.get(url, self.course_label)})
+
+        def _parse_plan(self, data, parent):
+            page = IliasPage(self._parse_page(data), parent)
+            next_stage = page.get_next_stage_element()
+            if next_stage:
+                return {'stage': encode_element(next_stage)}
+            elements = page.get_child_elements()
+            if parent is None and (info := page.get_info_tab()):
+                elements.append(info)
+            description = page.get_description()
+            return {'stage': None, 'elements': [encode_element(e) for e in elements],
+                    'description': str(description) if description else None,
+                    'next': encode_element(page.get_next_page_element())}
+
+        @anoncritical
+        async def _crawl_ilias_page(self, url, current_element, cl, expected_course_id=None, crawl_nested_courses=False):
+            # Keep the pinned PFERD traversal contract: stage navigation, pagination, description,
+            # deterministic deduplication, then bounded child tasks. Only parsing is cached.
+            if expected_course_id is not None:
+                return await super()._crawl_ilias_page(url, current_element, cl, expected_course_id,
+                                                       crawl_nested_courses)
+
+            @_iorepeat(3, 'crawling folder')
+            async def gather_elements(initial_url):
+                async with cl:
+                    next_url, parent = initial_url, current_element
+                    stages = set()
+                    while next_url:
+                        if next_url in stages:
+                            raise CrawlError('ILIAS page navigation contains a loop.')
+                        stages.add(next_url)
+                        await checkpoint()
+                        self._page_progress(next_url)
+                        plan = await self.page_index.plan(next_url, parent, self._parse_plan)
+                        stage = decode_element(plan['stage'])
+                        if stage is None:
+                            children = [decode_element(e) for e in plan['elements']]
+                            data = await self.page_index.page(next_url)
+                            candidates = data.empty_meeting_candidates(children)
+                            for child in children:
+                                if child.url in candidates and self.page_index.verified_empty_meeting(child):
+                                    self.empty_meetings.add(child.url)
+                            return plan
+                        next_url, parent = stage.url, stage
+
+            elements, description, pages = [], None, set()
+            while True:
+                if url in pages:
+                    raise CrawlError('ILIAS pagination contains a loop.')
+                pages.add(url)
+                plan = await gather_elements(url)
+                elements.extend(decode_element(e) for e in plan['elements'])
+                description = description or plan['description']
+                next_page = decode_element(plan['next'])
+                if not next_page:
+                    break
+                url = next_page.url
+            if description:
+                await self._download_description(cl.path, BeautifulSoup(description, 'html.parser'))
+            tasks = []
+            for element in sorted(elements, key=lambda e: e.id()):
+                handle = await self._handle_ilias_element(cl.path, element, crawl_nested_courses)
+                if handle:
+                    tasks.append(asyncio.create_task(handle))
+            try:
+                await self.gather(tasks)
+            finally:
+                await asyncio.gather(*tasks, return_exceptions=True)
+
+        async def _resolve_link_target(self, export_url):
+            data = await self.page_index.page(export_url)
+            query = {k.lower(): v[0].lower() for k, v in parse_qs(urlparse(data.url).query).items()}
+            if query.get('baseclass') == 'illinkresourcehandlergui' and query.get('cmd') == 'infoscreen':
+                return 'none'
+            if 'cmdnode' not in query or query.get('cmd') != 'exporthtml':
+                raise CrawlError('ILIAS did not return the requested link export.')
+            return BeautifulSoup(data.body, 'lxml')
+
         async def _run(self):
+            if not discover:
+                self.page_index.start_prefetch()
             dashboard = await self._get_page(source.url + "/ilias.php?baseClass=ilDashboardGUI&cmd=show&view=2")
             found = {r['id']: r for r in memberships(dashboard.soup, source.url)}
             pending = membership_navigation(dashboard.soup, source.url)
@@ -219,11 +340,18 @@ def make_crawler(source: Source, emit=lambda event: None, *, discover=False):
                 write_json(data_dir() / 'sources' / source.id / 'courses.json', self.roots)
                 return
             roots = self.roots if source.automatic_courses else selected
+            self.active_roots = roots
+            from .naming import course_folders
+            self.course_folders = course_folders(source, roots)
             if not roots:
                 raise CrawlError("No courses found. Add a direct course or folder link in source settings.")
-            for root in roots:
+            emit({'event': 'progress', 'message': 'Checking known content pages…'})
+            for index, root in enumerate(roots, 1):
                 self.current = root
-                emit({"event": "progress", "message": "Checking " + root["name"]})
+                self.course_label = f"{root['name']} ({index}/{len(roots)})"
+                self.page_labels = {}
+                self.empty_meetings = set()
+                emit({"event": "progress", "message": "Checking " + self.course_label})
                 self._visited_urls = {}
                 task = await self._handle_ilias_page(root["url"], None, PurePath(root["id"]))
                 if task:
@@ -231,6 +359,10 @@ def make_crawler(source: Source, emit=lambda event: None, *, discover=False):
 
         async def _handle_ilias_element(self, parent_path, element, crawl_nested_courses=False):
             await checkpoint()
+            if element.type == T.MEETING and element.url in self.empty_meetings:
+                # Keep discovery/path accounting; the fresh parent summary confirms there are no materials.
+                await self.crawl(PurePath(parent_path, element.name))
+                return None
             if element.type == T.COURSE:
                 return None
             identity = ref(element.url)
@@ -241,6 +373,7 @@ def make_crawler(source: Source, emit=lambda event: None, *, discover=False):
                                 T.LEARNING_MODULE_HTML, T.MEDIA_POOL, T.BLOG, T.INDIVIDUAL_ASSESSMENT}:
                 self.skipped[element.type.value] += 1
                 return None
+            self.page_labels[element.url] = " / ".join([self.course_label, *parent_path.parts[1:], element.name])
             return await super()._handle_ilias_element(parent_path, element, crawl_nested_courses)
 
         async def _handle_file(self, element, element_path, is_video=False):
@@ -248,9 +381,11 @@ def make_crawler(source: Source, emit=lambda event: None, *, discover=False):
             if identity in self.seen:
                 return None
             self.seen.add(identity)
+            emit({"event": "progress", "message": "Checking " + self.page_labels.get(
+                element.url, " / ".join([self.course_label, element.name]))})
             tag = hashlib.sha256(identity.encode()).hexdigest()[:20]
             raw = PurePath("files", tag, clean_name(element.name, 110))
-            parts = [clean_name(self.current["name"], 55) + " [" + self.current["id"] + "]"]
+            parts = [self.course_folders[self.current['id']]]
             parts.extend(clean_name(p, 50) for p in element_path.parts[1:-1])
             parts.append(clean_filename(element.name, 100))
             # Cap depth and names for Windows; discarded hierarchy is still in the source link.
@@ -263,6 +398,7 @@ def make_crawler(source: Source, emit=lambda event: None, *, discover=False):
 
         async def _stream_from_url(self, element, sink, bar, is_video):
             await checkpoint()
+            emit({"event": "progress", "message": "Downloading " + element.name})
             auth = await self._current_auth_id()
             extension = Path(element.name).suffix.casefold()
             for attempt in range(2):
@@ -270,6 +406,10 @@ def make_crawler(source: Source, emit=lambda event: None, *, discover=False):
                     if response.status in (401, 403) and not attempt:
                         pass
                     else:
+                        if response.status >= 400:
+                            identity = element.type.value + ':' + element.id()
+                            self.download_issues[identity] = ('server_missing' if response.status in (404, 410) else
+                                                              'access_denied' if response.status in (401, 403) else 'transfer_failed')
                         response.raise_for_status()
                         html_error = "html" in response.content_type and extension not in {".html", ".htm"}
                         if not html_error:
@@ -297,7 +437,7 @@ def make_crawler(source: Source, emit=lambda event: None, *, discover=False):
     state = data_dir() / "sources" / source.id
     state.mkdir(parents=True, exist_ok=True, mode=0o700)
     parser["DEFAULT"] = {"working_dir": str(state), "on_conflict": "no-delete", "redownload": "always-smart",
-                         "tasks": "1", "task_delay": "1", "windows_paths": "yes"}
+                         "tasks": "8", "task_delay": "0", "windows_paths": "yes"}
     parser["crawl:source"] = {"type": "ilias-web", "base_url": source.url,
                               "client_id": source.client_id or "default", "login_type": "local" if source.login != "shibboleth" else "shibboleth",
                               "target": "desktop", "auth": "auth:source", "output_dir": "cache",
@@ -320,9 +460,13 @@ async def synchronize(source: Source, emit=lambda event: None, *, discover=False
         return {"courses": crawler.roots}
     state = data_dir() / "sources" / source.id
     archive = Archive(state, Path(source.destination))
+    from .naming import align_folders, named_path
+    align_folders(archive, source, crawler.active_roots)
     counts = Counter()
+    material_counts = Counter()
     unavailable = []
     paths = set()
+    emit({"event": "progress", "message": "Saving files…"})
     for identity, item in crawler.files.items():
         await checkpoint()
         raw = state / "cache" / item["raw"]
@@ -333,10 +477,13 @@ async def synchronize(source: Source, emit=lambda event: None, *, discover=False
         destination, relative, route = route_file(source, identity, item['course_id'], item['logical'], item['path'])
         action = archive.publish(identity, raw, relative, destination=destination, route=route,
                                  metadata={'course_id':item['course_id'], 'course_name':item['course_name'],
-                                           'logical':item['logical'], 'original_path':item['path']})
+                                           'logical':item['logical'], 'original_path':item['path'],
+                                           'folder_names_applied': dict(source.folder_names)})
         counts[action] += 1
+        material_counts[action] += 1
         paths.add(item["raw"])
         emit({"event": "progress", "message": f"{action.capitalize()}: {raw.name}"})
+    emit({"event": "progress", "message": "Saving course information…"})
     for path in sorted(crawler.report.known_files):
         await checkpoint()
         if path in paths or path.parts[0] == "files":
@@ -344,10 +491,24 @@ async def synchronize(source: Source, emit=lambda event: None, *, discover=False
         raw = state / "cache" / path
         if raw.is_file():
             # Preserve HTML resource-relative paths while isolating course information.
-            counts[archive.publish("generated:" + str(path), raw, "Course info/" + str(path).replace("\\", "/"))] += 1
-    result = {"counts": dict(counts), "files": sum(counts.values()), "unavailable": len(unavailable),
+            original = path.as_posix().split('/')
+            relative = '/'.join([crawler.course_folders.get(original[0], original[0]), *original[1:]])
+            relative = named_path(source, path.as_posix(), relative)
+            counts[archive.publish("generated:" + str(path), raw, "Course info/" + relative,
+                                   metadata={'course_id': original[0],
+                                             'folder_names_applied': dict(source.folder_names)})] += 1
+    result = {"counts": dict(counts), "material_counts": dict(material_counts), "files": sum(counts.values()), "unavailable": len(unavailable),
+              "unavailable_items": [crawler.files[identity]['path'] for identity in unavailable],
+              "unavailable_details": [{'path': crawler.files[identity]['path'],
+                                       'reason': crawler.download_issues.get(identity, 'not_confirmed')}
+                                      for identity in unavailable],
+              'transfer_issues': [{'path': crawler.files[identity]['path'], 'reason': reason}
+                                  for identity, reason in crawler.download_issues.items() if identity in crawler.files],
               "skipped": dict(crawler.skipped), "warnings": len(crawler.report.encountered_warnings),
               "errors": len(crawler.report.encountered_errors), "seconds": round(time.monotonic() - start, 2),
               "partial": not crawler.error_free}
+    result['pages'] = {'checked': len(crawler.page_index.used_urls), 'parsed': crawler.page_index.parsed,
+                       'reused': crawler.page_index.reused,
+                       'empty_meetings': len(crawler.page_index.empty_meetings)}
     write_json(state / "last-result.json", result)
     return result

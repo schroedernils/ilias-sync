@@ -67,7 +67,7 @@ Ein Cloud-Zielordner ist möglich. **Den Upload übernimmt dein Cloud-Client; Il
 
 **Kompatibilität:** ILIAS-Versionen, Hochschuldesigns, Plugins und SSO/MFA unterscheiden sich. Eine eigene Adresse ist konfigurierbar, aber nicht jede Installation funktioniert ohne Anpassung. Foren, Tests, Umfragen, SCORM und manche externen Inhalte sind kein vollständiges Offline-Abbild. Übersprungene und nicht verfügbare Inhalte werden im Ergebnis ausgewiesen.
 
-**Serverlast:** Ein PFERD-Arbeitsslot und eine Sekunde Abstand zwischen Aufgabenstarts begrenzen die Parallelität. Das ist kein festes HTTP-Anfragelimit. Automatische Läufe sind frühestens stündlich möglich. Die Vorgaben deiner Hochschule gehen vor.
+**Schnelle Folgeläufe:** Ein lokaler Inhaltsindex vermeidet wiederholtes HTML-Parsing. Bekannte Inhaltsseiten werden bei jedem Lauf frisch geprüft, mit maximal 64 parallelen Seitenabrufen; acht PFERD-Arbeitsslots bearbeiten neue Inhalte und Downloads. Bereits leer bestätigte Termine werden bei unterstützten Kursübersichten über die aktuellen Materialzähler geprüft. Es gibt keine künstliche Pause nach Aufgaben. Automatische Läufe sind frühestens stündlich möglich. Die Vorgaben deiner Hochschule gehen vor. [Messung und Grenzen](docs/SYNC_PERFORMANCE.md).
 
 **Nutzungsrechte:** IliasSync ist unabhängig und kein offizielles Angebot einer Hochschule oder des ILIAS-Projekts. Nutze nur berechtigte Zugänge und beachte Hochschulregeln sowie Rechte an Kursmaterialien, besonders bei Cloud-Ablage und Weitergabe. Die Softwarelizenz erteilt keine Rechte an heruntergeladenen Inhalten.
 
