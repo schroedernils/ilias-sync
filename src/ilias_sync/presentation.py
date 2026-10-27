@@ -1,7 +1,9 @@
 """Translate persisted sync facts into user-facing summaries, without changing policy."""
 from dataclasses import dataclass
-from datetime import datetime
+from functools import lru_cache
 from html import escape
+import os
+import time
 
 from .i18n import message, t
 
@@ -84,14 +86,23 @@ def progress_copy(raw):
     return message(raw)
 
 
+@lru_cache(maxsize=8192)
+def _local_minute(minute, zone):
+    # Display precision is one minute. Share costly macOS timezone conversion
+    # across table cells and paints, bounded independently of collection size.
+    return time.localtime(minute * 60)
+
+
 def local_time(stamp, *, now=None):
     if not stamp:
         return t('Not yet checked')
-    value = datetime.fromtimestamp(stamp)
-    today = datetime.fromtimestamp(now) if now is not None else datetime.now()
-    if value.date() == today.date():
-        return t('Today at {time}', time=value.strftime('%H:%M'))
-    return value.strftime('%d.%m.%Y, %H:%M')
+    zone = (os.environ.get('TZ'), time.tzname, time.timezone, time.daylight)
+    value = _local_minute(int(stamp // 60), zone)
+    today = _local_minute(int((time.time() if now is None else now) // 60), zone)
+    clock = f'{value.tm_hour:02d}:{value.tm_min:02d}'
+    if value[:3] == today[:3]:
+        return t('Today at {time}', time=clock)
+    return f'{value.tm_mday:02d}.{value.tm_mon:02d}.{value.tm_year:04d}, {clock}'
 
 
 def file_size(size):

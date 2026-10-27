@@ -181,3 +181,29 @@ def test_status_and_report_expose_actual_content_to_accessibility(app):
     report = SyncReportDialog({'result': {'unavailable': 1, 'unavailable_items': ['Vorlesung/Skript.pdf']}}, '')
     assert 'Vorlesung/Skript.pdf' in report.summary.accessibleDescription()
     report.close()
+
+
+def test_local_dates_remain_correct_across_midnight_language_and_timezone(monkeypatch):
+    import time
+    from ilias_sync.presentation import local_time
+    if not hasattr(time, 'tzset'):
+        pytest.skip('POSIX timezone switch')
+    previous = __import__('os').environ.get('TZ')
+    try:
+        monkeypatch.setenv('TZ', 'Europe/Berlin')
+        time.tzset()
+        stamp = 1793136600  # 2026-10-27 21:30 UTC
+        set_language('en')
+        assert local_time(stamp, now=stamp) == 'Today at 22:30'
+        assert local_time(stamp, now=stamp+7200) == '27.10.2026, 22:30'
+        set_language('de')
+        assert local_time(stamp, now=stamp) == 'Heute, 22:30'
+        monkeypatch.setenv('TZ', 'UTC')
+        time.tzset()
+        assert local_time(stamp, now=stamp) == 'Heute, 21:30'
+    finally:
+        if previous is None:
+            monkeypatch.delenv('TZ', raising=False)
+        else:
+            monkeypatch.setenv('TZ', previous)
+        time.tzset()
