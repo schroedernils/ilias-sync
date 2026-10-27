@@ -9,7 +9,7 @@ from uuid import uuid4
 from PySide6.QtCore import QFileSystemWatcher, QProcess, Qt, QTimer, QUrl, Signal
 from PySide6.QtGui import QAction, QColor, QDesktopServices, QPainter, QFontDatabase, QPalette
 from PySide6.QtWidgets import (
-    QApplication, QCheckBox, QComboBox, QDialog, QDialogButtonBox, QFileDialog, QFormLayout,
+    QTabBar, QApplication, QCheckBox, QComboBox, QDialog, QDialogButtonBox, QFileDialog, QFormLayout,
     QHBoxLayout, QHeaderView, QLabel, QLineEdit, QListWidget, QListWidgetItem, QMainWindow, QMenu,
     QMessageBox, QPushButton, QScrollArea, QSplitter, QTableWidget, QTableWidgetItem,
     QTextEdit, QTextBrowser, QTabWidget, QVBoxLayout, QWidget, QSizePolicy, QFrame, QStackedWidget, QTreeWidget, QTreeWidgetItem,
@@ -193,9 +193,11 @@ class SourceDialog(QDialog):
         self.process = None
         self.event_file = data_dir() / ("probe-" + str(uuid4()) + ".jsonl")
         self.source = None
+        self.probed_url = existing.url if existing else None
+        self.probe_url = None
         self.setWindowTitle(t("Edit ILIAS source" if existing else "Add an ILIAS source"))
-        self.resize(620, 580)
-        self.setMinimumSize(560, 540)
+        self.resize(620, 460 if not existing else 510)
+        self.setMinimumSize(520, 390)
         outer = QVBoxLayout(self)
         outer.setContentsMargins(28, 24, 28, 22)
         outer.setSpacing(16)
@@ -203,6 +205,12 @@ class SourceDialog(QDialog):
         outer.addWidget(self.step_label)
         self.heading = label("", "title")
         outer.addWidget(self.heading)
+        self.sections = QTabBar()
+        for title in ('Your university', 'Sign-in', 'Download folder'):
+            self.sections.addTab(t(title))
+        self.sections.setExpanding(False)
+        self.sections.setVisible(existing is not None)
+        outer.addWidget(self.sections)
         self.stack = QStackedWidget()
         self.pages = []
         self.forms = []
@@ -218,11 +226,14 @@ class SourceDialog(QDialog):
             self.stack.addWidget(scroll)
             self.pages.append(pane)
             self.forms.append(form)
+        self.sections.currentChanged.connect(self.stack.setCurrentIndex)
+        self.sections.currentChanged.connect(self.update_step)
         outer.addWidget(self.stack, 1)
         self.name = QLineEdit(existing.name if existing else "")
         self.name.setPlaceholderText(t("University / campus"))
         self.url = QLineEdit(existing.url if existing else "")
         self.url.setPlaceholderText("https://ilias.example.edu")
+        self.url.textEdited.connect(self.address_changed)
         self.client = QLineEdit(existing.client_id if existing else "")
         self.client.setPlaceholderText(t("Detected when checking the address"))
         self.detect = button("Check address", self.probe)
@@ -282,6 +293,9 @@ class SourceDialog(QDialog):
             self.forms[page].addWidget(row)
             self.field_rows[widget] = row
         self.forms[0].addWidget(self.detect, alignment=Qt.AlignmentFlag.AlignLeft)
+        self.probe_status = label('', 'success')
+        self.probe_status.hide()
+        self.forms[0].addWidget(self.probe_status)
         self.forms[0].addWidget(label("Use the start address of your university's ILIAS.", "subtitle"))
         self.note = label("Import a cookies.txt export from your browser. When the session expires, import a new export.", "subtitle")
         self.forms[1].addWidget(self.note)
@@ -313,13 +327,27 @@ class SourceDialog(QDialog):
         outer.addLayout(footer)
         self.update_step()
 
+    def address_changed(self, *_):
+        if self.probed_url and self.url.text().rstrip('/') != self.probed_url.rstrip('/'):
+            self.client.clear()
+            self.probe_attempted = False
+            self.probed_url = None
+            self.probe_status.hide()
+            self.show_error('The address changed. Check it again or enter its client ID manually.')
+
     def update_step(self):
         index = self.stack.currentIndex()
+        self.step_label.setVisible(self.existing is None)
         self.step_label.setText(t("Step {step} of 3", step=index + 1))
-        self.heading.setText(t(["Your university", "Sign in to ILIAS", "Choose your files"][index]))
+        self.heading.setText(t('University settings') if self.existing else t(["Your university", "Sign in to ILIAS", "Choose your files"][index]))
         self.back_button.setEnabled(index > 0)
-        self.next_button.setText(t("Save" if index == 2 else "Continue"))
+        self.back_button.setVisible(self.existing is None)
+        self.next_button.setText(t("Save" if index == 2 or self.existing else "Continue"))
         self.error.hide()
+        if not self.existing:
+            self.resize(self.width(), [460, 550, 500][index])
+        elif self.sections.currentIndex() != index:
+            self.sections.setCurrentIndex(index)
 
     def back(self):
         self.stack.setCurrentIndex(max(0, self.stack.currentIndex() - 1))
@@ -328,6 +356,10 @@ class SourceDialog(QDialog):
     def advance(self):
         from .storage import server_url
         try:
+            self.address_changed()
+            if self.existing:
+                self.save()
+                return
             index = self.stack.currentIndex()
             if index == 0:
                 server_url(self.url.text())
@@ -396,6 +428,8 @@ class SourceDialog(QDialog):
             self.show_error(str(exc))
             return
         self.error.hide()
+        self.probe_url = url
+        self.probe_attempted = True
         self.detect.setText(t("Checking ILIAS…"))
         self.next_button.setEnabled(False)
         self.detect.setEnabled(False)
@@ -431,10 +465,18 @@ class SourceDialog(QDialog):
         self.back_button.setEnabled(self.stack.currentIndex() > 0)
         output = self.event_file.read_text(encoding="utf-8") if self.event_file.exists() else ""
         self.event_file.unlink(missing_ok=True)
+        handled = False
         for line in output.splitlines():
             try:
                 event = json.loads(line)
                 if event["event"] == "result":
+                    if self.url.text().rstrip('/') != self.probe_url.rstrip('/'):
+                        self.address_changed()
+                        return
+                    handled = True
+                    self.probed_url = self.probe_url
+                    self.probe_status.setText(t('Address checked'))
+                    self.probe_status.show()
                     self.client.setText(event["result"]["client_id"])
                     if not self.name.text():
                         self.name.setText(event["result"]["title"][:70])
@@ -445,11 +487,14 @@ class SourceDialog(QDialog):
                         self.fields_for_login()
                         self.show_error("Enter the client ID or use a browser session.")
                 elif event["event"] == "error":
+                    handled = True
                     self.stack.setCurrentIndex(1)
                     self.update_step()
                     self.show_error(event["message"])
             except (ValueError, KeyError):
                 pass
+        if not handled:
+            self.show_error('Address check returned no result. Try again or continue with manual sign-in details.')
 
     def done(self, result):
         if self.process and self.process.state() != QProcess.ProcessState.NotRunning:
@@ -467,19 +512,25 @@ class SourceDialog(QDialog):
                             automatic_courses=self.automatic.isChecked(),
                             targets=[s.strip() for s in self.targets.toPlainText().splitlines() if s.strip()],
                             videos=self.videos.isChecked(), folder_rules=self.existing.folder_rules if self.existing else {}, **kwargs)
-            source.validate()
-            if source.login != "session":
-                if not source.username:
-                    raise ValueError("Enter your university username.")
-                if self.password.text():
-                    store_password(source.id, self.password.text())
-                elif not self.existing:
-                    raise ValueError("Enter a password, or choose browser-session sign-in.")
-            elif self.session.text():
-                import_session(Path(self.session.text()), source.url, data_dir() / "sources" / source.id / "cache/.cookies")
-            elif not self.existing:
-                raise ValueError("Choose a browser session file.")
-            self.settings.save_source(source)
+            if self.existing:
+                source.enabled = self.existing.enabled
+                source.include_course_ids = self.existing.include_course_ids
+                source.folder_names = dict(self.existing.folder_names)
+            self.settings.validate_source(source)
+            if source.login != 'session' and not source.username:
+                raise ValueError('Enter your university username.')
+            if source.login != 'session' and not self.password.text() and not self.existing:
+                raise ValueError('Enter a password, or choose browser-session sign-in.')
+            changed_auth = self.existing and (QUrl(self.existing.url).host(), self.existing.username, self.existing.login) != (QUrl(source.url).host(), source.username, source.login)
+            if changed_auth and (source.login == 'session' and not self.session.text() or source.login != 'session' and not self.password.text()):
+                raise ValueError('Sign-in changed. Enter the new password or import a new session before saving.')
+            if source.login == 'session' and not self.session.text() and not self.existing:
+                raise ValueError('Choose a browser session file.')
+            from .profile_service import commit_profile
+            commit_profile(self.settings, source,
+                           password=self.password.text() if source.login != 'session' else '',
+                           session=self.session.text() if source.login == 'session' else '',
+                           store=store_password, import_cookies=import_session)
             self.source = source
             self.password.clear()
             self.accept()
@@ -524,6 +575,19 @@ class CoursesDialog(QDialog):
         extra = QLineEdit()
         extra.setPlaceholderText(t("Missing a course? Paste its ILIAS link here."))
         layout.addWidget(extra)
+        known_urls = {course['url'] for course in courses}
+        self.saved_links = QListWidget()
+        self.saved_links.setAccessibleName(t('Additional saved links'))
+        for url in source.targets:
+            if url not in known_urls:
+                item = QListWidgetItem(url)
+                item.setFlags(item.flags() | Qt.ItemFlag.ItemIsUserCheckable)
+                item.setCheckState(Qt.CheckState.Checked)
+                item.setToolTip(url)
+                self.saved_links.addItem(item)
+        self.saved_links.setMaximumHeight(95)
+        self.saved_links.setVisible(bool(self.saved_links.count()))
+        layout.addWidget(self.saved_links)
         buttons = save_buttons()
         layout.addWidget(buttons)
 
@@ -531,6 +595,8 @@ class CoursesDialog(QDialog):
             source.automatic_courses = auto.isChecked()
             source.targets = [listing.item(i).data(Qt.ItemDataRole.UserRole) for i in range(listing.count())
                               if listing.item(i).checkState() == Qt.CheckState.Checked]
+            source.targets += [self.saved_links.item(i).text() for i in range(self.saved_links.count())
+                               if self.saved_links.item(i).checkState() == Qt.CheckState.Checked]
             if extra.text().strip():
                 source.targets.append(extra.text().strip())
                 source.automatic_courses = False

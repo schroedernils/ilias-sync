@@ -1,6 +1,20 @@
 """Small explicit UI catalog; file names and server-provided course names stay intact."""
 LANGUAGE = "de"
 DE = {
+    'Filter files': 'Dateien filtern', 'Filters active': 'Filter aktiv', 'Reset filters': 'Filter zurücksetzen',
+    'Search file names…': 'Dateinamen suchen …', 'File name': 'Dateiname', 'Course': 'Kurs', 'File type': 'Dateityp',
+    'All courses': 'Alle Kurse', 'All file types': 'Alle Dateitypen', 'No extension': 'Ohne Dateiendung',
+    'Any size': 'Alle Größen', 'Up to 1 MB': 'Bis 1 MB', '1–10 MB': '1–10 MB', 'Over 10 MB': 'Über 10 MB',
+    '{visible} of {total} files': '{visible} von {total} Dateien', 'Close': 'Schließen',
+    'Folder name': 'Ordnername', 'Show course IDs in folder names': 'Kurs-IDs im Ordnernamen anzeigen',
+    'Invalid folder naming settings.': 'Ungültige Einstellungen für Ordnernamen.',
+    'Use a folder name without path separators or special characters.': 'Verwende einen Ordnernamen ohne Pfadtrenner oder Sonderzeichen.',
+    'A folder with this name already exists. Choose another name.': 'Ein Ordner mit diesem Namen existiert bereits. Wähle einen anderen Namen.',
+    'At intervals': 'In Zeitabständen', 'At fixed times': 'Zu festen Uhrzeiten', 'Schedule': 'Zeitplan', 'Times': 'Uhrzeiten',
+    'Daily sync times': 'Tägliche Sync-Uhrzeiten', 'Sync time': 'Sync-Uhrzeit', 'Add time': 'Hinzufügen', 'Remove': 'Entfernen',
+    'Daily, in your local time zone.': 'Täglich, in deiner lokalen Zeitzone.',
+    'Add at least one valid time (HH:MM).': 'Füge mindestens eine gültige Uhrzeit hinzu (HH:MM).',
+    'Automatic sync: daily at {times}': 'Automatische Synchronisierung: täglich um {times} Uhr',
     "General": "Allgemein", "Info": "Info", "About & usage": "Über die App und Nutzung",
     "Settings": "Einstellungen", "Language": "Sprache", "Save": "Speichern", "Cancel": "Abbrechen",
     "Add ILIAS": "ILIAS hinzufügen", "Edit source": "Bearbeiten", "Choose courses": "Kurse auswählen",
@@ -35,6 +49,9 @@ DE = {
     "{count} warnings": "{count} Hinweise", "{count} errors": "{count} Fehler",
     "The worker could not start.": "Synchronisierung konnte nicht gestartet werden. Starte die App erneut.",
     "Checking ILIAS…": "ILIAS wird geprüft …", "Checking {name}": "Prüfe {name}",
+    "Downloading {name}": "Lade {name} herunter", "Saving files…": "Dateien werden gespeichert …",
+    "Saving course information…": "Kursinformationen werden gespeichert …",
+    "Checking known content pages…": "Bekannte Inhaltsseiten werden geprüft …",
     "Added": "Neu", "Updated": "Aktualisiert", "Unchanged": "Unverändert", "Conflict": "Konflikt",
     "Some items need attention. Existing files were kept.": "Einige Dateien benötigen Aufmerksamkeit. Vorhandene Dateien bleiben erhalten.",
     "The job exceeded its time limit and was stopped. It can be retried safely.": "Zeitlimit erreicht. Starte die Synchronisierung erneut.",
@@ -99,6 +116,145 @@ DE = {
 }
 
 
+DE.update({
+    '1 file unavailable': '1 Datei nicht verfügbar', '1 local edit preserved': '1 lokale Änderung geschützt',
+    '1 file': '1 Datei',
+    'The last sync did not finish': 'Die letzte Synchronisierung wurde unterbrochen',
+    'Your local files were kept. Start a new sync to check for updates.': 'Deine lokalen Dateien bleiben erhalten. Starte eine neue Synchronisierung, um nach Updates zu suchen.',
+    'Loading your courses': 'Deine Kurse werden geladen',
+    'Your existing files stay available during the sync.': 'Deine vorhandenen Dateien bleiben währenddessen verfügbar.',
+    'Your universities': 'Deine Hochschulen',
+    'Your course materials, ready when you are.': 'Dein Studium. Dein Material.',
+    'Connect your university. Choose your courses. We will take it from there.': 'Verbinde dein ILIAS und wähle deine Kurse. Neue Materialien kommen automatisch in deinen Ordner.',
+    'Saved in {folder}': 'Gespeichert in {folder}',
+    'Library': 'Dein Material', 'Materials': 'Materialien', 'All files': 'Alle Dateien',
+    'Recent changes': 'Zuletzt geändert', 'Course information': 'Kursinformationen', 'Library view': 'Ansicht der Dateien',
+    'Search materials…': 'Materialien durchsuchen …', 'Search materials': 'Materialien durchsuchen',
+    'Clear filters': 'Filter löschen', 'Open file': 'Öffnen', 'Open containing folder': 'Übergeordneten Ordner öffnen',
+    'Changed': 'Geändert', 'New': 'Neu', 'No recorded change': 'Keine Änderung erfasst',
+    'Separate ILIAS copy': 'Separate ILIAS-Kopie',
+    'No matching materials': 'Keine passenden Dateien',
+    'Try another search or clear the filters.': 'Versuche einen anderen Suchbegriff oder lösche die Filter.',
+    'No recent changes yet': 'Noch keine Änderungen erfasst',
+    'New and updated materials will appear here after a sync.': 'Neue und aktualisierte Materialien erscheinen hier nach der Synchronisierung.',
+    'No course information yet': 'Noch keine Kursinformationen',
+    'Course descriptions and links appear here after a sync.': 'Kursbeschreibungen und Links erscheinen hier nach der Synchronisierung.',
+    'Your materials will appear here': 'Hier kommt dein Material hin',
+    'Start a sync to download files from your courses.': 'Starte eine Synchronisierung, um Dateien aus deinen Kursen herunterzuladen.',
+    'This file path is unavailable. Try synchronizing again.': 'Dieser Dateipfad ist nicht verfügbar. Synchronisiere erneut.',
+    'This file is missing locally. Sync again to restore it.': 'Die Datei fehlt lokal. Synchronisiere erneut, um sie wiederherzustellen.',
+    'The file could not be opened. Check its default application.': 'Die Datei konnte nicht geöffnet werden. Prüfe die zugeordnete Anwendung.',
+    'Sign in to continue': 'Anmeldung erforderlich',
+    'Check the saved sign-in details. Your local files are still available.': 'Prüfe deine gespeicherte Anmeldung. Deine lokalen Dateien bleiben verfügbar.',
+    'Synchronization incomplete': 'Synchronisierung unvollständig',
+    'Some files could not be checked. Your local files were kept. Try again.': 'Einige Dateien konnten nicht geprüft werden. Deine lokalen Dateien bleiben erhalten. Versuche es erneut.',
+    'Synchronization stopped': 'Synchronisierung beendet',
+    'Completed downloads were kept. You can continue with a new sync.': 'Fertige Downloads bleiben erhalten. Du kannst jederzeit neu synchronisieren.',
+    'Ready for your first sync': 'Bereit für die erste Synchronisierung',
+    'Choose your courses once. IliasSync keeps their materials available locally.': 'Wähle einmal deine Kurse aus. IliasSync hält ihre Materialien lokal bereit.',
+    '{count} files unavailable': '{count} Dateien nicht verfügbar',
+    '{count} local edits preserved': '{count} lokale Änderungen geschützt',
+    'Some materials need attention': 'Einige Materialien brauchen Aufmerksamkeit',
+    'See the report for details. Your local files were kept.': 'Mehr dazu im Bericht. Deine lokalen Dateien bleiben erhalten.',
+    '{added} new · {updated} updated': '{added} neu · {updated} aktualisiert',
+    'No new materials. {count} files available locally.': 'Keine neuen Materialien. {count} Dateien lokal verfügbar.',
+    'Your materials are up to date': 'Dein Material ist aktuell',
+    'Sync completed with notes': 'Synchronisiert mit Hinweisen',
+    'Today at {time}': 'Heute, {time}', 'Not yet checked': 'Noch nicht geprüft',
+    'Last checked: {time}': 'Letzte Prüfung: {time}',
+    'View report': 'Bericht ansehen', 'Check sign-in': 'Anmeldung prüfen', 'Try again': 'Erneut versuchen',
+    'Synchronizing your materials': 'Materialien werden synchronisiert',
+    'Synchronization paused': 'Synchronisierung pausiert', 'Finishing safely…': 'Synchronisierung wird beendet …',
+    'Something needs attention': 'Aktion erforderlich', 'Synchronization progress': 'Fortschritt der Synchronisierung',
+    'Sync report': 'Sync-Bericht', 'Synchronization result': 'Ergebnis der Synchronisierung',
+    'Technical activity': 'Technischer Verlauf', 'Show technical activity': 'Technischen Verlauf anzeigen',
+    'No technical activity recorded in this window.': 'In diesem Fenster wurde kein technischer Verlauf erfasst.',
+    'What needs attention': 'Was deine Aufmerksamkeit braucht', 'Files': 'Dateien',
+    '{count} unchanged': '{count} unverändert', 'Local edits preserved': 'Lokale Änderungen geschützt',
+    'Your edited files were kept. A separate ILIAS copy was saved beside them.': 'Deine bearbeiteten Dateien bleiben erhalten. Daneben wurde eine separate ILIAS-Kopie gespeichert.',
+    'These downloads were not available for publication in this run. Any existing local copies were kept.': 'Diese Downloads konnten in diesem Lauf nicht übernommen werden. Vorhandene lokale Kopien bleiben erhalten.',
+    'Forums': 'Foren', 'Tests': 'Tests', 'Groups you have not joined': 'Gruppen ohne Mitgliedschaft',
+    'Videos': 'Videos', 'SCORM modules': 'SCORM-Module',
+    'Not downloaded automatically': 'Nicht automatisch heruntergeladen',
+    'These are excluded content types or inaccessible groups, not failed file downloads.': 'Dies sind ausgeschlossene Inhaltstypen oder nicht zugängliche Gruppen. Es handelt sich nicht um fehlgeschlagene Datei-Downloads.',
+    'Checks requiring attention': 'Prüfungen mit Hinweisen', 'No completed result yet': 'Noch kein abgeschlossenes Ergebnis',
+    'Run a sync to see what was downloaded and what needs attention.': 'Nach der Synchronisierung siehst du hier, was übernommen wurde und was Aufmerksamkeit braucht.',
+})
+
+DE.update({
+ 'Add a time for your daily sync.':'Füge eine Uhrzeit für die tägliche Synchronisierung hinzu.',
+ 'Affected material':'Betroffenes Material','Affected materials':'Betroffene Materialien','Attempt: {time}':'Versuch: {time}',
+ 'Automatic sync is off':'Automatische Synchronisierung ist ausgeschaltet',
+ 'Automatic sync waits for sign-in':'Automatische Synchronisierung wartet auf deine Anmeldung',
+ 'Changes apply when you save. Appearance is previewed until then.':'Änderungen gelten nach dem Speichern. Das Erscheinungsbild wird vorab angezeigt.',
+ 'Checking course: {course}':'Kurs wird geprüft: {course}',
+ 'Choose a different destination…':'Anderen Zielordner auswählen …','Collapse all':'Alle einklappen','Expand all':'Alle ausklappen',
+ 'Content not included':'Nicht übernommene Inhalte','Count':'Anzahl','Course information: {count}':'Kursinformationen: {count}',
+ 'Custom destination for this item':'Eigener Zielordner für dieses Element',
+ 'Destination changes create new copies at the next sync. Existing copies are kept. Name changes rename the managed folder and its local contents.':'Neue Zielordner gelten beim nächsten Sync; bisherige Kopien bleiben erhalten. Namen innerhalb der bisherigen Ablage werden samt lokalen Inhalten umbenannt.',
+ 'Effective destination after the next sync':'Wirksames Ziel beim nächsten Sync','Excluded content':'Ausgeschlossene Inhalte',
+ 'Excluded types and groups are not failed file downloads.':'Ausgeschlossene Inhalte und Gruppen sind keine fehlgeschlagenen Datei-Downloads.',
+ 'Help & about':'Hilfe & Über IliasSync','Hide filters':'Filter ausblenden',
+ 'Last automatic run deferred on battery. Next attempt follows the schedule.':'Letzter automatischer Lauf im Akkubetrieb verschoben. Der nächste Versuch folgt dem Zeitplan.',
+ 'Last check completed':'Letzte Prüfung abgeschlossen','Last complete check: {time}':'Letzte vollständige Prüfung: {time}',
+ 'Latest attempt':'Letzter Versuch','Legacy result: file totals may include course information.':'Älteres Ergebnis: Die Dateizahl kann Kursinformationen enthalten.',
+ 'Material files processed: {count}':'Bearbeitete Materialdateien: {count}',
+ 'Next check: when the operating system starts the scheduled run':'Nächste Prüfung: beim nächsten Start durch den Systemzeitplan',
+ 'Next planned check: {time}':'Nächste geplante Prüfung: {time}',
+ 'No excluded content recorded':'Keine ausgeschlossenen Inhalte erfasst','No file issues recorded':'Keine Dateiprobleme erfasst',
+ 'No filenames recorded in this older result.':'In diesem älteren Ergebnis sind keine Dateinamen erfasst.',
+ 'Not confirmed for publication in this run':'In diesem Lauf nicht zur Übernahme bestätigt',
+ 'Only this file is affected. Its filename stays unchanged.':'Gilt nur für diese Datei. Ihr Dateiname bleibt erhalten.',
+ 'Organize course folders':'Kursordner organisieren','Remove selected time':'Ausgewählte Zeit entfernen',
+ 'Schedules use the computer’s local time, including daylight saving changes. The OS decides when missed runs can resume; the computer must be awake, signed in and online.':'Uhrzeiten richten sich nach der lokalen Systemzeit inklusive Sommerzeit. Das Betriebssystem regelt verpasste Läufe. Der Computer muss wach, angemeldet und online sein.',
+ 'See the outcome above for the status of this attempt.':'Den Status dieses Versuchs findest du oben.',
+ 'Select a course, folder or file to see where it will be saved.':'Wähle einen Kurs, Ordner oder eine Datei, um das Speicherziel zu sehen.',
+ 'Server denied access':'Server hat den Zugriff verweigert','Server returned not found':'Server meldet: nicht gefunden',
+ 'Subfolders follow this destination unless they have their own destination.':'Unterordner verwenden dieses Ziel, sofern für sie kein eigenes Ziel festgelegt ist.',
+ 'Synchronization history':'Bisherige Synchronisierungen','The destination will be available after the next sync.':'Das Ziel steht nach der nächsten Synchronisierung bereit.',
+ 'Transfer failed':'Übertragung fehlgeschlagen','University settings':'Hochschule bearbeiten','Update selected time':'Ausgewählte Zeit ändern',
+ 'Use original name':'Originalnamen verwenden','Use parent destination':'Übergeordnetes Ziel verwenden',
+ 'Uses the parent destination':'Verwendet das Ziel des übergeordneten Ordners',
+ 'Uses the university download folder':'Verwendet den Zielordner der Hochschule','What is known':'Bekannter Grund',
+ 'No new materials. {count} files recorded in the last sync.':'Keine neuen Materialien. {count} Dateien beim letzten Sync erfasst.',
+ 'Additional saved links':'Weitere gespeicherte Links','Remove checked link':'Markierten Link entfernen',
+ 'The address changed. Check it again or enter its client ID manually.':'Die Adresse wurde geändert. Prüfe sie erneut oder trage die Client-ID manuell ein.',
+ 'Address check returned no result. Try again or continue with manual sign-in details.':'Die Adressprüfung hat kein Ergebnis geliefert. Wiederhole sie oder ergänze die Anmeldedaten manuell.',
+ 'Changing this name changes the custom destination. A new copy will be saved; existing files stay in the previous folder.':'Dieser Name ändert den eigenen Zielordner. Es wird eine neue Kopie angelegt; bisherige Dateien bleiben im alten Ordner.',
+ 'Restore saved destination':'Gespeichertes Ziel wiederherstellen',
+})
+
+DE.update({'Stop this sync': 'Diesen Sync beenden', 'Stops this run. Completed files and the schedule are kept.': 'Beendet nur diesen Lauf. Fertige Dateien und der Zeitplan bleiben erhalten.'})
+
+DE.update({
+ 'Check the folder names':'Ordnernamen prüfen', 'Check folder names':'Ordnernamen prüfen',
+ 'No new materials. {count} files recorded in your archive.':'Keine neuen Materialien. {count} Dateien in deiner Ablage erfasst.',
+ 'The current run has no completed result yet.':'Für den laufenden Sync gibt es noch kein abgeschlossenes Ergebnis.',
+})
+
+DE.update({
+ 'See recent changes':'Änderungen ansehen',
+ 'Course list could not be loaded. Check your connection or sign-in and try again.':'Kursliste konnte nicht geladen werden. Prüfe Verbindung oder Anmeldung und versuche es erneut.',
+ 'Sign-in changed. Enter the new password or import a new session before saving.':'Die Anmeldung wurde geändert. Gib das neue Passwort ein oder importiere eine neue Sitzung, bevor du speicherst.',
+ 'Settings changed since the last check':'Einstellungen seit der letzten Prüfung geändert',
+ 'Start a sync to check the current courses and destinations.':'Starte eine Synchronisierung, um die aktuellen Kurse und Zielordner zu prüfen.',
+ 'Credential storage failed. Check the saved sign-in details before syncing again.':'Die Zugangsdaten konnten nicht sicher gespeichert werden. Prüfe die gespeicherte Anmeldung vor dem nächsten Sync.',
+ 'The previous system schedule could not be restored. Reapply the schedule before relying on automatic sync.':'Der bisherige Systemzeitplan konnte nicht wiederhergestellt werden. Speichere den Zeitplan erneut, bevor du dich auf automatische Läufe verlässt.',
+ 'No new materials in this run.':'Keine neuen Materialien in diesem Lauf.',
+ 'Choose a different destination…':'Zielordner ändern …',
+ 'Update selected time':'Zeit ändern', 'Remove selected time':'Zeit entfernen',
+})
+
+DE.update({'Help topics': 'Hilfethemen', 'Project & references': 'Projekt & Quellen'})
+
+DE.update({
+ 'A new check is needed':'Neue Prüfung erforderlich',
+ 'This older result has no recorded course and destination scope. Sync once to confirm the current setup.':'Für dieses ältere Ergebnis sind Kursauswahl und Zielordner nicht erfasst. Synchronisiere einmal, um die aktuelle Einrichtung zu bestätigen.',
+ 'Invalid file content returned':'Dateiinhalt hat die Formatprüfung nicht bestanden',
+ 'Material files processed: {count}':'In diesem Lauf bestätigt: {count} Materialdateien',
+ 'Courses included in this check':'In dieser Prüfung enthaltene Kurse',
+})
+
 def set_language(language):
     global LANGUAGE
     LANGUAGE = language if language in {"de", "en"} else "de"
@@ -114,6 +270,8 @@ def message(text):
         return t(text)
     if text.startswith("Checking "):
         return t("Checking {name}", name=text[9:])
+    if text.startswith("Downloading "):
+        return t("Downloading {name}", name=text[12:])
     for prefix in ("Added", "Updated", "Unchanged", "Conflict"):
         if text.startswith(prefix + ": "):
             return t(prefix) + text[len(prefix):]
