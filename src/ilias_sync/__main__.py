@@ -15,7 +15,7 @@ from . import __version__
 from .control import RunControl
 from .policy import due, next_scheduled_run, on_battery
 from .security import LoginRequired
-from .storage import Settings, data_dir, read_json, write_json, record_attempt
+from .storage import Settings, data_dir, read_json, write_json, record_attempt, source_scope
 
 
 EVENT_FILE = None
@@ -75,7 +75,7 @@ async def worker(args):
                 status = {"state": "Completed with warnings" if partial else "Up to date", "finished": time.time(),
                           "next_run": next_scheduled_run(settings.value, failures, clock=batch_started), "failures": failures,
                           "login_required": False, "result": result}
-                record_attempt(path.parent, {**status, 'started': started}, previous)
+                record_attempt(path.parent, {**status, 'started': started, 'scope': source_scope(source)}, previous)
                 emit({"event": "result", "profile": source.id, "result": status})
                 errors += int(bool(incomplete))
             except asyncio.CancelledError:
@@ -85,7 +85,7 @@ async def worker(args):
                     write_json(path, previous)
                 else:
                     record_attempt(path.parent, {"state": "Stopped", 'started': started, "finished": time.time(),
-                                      "next_run": next_scheduled_run(settings.value), "login_required": False}, previous)
+                                      "next_run": next_scheduled_run(settings.value), "login_required": False, 'scope': source_scope(source)}, previous)
                 emit({"event": "stopped", "profile": source.id})
                 break
             except Exception as exc:
@@ -106,7 +106,7 @@ async def worker(args):
                           "login_required": login, "message": message}
                 if collision:
                     status['recovery'] = 'folders'
-                record_attempt(path.parent, {**status, 'started': started}, previous)
+                record_attempt(path.parent, {**status, 'started': started, 'scope': source_scope(source)}, previous)
                 emit({"event": "error", "profile": source.id, "message": message})
                 errors += 1
     finally:

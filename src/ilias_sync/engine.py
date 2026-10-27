@@ -415,8 +415,10 @@ def make_crawler(source: Source, emit=lambda event: None, *, discover=False):
                         if not html_error:
                             first = await response.content.read(1024)
                             if extension == ".pdf" and not first.lstrip().startswith(b"%PDF-"):
+                                self.download_issues[element.type.value + ':' + element.id()] = 'invalid_content'
                                 raise CrawlError("Server returned an invalid PDF.")
                             if extension == ".zip" and not first.startswith(b"PK"):
+                                self.download_issues[element.type.value + ':' + element.id()] = 'invalid_content'
                                 raise CrawlError("Server returned an invalid ZIP.")
                             if response.content_length:
                                 bar.set_total(response.content_length)
@@ -510,5 +512,6 @@ async def synchronize(source: Source, emit=lambda event: None, *, discover=False
     result['pages'] = {'checked': len(crawler.page_index.used_urls), 'parsed': crawler.page_index.parsed,
                        'reused': crawler.page_index.reused,
                        'empty_meetings': len(crawler.page_index.empty_meetings)}
+    result['course_scope'] = [{'id': row['id'], 'name': row['name']} for row in crawler.active_roots]
     write_json(state / "last-result.json", result)
     return result

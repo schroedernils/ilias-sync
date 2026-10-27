@@ -8,6 +8,7 @@ import re
 import shutil
 import tempfile
 import time
+from copy import deepcopy
 import unicodedata
 from dataclasses import asdict, dataclass, field
 from pathlib import Path
@@ -39,15 +40,23 @@ def record_attempt(state: Path, status, previous):
     result = status.get('result') or {}
     success = status.get('state') == 'Up to date' and not any(
         result.get(key) for key in ('partial', 'warnings', 'errors', 'unavailable'))
-    last_success = previous.get('last_success')
+    same_scope = not status.get('scope') or status.get('scope') == previous.get('scope')
+    last_success = previous.get('last_success') if same_scope else None
     old_result = previous.get('result') or {}
-    if not last_success and previous.get('state') == 'Up to date' and not any(
+    if same_scope and not last_success and previous.get('state') == 'Up to date' and not any(
             old_result.get(key) for key in ('partial', 'warnings', 'errors', 'unavailable')):
         last_success = previous.get('finished')
     status['last_success'] = status.get('finished') if success else last_success
     write_json(state / 'status.json', status)
     history = read_json(state / 'history.json', [])
     write_json(state / 'history.json', [status, *history][:20])
+
+
+def source_scope(source):
+    value = asdict(source)
+    value.pop('enabled', None)
+    value.pop('name', None)
+    return hashlib.sha256(json.dumps(value, sort_keys=True).encode()).hexdigest()
 
 
 def atomic_write(path: Path, value: bytes):
@@ -202,17 +211,25 @@ class Settings:
     def sources(self):
         return [Source(**s) for s in self.value["sources"]]
 
-    def save_source(self, source: Source):
+    def validate_source(self, source: Source):
         source.validate()
         for other in self.sources():
             if other.id != source.id:
                 a, b = Path(other.destination).resolve(), Path(source.destination).resolve()
                 if a == b or a.is_relative_to(b) or b.is_relative_to(a):
                     raise ValueError("Each source needs its own non-overlapping download folder.")
+
+    def save_source(self, source: Source):
+        self.validate_source(source)
+        previous = deepcopy(self.value)
         self.value["sources"] = [asdict(source) if s["id"] == source.id else s for s in self.value["sources"]]
         if not any(s["id"] == source.id for s in self.value["sources"]):
             self.value["sources"].append(asdict(source))
-        self.save()
+        try:
+            self.save()
+        except Exception:
+            self.value = previous
+            raise
 
     def save(self):
         write_json(self.path, self.value)
