@@ -11,8 +11,8 @@ os.environ.setdefault("QT_SCALE_FACTOR", "2")
 def main():
     from PySide6.QtWidgets import QApplication
     from ilias_sync.branding import app_icon
-    from ilias_sync.gui import MainWindow, FolderMappingDialog, SourceDialog, SettingsDialog
-    from ilias_sync.storage import Settings, Source, data_dir, write_json
+    from ilias_sync.gui import MainWindow, FolderMappingDialog, SourceDialog, HelpDialog
+    from ilias_sync.storage import Settings, Source, data_dir, write_json, source_scope
     from ilias_sync.theme import Theme
     output = Path(__file__).resolve().parents[1] / "docs/images"
     output.mkdir(parents=True, exist_ok=True)
@@ -36,7 +36,7 @@ def main():
             f"file:{index}": {"path": path, "logical": logical, "course_id": course,
                               "target_stat": [size], "size": size}
             for index, (path, logical, course, size) in enumerate(names)}})
-        write_json(state / "status.json", {"state": "Up to date", "finished": time.time(), "result": {
+        write_json(state / "status.json", {"state": "Up to date", "scope": source_scope(source), "finished": time.time(), "result": {
             "files": 5, "skipped": {}, "warnings": 0, "errors": 0, "unavailable": 0}})
         app = QApplication([])
         app.setWindowIcon(app_icon())
@@ -61,8 +61,7 @@ def main():
         setup = SourceDialog(settings, source)
         capture(setup, "setup.png")
         setup.close()
-        preferences = SettingsDialog(settings)
-        preferences.tabs.setCurrentIndex(1)
+        preferences = HelpDialog()
         capture(preferences, "info.png")
         preferences.close()
         window.close()
