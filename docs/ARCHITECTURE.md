@@ -11,7 +11,7 @@ An installation profile has an opaque UUID, HTTPS root, login mode, username, cl
 PFERD is a pinned dependency. The adapter supports dynamic local login form field names, explicitly guarded Shibboleth POST hosts, imported browser sessions, dashboard membership discovery, selected course/folder URLs, safe single-object cache keys, PDF/ZIP signature checks and status-aware HTTP errors. Navigation controls for showing/hiding sessions are removed before parsing to avoid the previously observed duplicate-folder loop. Courses linked from a course are not followed as new memberships; joined groups come from the dashboard.
 
 Incremental parsing: a private, source-bound page index retains parsed navigation plans rather than cached freshness.
-Each run fetches known content pages again, with at most 64 concurrent reads, overlapping membership discovery and traversal.
+Each run fetches known content pages again, with at most 64 queued page tasks, overlapping membership discovery and traversal. A shared per-host HTTP budget allows eight active requests across pages, streams, authentication and redirects; responses retain their slot until EOF or close.
 Authenticated responses are compared using
 content, navigation, download-target and description fingerprints; random UI IDs, hidden form tokens and assignment
 countdowns do not invalidate parsing. Changed pages are parsed again with lxml, newly discovered pages are fetched,
@@ -61,3 +61,8 @@ View state (selected source, source-specific material view and window size) has 
 Read-only tables release Tab for focus navigation. Datetime labels share a bounded minute-precision timezone cache;
 there is no timer or background collection scan while idle. Filters share the single main search and reload choices
 when the manifest changes. Their visible result count uses the same eligibility predicate as the table.
+
+HTTP policy: aiohttp 3.14.5 middleware bounds active responses per hostname, while trace hooks count actually sent headers.
+Persisted host cooldowns survive one-shot workers. GET/HEAD retries obey Retry-After; POST is never automatically replayed.
+Three consecutive throttles open a per-run circuit. Host metrics and attempted/planned roots are retained in attempt evidence
+even when enumeration fails before files exist. See [measurement and override policy](SYNC_PERFORMANCE.md).

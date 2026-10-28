@@ -25,13 +25,13 @@ Der Adapter verwendet **acht PFERD-Arbeitsslots** ohne zusätzliche Wartezeit
 zwischen Aufgaben (`tasks=8`, `task_delay=0`). Inhalte innerhalb eines Kurses
 werden parallel geprüft; Kurse werden weiterhin nacheinander verarbeitet.
 Ein lokaler Inhaltsindex prüft bekannte Seiten bei jedem Lauf frisch mit bis zu
-64 parallelen Seitenabrufen. Kurssuche und Verarbeitung laufen dabei überlappend.
+64 vorbereiteten Seitenaufgaben; insgesamt sind höchstens acht HTTP-Anfragen pro Host gleichzeitig aktiv. Diese Grenze gilt auch für Downloads, Anmeldung und Weiterleitungen. Kurssuche und Verarbeitung laufen dabei überlappend.
 Unveränderte Parserergebnisse werden wiederverwendet,
 doppelte Abrufe zusammengefasst und bestätigte Objektrouten direkt aufgerufen.
 Bei unterstützten Kursübersichten reichen die aktuellen Materialzähler aus,
 um bereits leer bestätigte Termine auf neue Materialien zu prüfen. Unbekannte
 Termine und unbekannte Darstellungen werden regulär geprüft.
-Die Kurssuche, Dateiprüfung und sichere lokale Veröffentlichung bleiben erhalten.
+Die Kurssuche, Dateiprüfung und sichere lokale Veröffentlichung bleiben erhalten. Serverseitige Wartezeiten bei 429/503 werden berücksichtigt, auch über App-Neustarts hinweg.
 Erste Läufe und neue Ordner benötigen mehr Arbeit als unveränderte Folgeläufe;
 Downloads hängen zusätzlich von Größe und Verbindung ab. [Messung](SYNC_PERFORMANCE.md).
 

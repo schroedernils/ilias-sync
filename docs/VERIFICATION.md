@@ -52,3 +52,23 @@ not notarization. Windows/Linux native installation and spoken screen-reader beh
 The existing account configuration and 66 published files were snapshotted locally before installing. After the package
 replacement, all 66 files matched their recorded SHA-256 hashes and settings were byte-identical. Native scheduling was generated/tested with fixtures; no example daily
 schedule was activated on the real account.
+
+## GitHub quality issues — 28 October 2026
+
+The source passed **174 tests** after the issue work; Ruff and whitespace checks passed. The 53-state renderer was rerun.
+Issue #1 now has direct regressions for material-policy scope changes versus cosmetic changes, unknown legacy scope,
+scoped last-success claims, changed-scope failure/cancellation and restart, and a failed subtree before any file is
+listed. Attempted roots, planned roots and incomplete membership enumeration are separately recorded. Failed attempts
+keep this evidence without fabricating publication results. Read-only discovery still preserves previous sync outcomes.
+Build metadata binds locally packaged previews to a Git revision and source fingerprint; release Alpha 2 is explicitly
+separate in the README. No source was pushed and no release was created.
+
+Issue #3 has loopback-only HTTP/HTTPS integration tests for streamed-body leases, redirects, shared sessions, login,
+401, 429/503, Retry-After dates and persistence, retry storms, queued cancellation and full-crawler comparison at limits
+1/8. The fixture measured equal request counts, scope, file identities and hashes; see [the measurement record](SYNC_PERFORMANCE.md).
+Battery deferral does no crawl, configured sources run sequentially, and existing tests check idle timers/no resident loop.
+No power measurement or institutional compatibility claim follows from these tests. An explicit equal-mtime fixture
+records the limitation that metadata-based file reuse can retain old bytes when the server changes bytes alone.
+
+The owner deferred tests with other people. Issue #2's student discovery and unseen-change/offline-readiness validation
+remain open; no recruitment, diary, participant metrics or offline-residency assurance was performed or invented.

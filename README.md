@@ -10,7 +10,7 @@
   <img src="docs/images/app-light.png" alt="IliasSync zeigt lokal gespeicherte Skripte und Übungsblätter sowie die Auswahl von Kursen und Ordnern.">
 </picture>
 
-<p align="center"><sub>Echte App-Oberfläche mit erfundenen Kursen und Dateien.</sub></p>
+<p align="center"><sub>Synthetische Ansicht des lokalen Entwicklungsstands vom 28.10.2026; kein Screenshot des veröffentlichten Alpha-2-Pakets.</sub></p>
 
 <p align="center">
   <a href="https://github.com/schroedernils/ilias-sync/releases/tag/v0.1.0-alpha.2">Downloads</a> ·
@@ -31,6 +31,10 @@
 
 Die Oberfläche startet auf Deutsch. Unter **Einstellungen → Allgemein** kannst du zu Englisch wechseln und Hell, Dunkel oder **Wie System** wählen.
 
+## Entwicklungsstand und veröffentlichtes Paket
+
+Die hier beschriebenen neuen Ordner-, Filter-, Tageszeitplan- und Berichtsabläufe gehören zum lokalen Entwicklungsstand. Der Downloadlink führt weiterhin zum veröffentlichten Alpha 2 vom 22.10.2026. Diese Arbeit wurde nicht gepusht oder als Release veröffentlicht. Neue lokale Pakete zeigen unter **Hilfe & Über IliasSync** eine Build-Kennung aus Git-Revision und Quellfingerprint; dieselbe Kennung steht im Offline-Selbsttest und bei neu aufgezeichneten Versuchen. Die Versionsnummer `0.1.0a2` allein unterscheidet diese Pakete nicht. [Prüfnachweise](docs/VERIFICATION.md).
+
 ## Herunterladen
 
 Alle Pakete stehen im [aktuellen Alpha-Release](https://github.com/schroedernils/ilias-sync/releases/tag/v0.1.0-alpha.2). Prüfe die Datei gegen `SHA256SUMS` im selben Release. Python und Qt sind enthalten; Java wird nicht benötigt.
@@ -47,9 +51,9 @@ Alle Pakete stehen im [aktuellen Alpha-Release](https://github.com/schroedernils
 
 1. **ILIAS hinzufügen:** Die HTTPS-Startadresse deiner Hochschule eintragen und prüfen.
 2. **Anmelden:** Hochschulzugang, unterstütztes SSO oder eine eigene Browsersitzung verwenden. Einen festen Zielordner auswählen.
-3. **Kurse wählen und synchronisieren:** Alle beigetretenen Kurse oder eine Auswahl. Bei Bedarf den Zeitplan unter **Einstellungen → Allgemein** aktivieren.
+3. **Kurse wählen und synchronisieren:** Alle beigetretenen Kurse oder eine Auswahl. Bei Bedarf den Zeitplan unter **Einstellungen → Zeitplan** aktivieren.
 
-Du kannst mehrere ILIAS-Quellen hinzufügen. Fahre links über eine Quelle, um den Stift zum **Bearbeiten** einzublenden, oder nutze Rechtsklick → **Bearbeiten**. Mit der Tastatur geht auch F2. Am Zielpfad stehen **Ordner zuordnen** und **Ordner öffnen** als Symbole mit Tooltips. Das Zahnrad öffnet die Einstellungen.
+Du kannst mehrere ILIAS-Quellen hinzufügen. Fahre links über eine Quelle, um den Stift zum **Bearbeiten** einzublenden, oder nutze Rechtsklick → **Bearbeiten**. Mit der Tastatur geht auch F2. Rechts neben **Kurse auswählen** stehen **Ordner zuordnen** und **Ordner öffnen** als Symbole mit Tooltips. **Einstellungen** öffnet Sprache, Erscheinungsbild und Zeitplan.
 
 Bei MFA oder einer eigenen Anmeldeseite kann ein Netscape-`cookies.txt`-Export nötig sein. Die App importiert nur Cookies für den eingestellten ILIAS-Host und liest dein Browserprofil nicht selbst. Eine Sitzung kann ablaufen; dann ist ein neuer Import nötig. Behandle solche Exporte wie ein Passwort. [Mehr zur Anmeldung](docs/INSTALLATION.md#anmeldung).
 
@@ -67,7 +71,7 @@ Ein Cloud-Zielordner ist möglich. **Den Upload übernimmt dein Cloud-Client; Il
 
 **Kompatibilität:** ILIAS-Versionen, Hochschuldesigns, Plugins und SSO/MFA unterscheiden sich. Eine eigene Adresse ist konfigurierbar, aber nicht jede Installation funktioniert ohne Anpassung. Foren, Tests, Umfragen, SCORM und manche externen Inhalte sind kein vollständiges Offline-Abbild. Übersprungene und nicht verfügbare Inhalte werden im Ergebnis ausgewiesen.
 
-**Schnelle Folgeläufe:** Ein lokaler Inhaltsindex vermeidet wiederholtes HTML-Parsing. Bekannte Inhaltsseiten werden bei jedem Lauf frisch geprüft, mit maximal 64 parallelen Seitenabrufen; acht PFERD-Arbeitsslots bearbeiten neue Inhalte und Downloads. Bereits leer bestätigte Termine werden bei unterstützten Kursübersichten über die aktuellen Materialzähler geprüft. Es gibt keine künstliche Pause nach Aufgaben. Automatische Läufe sind frühestens stündlich möglich. Die Vorgaben deiner Hochschule gehen vor. [Messung und Grenzen](docs/SYNC_PERFORMANCE.md).
+**Schnelle Folgeläufe:** Ein lokaler Inhaltsindex vermeidet wiederholtes HTML-Parsing. Bekannte Inhaltsseiten werden bei jedem Lauf frisch geprüft, mit bis zu 64 vorbereiteten Seitenprüfungen. Eine gemeinsame HTTP-Grenze erlaubt insgesamt höchstens acht Anfragen pro Host, einschließlich Downloads, Anmeldung und Weiterleitungen; acht PFERD-Arbeitsslots bearbeiten neue Inhalte. Bereits leer bestätigte Termine werden bei unterstützten Kursübersichten über die aktuellen Materialzähler geprüft. Es gibt keine künstliche Pause nach Aufgaben. Automatische Läufe sind frühestens stündlich möglich. Die Vorgaben deiner Hochschule gehen vor. [Messung und Grenzen](docs/SYNC_PERFORMANCE.md).
 
 **Nutzungsrechte:** IliasSync ist unabhängig und kein offizielles Angebot einer Hochschule oder des ILIAS-Projekts. Nutze nur berechtigte Zugänge und beachte Hochschulregeln sowie Rechte an Kursmaterialien, besonders bei Cloud-Ablage und Weitergabe. Die Softwarelizenz erteilt keine Rechte an heruntergeladenen Inhalten.
 

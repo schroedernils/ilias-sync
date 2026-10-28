@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+Bind preview packages and attempt history to a source build identity. Preserve attempted/planned course roots and failed-subtree evidence even before files are listed. Add a shared per-host HTTP budget across pages, streamed downloads, authentication and redirects, persisted Retry-After and bounded safe-method retries; keep POSTs non-replayed. Record actual sent-request counts and verify lower-concurrency coverage with a local HTTPS server.
+
 Distinguish settings-file access/write failures from native scheduler failures and retain unsaved input for retry.
 
 Make editing distinct from first-time setup; preserve manual course targets. Explain effective inherited folder paths,
