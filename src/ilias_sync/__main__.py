@@ -75,6 +75,7 @@ async def worker(args):
                 status = {"state": "Completed with warnings" if partial else "Up to date", "finished": time.time(),
                           "next_run": next_scheduled_run(settings.value, failures, clock=batch_started), "failures": failures,
                           "login_required": False, "result": result}
+                status['next_run'] = max(status['next_run'], result.get('http', {}).get('retry_at', 0))
                 record_attempt(path.parent, {**status, 'started': started, 'scope': source_scope(source)}, previous)
                 emit({"event": "result", "profile": source.id, "result": status})
                 errors += int(bool(incomplete))
@@ -101,11 +102,14 @@ async def worker(args):
                 failures = previous.get("failures", 0) + 1
                 from .storage import FolderCollisionError
                 collision = isinstance(exc, FolderCollisionError)
-                message = str(exc) if login or collision else f"{type(exc).__name__}: sync could not complete. Existing files were retained."
+                from .http_policy import HostDeferred
+                message = str(exc) if login or collision or isinstance(exc, HostDeferred) else f"{type(exc).__name__}: sync could not complete. Existing files were retained."
                 status = {"state": "Sign in again" if login else "Needs attention", "finished": time.time(),
                           "next_run": next_scheduled_run(settings.value, failures), "failures": failures,
                           "login_required": login, "message": message}
                 status['evidence'] = getattr(exc, 'sync_evidence', {})
+                status['next_run'] = max(status['next_run'], status['evidence'].get('http', {}).get('retry_at', 0),
+                                         getattr(exc, 'retry_at', 0))
                 if collision:
                     status['recovery'] = 'folders'
                 record_attempt(path.parent, {**status, 'started': started, 'scope': source_scope(source)}, previous)

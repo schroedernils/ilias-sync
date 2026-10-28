@@ -18,6 +18,7 @@ from .control import CURRENT, checkpoint
 from .page_index import PageData, PageIndex, decode_element, encode_element
 from .security import LoginRequired, get_password
 from .storage import Archive, Source, clean_filename, clean_name, data_dir, write_json
+from .http_policy import shared_budget
 
 
 def ref(url):
@@ -66,8 +67,10 @@ async def probe(url):
     from .storage import server_url
     import ssl
     base = server_url(url)
+    meter = shared_budget().meter()
     async with aiohttp.ClientSession(timeout=aiohttp.ClientTimeout(total=30),
-                                    connector=aiohttp.TCPConnector(ssl=ssl.create_default_context(cafile=certifi.where()))) as session:
+                                    connector=aiohttp.TCPConnector(ssl=ssl.create_default_context(cafile=certifi.where())),
+                                    **meter.session_options()) as session:
         async with session.get(base + "/login.php") as response:
             response.raise_for_status()
             soup = BeautifulSoup(await response.read(), "html.parser")
@@ -135,14 +138,35 @@ def make_crawler(source: Source, emit=lambda event: None, *, discover=False):
             self.attempted_roots = []
             self.membership_complete = False
             self.failed_checks = {}
+            self.http = None
             self.page_index = PageIndex(data_dir() / 'sources' / source.id / 'page-index.json', source,
                                         self._fetch_page)
 
         async def run(self):
+            # Match the pinned PFERD HttpCrawler lifecycle, with public aiohttp
+            # middleware/response hooks covering redirects, auth and streams.
+            import ssl
+            from PFERD import __version__ as pferd_version
+            from PFERD.crawl.crawler import Crawler as BaseCrawler
+            self._request_count = 0
+            self._cookie_jar = aiohttp.CookieJar()
+            self._load_cookies()
+            self.http = shared_budget().meter()
             success = False
             try:
-                await super().run()
-                success = self.error_free
+                async with aiohttp.ClientSession(headers={'User-Agent':f'PFERD/{pferd_version}'},
+                        cookie_jar=self._cookie_jar,
+                        connector=aiohttp.TCPConnector(ssl=ssl.create_default_context(cafile=certifi.where())),
+                        timeout=aiohttp.ClientTimeout(total=15*60, connect=self._http_timeout,
+                            sock_connect=self._http_timeout, sock_read=self._http_timeout),
+                        requote_redirect_url=False, **self.http.session_options()) as session:
+                    self.session = session
+                    try:
+                        await BaseCrawler.run(self)
+                        success = self.error_free
+                    finally:
+                        del self.session
+                self._save_cookies()
             finally:
                 await self.page_index.close(success and not discover)
 
@@ -243,7 +267,8 @@ def make_crawler(source: Source, emit=lambda event: None, *, discover=False):
             return {'course_scope': [{'id': r['id'], 'name': r['name']} for r in self.attempted_roots],
                     'intended_scope': [{'id': r['id'], 'name': r['name']} for r in self.active_roots],
                     'enumeration_complete': self.membership_complete,
-                    'check_issues': list(self.failed_checks.values())}
+                    'check_issues': list(self.failed_checks.values()),
+                    'http': self.http.snapshot() if self.http else {}}
 
         def _page_progress(self, url):
             if self.current:

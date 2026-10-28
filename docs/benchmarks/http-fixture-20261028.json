@@ -1,0 +1,296 @@
+[
+  {
+    "limit": 1,
+    "files": {
+      "file:100": "62f12b44ef12f6eebd3aef0cf56e00a6c0d091838277e32301d73a94c1c34e19",
+      "file:101": "64ff29d4311a40ebab72b8e8da63ca41c295aa97f7b561bd00f4ed006bc47061",
+      "file:102": "e3fe513a18fbc4adaca555cd6035211b43a448f9bb521bc4a0f6d629f61c9734",
+      "file:103": "19577d12b136ea551a88af86c657012cdb7d6c66ddd72e2c821ba7db447a200c",
+      "file:104": "92a38ecb78fe3b84a8974bf16124d0427016188e53db9ac73b9b087dd34ee479",
+      "file:105": "1d995460f40895b586aeecb1fb25257bc1dc18e4a8de9ef6dee98bbfc1382df3",
+      "file:106": "24b7df2695f52f34fce0438fd13126f154fb807b36d60ea821f6a8bd8852d58a",
+      "file:107": "15483e7f585ed7847ef9d3289a06b896f171c8cc1fbe2c7fa105ecdc176815ef",
+      "file:200": "f4fd9dcfd22901d4ed247e9eb46aad497221a6e23e22459b4225e89806e19781",
+      "file:201": "c0e788c83ee31f53f5d9a182b644b3293be99447da39546cd25897e568ed2b41",
+      "file:202": "7a8609c5ab35e8ac86912a2f0be4dfd9d7eb62534f7142104ca1e0257bebd450",
+      "file:203": "cb4826cb392f99ad33bdd49a2c0f884e9ed057b4872e13ed18f4cfb188bee8d2",
+      "file:204": "3dd54da7a1bbd83f3d7290646188afa8f8099c47ba56eb539c796221461e3860",
+      "file:205": "cffd8ab77594e7e7e4e8d28ab778e087e9440ad5945a4e5763f7aba9b41e5fe8",
+      "file:206": "3802d25d1fbfe39d6b41afdbd288b886d2bf577f7ce690c32953622a62410b29",
+      "file:207": "9bc858e9821d998df64174837e9736e2ac1c58c7f01736df1bd7b973bcc887b8"
+    },
+    "first": {
+      "counts": {
+        "added": 16
+      },
+      "material_counts": {
+        "added": 16
+      },
+      "files": 16,
+      "unavailable": 0,
+      "unavailable_items": [],
+      "unavailable_details": [],
+      "transfer_issues": [],
+      "skipped": {},
+      "warnings": 0,
+      "errors": 0,
+      "seconds": 0.32,
+      "partial": false,
+      "pages": {
+        "checked": 19,
+        "parsed": 18,
+        "reused": 0,
+        "empty_meetings": 0
+      },
+      "course_scope": [
+        {
+          "id": "crs-1",
+          "name": "Algorithms"
+        },
+        {
+          "id": "crs-2",
+          "name": "Logic"
+        }
+      ],
+      "intended_scope": [
+        {
+          "id": "crs-1",
+          "name": "Algorithms"
+        },
+        {
+          "id": "crs-2",
+          "name": "Logic"
+        }
+      ],
+      "enumeration_complete": true,
+      "check_issues": [],
+      "http": {
+        "limit_per_host": 1,
+        "retry_at": 0,
+        "hosts": {
+          "localhost": {
+            "requests": 35,
+            "attempts": 35,
+            "peak_in_flight": 1,
+            "shared_host_peak": 1,
+            "active": 0,
+            "statuses": {
+              "200": 35
+            },
+            "wait_seconds": 1.407
+          }
+        }
+      }
+    },
+    "unchanged": {
+      "counts": {
+        "unchanged": 16
+      },
+      "material_counts": {
+        "unchanged": 16
+      },
+      "files": 16,
+      "unavailable": 0,
+      "unavailable_items": [],
+      "unavailable_details": [],
+      "transfer_issues": [],
+      "skipped": {},
+      "warnings": 0,
+      "errors": 0,
+      "seconds": 0.16,
+      "partial": false,
+      "pages": {
+        "checked": 19,
+        "parsed": 0,
+        "reused": 18,
+        "empty_meetings": 0
+      },
+      "course_scope": [
+        {
+          "id": "crs-1",
+          "name": "Algorithms"
+        },
+        {
+          "id": "crs-2",
+          "name": "Logic"
+        }
+      ],
+      "intended_scope": [
+        {
+          "id": "crs-1",
+          "name": "Algorithms"
+        },
+        {
+          "id": "crs-2",
+          "name": "Logic"
+        }
+      ],
+      "enumeration_complete": true,
+      "check_issues": [],
+      "http": {
+        "limit_per_host": 1,
+        "retry_at": 0,
+        "hosts": {
+          "localhost": {
+            "requests": 19,
+            "attempts": 19,
+            "peak_in_flight": 1,
+            "shared_host_peak": 1,
+            "active": 0,
+            "statuses": {
+              "200": 19
+            },
+            "wait_seconds": 1.346
+          }
+        }
+      }
+    }
+  },
+  {
+    "limit": 8,
+    "files": {
+      "file:100": "62f12b44ef12f6eebd3aef0cf56e00a6c0d091838277e32301d73a94c1c34e19",
+      "file:101": "64ff29d4311a40ebab72b8e8da63ca41c295aa97f7b561bd00f4ed006bc47061",
+      "file:103": "19577d12b136ea551a88af86c657012cdb7d6c66ddd72e2c821ba7db447a200c",
+      "file:105": "1d995460f40895b586aeecb1fb25257bc1dc18e4a8de9ef6dee98bbfc1382df3",
+      "file:107": "15483e7f585ed7847ef9d3289a06b896f171c8cc1fbe2c7fa105ecdc176815ef",
+      "file:102": "e3fe513a18fbc4adaca555cd6035211b43a448f9bb521bc4a0f6d629f61c9734",
+      "file:104": "92a38ecb78fe3b84a8974bf16124d0427016188e53db9ac73b9b087dd34ee479",
+      "file:106": "24b7df2695f52f34fce0438fd13126f154fb807b36d60ea821f6a8bd8852d58a",
+      "file:200": "f4fd9dcfd22901d4ed247e9eb46aad497221a6e23e22459b4225e89806e19781",
+      "file:201": "c0e788c83ee31f53f5d9a182b644b3293be99447da39546cd25897e568ed2b41",
+      "file:202": "7a8609c5ab35e8ac86912a2f0be4dfd9d7eb62534f7142104ca1e0257bebd450",
+      "file:203": "cb4826cb392f99ad33bdd49a2c0f884e9ed057b4872e13ed18f4cfb188bee8d2",
+      "file:204": "3dd54da7a1bbd83f3d7290646188afa8f8099c47ba56eb539c796221461e3860",
+      "file:205": "cffd8ab77594e7e7e4e8d28ab778e087e9440ad5945a4e5763f7aba9b41e5fe8",
+      "file:206": "3802d25d1fbfe39d6b41afdbd288b886d2bf577f7ce690c32953622a62410b29",
+      "file:207": "9bc858e9821d998df64174837e9736e2ac1c58c7f01736df1bd7b973bcc887b8"
+    },
+    "first": {
+      "counts": {
+        "added": 16
+      },
+      "material_counts": {
+        "added": 16
+      },
+      "files": 16,
+      "unavailable": 0,
+      "unavailable_items": [],
+      "unavailable_details": [],
+      "transfer_issues": [],
+      "skipped": {},
+      "warnings": 0,
+      "errors": 0,
+      "seconds": 0.1,
+      "partial": false,
+      "pages": {
+        "checked": 19,
+        "parsed": 18,
+        "reused": 0,
+        "empty_meetings": 0
+      },
+      "course_scope": [
+        {
+          "id": "crs-1",
+          "name": "Algorithms"
+        },
+        {
+          "id": "crs-2",
+          "name": "Logic"
+        }
+      ],
+      "intended_scope": [
+        {
+          "id": "crs-1",
+          "name": "Algorithms"
+        },
+        {
+          "id": "crs-2",
+          "name": "Logic"
+        }
+      ],
+      "enumeration_complete": true,
+      "check_issues": [],
+      "http": {
+        "limit_per_host": 8,
+        "retry_at": 0,
+        "hosts": {
+          "localhost": {
+            "requests": 35,
+            "attempts": 35,
+            "peak_in_flight": 8,
+            "shared_host_peak": 8,
+            "active": 0,
+            "statuses": {
+              "200": 35
+            },
+            "wait_seconds": 0.01
+          }
+        }
+      }
+    },
+    "unchanged": {
+      "counts": {
+        "unchanged": 16
+      },
+      "material_counts": {
+        "unchanged": 16
+      },
+      "files": 16,
+      "unavailable": 0,
+      "unavailable_items": [],
+      "unavailable_details": [],
+      "transfer_issues": [],
+      "skipped": {},
+      "warnings": 0,
+      "errors": 0,
+      "seconds": 0.04,
+      "partial": false,
+      "pages": {
+        "checked": 19,
+        "parsed": 0,
+        "reused": 18,
+        "empty_meetings": 0
+      },
+      "course_scope": [
+        {
+          "id": "crs-1",
+          "name": "Algorithms"
+        },
+        {
+          "id": "crs-2",
+          "name": "Logic"
+        }
+      ],
+      "intended_scope": [
+        {
+          "id": "crs-1",
+          "name": "Algorithms"
+        },
+        {
+          "id": "crs-2",
+          "name": "Logic"
+        }
+      ],
+      "enumeration_complete": true,
+      "check_issues": [],
+      "http": {
+        "limit_per_host": 8,
+        "retry_at": 0,
+        "hosts": {
+          "localhost": {
+            "requests": 19,
+            "attempts": 19,
+            "peak_in_flight": 8,
+            "shared_host_peak": 8,
+            "active": 0,
+            "statuses": {
+              "200": 19
+            },
+            "wait_seconds": 0.167
+          }
+        }
+      }
+    }
+  }
+]

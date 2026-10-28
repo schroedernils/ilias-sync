@@ -249,6 +249,7 @@ DE.update({
  'Planned courses':'Vorgesehene Kurse',
  'The course list could not be fully checked.':'Die Kursliste konnte nicht vollständig geprüft werden.',
  'HTTP request measurements':'Messwerte zu HTTP-Anfragen',
+ 'The server asked to retry later. Automatic sync will respect the requested time.':'Der Server bittet um einen späteren Versuch. Der automatische Sync berücksichtigt die angegebene Wartezeit.',
  'Existing settings could not be read. Check access to the application data folder and try again.':'Die bestehenden Einstellungen konnten nicht gelesen werden. Prüfe den Zugriff auf den App-Datenordner und versuche es erneut.',
  'Settings could not be saved. Check available space and folder permissions, then try again. Your changes are still shown.':'Die Einstellungen konnten nicht gespeichert werden. Prüfe freien Speicherplatz und Ordnerrechte und versuche es erneut. Deine Änderungen bleiben im Dialog sichtbar.',
  'No new materials in this run.':'Keine neuen Materialien in diesem Lauf.',
