@@ -43,7 +43,11 @@ def notices():
 
 def main():
     from build_qt_compat import build
+    from build_metadata import metadata
     build()
+    build_info = ROOT/'build/build-info.json'
+    build_info.parent.mkdir(parents=True, exist_ok=True)
+    build_info.write_text(json.dumps(metadata(ROOT, __version__), indent=2))
     notice_dir = notices()
     icons = ROOT / "src/ilias_sync/assets/icons"
     native_icon = (icons / "macOS/IliasSync.icns" if sys.platform == "darwin"
@@ -54,6 +58,7 @@ def main():
                     "--collect-data", "ilias_sync", "--collect-all", "PFERD",
                     "--collect-submodules", "keyring.backends", "--recursive-copy-metadata", "PFERD",
                     "--copy-metadata", "keyring", "--add-data", str(notice_dir) + os.pathsep + "third-party-licenses",
+                    "--add-data", str(build_info) + os.pathsep + "ilias_sync/assets",
                     "--osx-bundle-identifier", "org.iliassync.desktop", "scripts/launch.py"], check=True)
     dist = ROOT / "dist"
     if sys.platform == "darwin":

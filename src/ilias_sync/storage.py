@@ -37,6 +37,8 @@ def read_json(path: Path, default):
 
 def record_attempt(state: Path, status, previous):
     """Keep attempt outcomes distinct from the last fully successful check."""
+    from .build_info import build_info
+    status['build'] = build_info()['id']
     result = status.get('result') or {}
     success = status.get('state') == 'Up to date' and not any(
         result.get(key) for key in ('partial', 'warnings', 'errors', 'unavailable'))

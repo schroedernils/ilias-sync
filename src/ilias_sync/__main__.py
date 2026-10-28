@@ -173,7 +173,8 @@ def _isolated_self_test():
                 os.environ.pop("ILIAS_SYNC_DATA_DIR", None)
             else:
                 os.environ["ILIAS_SYNC_DATA_DIR"] = previous_root
-    emit({"event": "self-test", "ok": True, "version": __version__, "qt": qVersion()})
+    from .build_info import build_info
+    emit({"event": "self-test", "ok": True, "version": __version__, "qt": qVersion(), 'build':build_info()['id']})
     return 0
 
 

@@ -1356,6 +1356,8 @@ class HelpDialog(QDialog):
         layout.setContentsMargins(24, 22, 24, 20)
         layout.addWidget(label('Help & about', 'title'))
         layout.addWidget(label('IliasSync ' + __version__ + ' · GPL-3.0-or-later', 'subtitle'))
+        from .build_info import build_info
+        layout.addWidget(label(t('Build: {id}', id=build_info()['id']), 'subtitle'))
         from .info import info_sections, info_links
         self.topics_data = info_sections()
         split = QSplitter()
