@@ -132,6 +132,9 @@ def make_crawler(source: Source, emit=lambda event: None, *, discover=False):
             self.empty_meetings = set()
             self.course_folders = {}
             self.active_roots = []
+            self.attempted_roots = []
+            self.membership_complete = False
+            self.failed_checks = {}
             self.page_index = PageIndex(data_dir() / 'sources' / source.id / 'page-index.json', source,
                                         self._fetch_page)
 
@@ -222,7 +225,25 @@ def make_crawler(source: Source, emit=lambda event: None, *, discover=False):
         async def _get_page(self, url, root_page_allowed=False):
             await checkpoint()
             self._page_progress(url)
-            return self._parse_page(await self.page_index.page(url), root_page_allowed)
+            try:
+                page = self._parse_page(await self.page_index.page(url), root_page_allowed)
+                self.failed_checks.pop(url, None)
+                return page
+            except Exception as exc:
+                self.record_failed_check(url, exc)
+                raise
+
+        def record_failed_check(self, url, exc):
+            status = getattr(exc, 'status', None)
+            reason = 'server_missing' if status in (404, 410) else 'access_denied' if status in (401, 403) else 'check_failed'
+            self.failed_checks[url] = {'path': self.page_labels.get(url, self.current['name'] if self.current else 'Course list'),
+                                       'reason': reason, 'exception': type(exc).__name__}
+
+        def check_evidence(self):
+            return {'course_scope': [{'id': r['id'], 'name': r['name']} for r in self.attempted_roots],
+                    'intended_scope': [{'id': r['id'], 'name': r['name']} for r in self.active_roots],
+                    'enumeration_complete': self.membership_complete,
+                    'check_issues': list(self.failed_checks.values())}
 
         def _page_progress(self, url):
             if self.current:
@@ -260,7 +281,12 @@ def make_crawler(source: Source, emit=lambda event: None, *, discover=False):
                         stages.add(next_url)
                         await checkpoint()
                         self._page_progress(next_url)
-                        plan = await self.page_index.plan(next_url, parent, self._parse_plan)
+                        try:
+                            plan = await self.page_index.plan(next_url, parent, self._parse_plan)
+                            self.failed_checks.pop(next_url, None)
+                        except Exception as exc:
+                            self.record_failed_check(next_url, exc)
+                            raise
                         stage = decode_element(plan['stage'])
                         if stage is None:
                             children = [decode_element(e) for e in plan['elements']]
@@ -323,6 +349,7 @@ def make_crawler(source: Source, emit=lambda event: None, *, discover=False):
             if pending:
                 raise CrawlError('Course list exceeded its page limit. Add specific course links.')
             self.roots = list(found.values())
+            self.membership_complete = True
             write_json(data_dir() / 'sources' / source.id / 'courses.json', self.roots)
             # Also retain explicitly selected folder/course URLs, including institutions with a custom dashboard.
             selected = []
@@ -347,6 +374,7 @@ def make_crawler(source: Source, emit=lambda event: None, *, discover=False):
                 raise CrawlError("No courses found. Add a direct course or folder link in source settings.")
             emit({'event': 'progress', 'message': 'Checking known content pages…'})
             for index, root in enumerate(roots, 1):
+                self.attempted_roots.append(root)
                 self.current = root
                 self.course_label = f"{root['name']} ({index}/{len(roots)})"
                 self.page_labels = {}
@@ -454,10 +482,14 @@ async def synchronize(source: Source, emit=lambda event: None, *, discover=False
     source.validate()
     crawler = make_crawler(source, emit, discover=discover)
     start = time.monotonic()
-    if CURRENT.get():
-        await crawler.run()
-    else:
-        await asyncio.wait_for(crawler.run(), timeout=90 if discover else 5400)
+    try:
+        if CURRENT.get():
+            await crawler.run()
+        else:
+            await asyncio.wait_for(crawler.run(), timeout=90 if discover else 5400)
+    except BaseException as exc:
+        exc.sync_evidence = crawler.check_evidence()
+        raise
     if discover:
         return {"courses": crawler.roots}
     state = data_dir() / "sources" / source.id
@@ -512,6 +544,6 @@ async def synchronize(source: Source, emit=lambda event: None, *, discover=False
     result['pages'] = {'checked': len(crawler.page_index.used_urls), 'parsed': crawler.page_index.parsed,
                        'reused': crawler.page_index.reused,
                        'empty_meetings': len(crawler.page_index.empty_meetings)}
-    result['course_scope'] = [{'id': row['id'], 'name': row['name']} for row in crawler.active_roots]
+    result.update(crawler.check_evidence())
     write_json(state / "last-result.json", result)
     return result

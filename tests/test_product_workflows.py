@@ -236,7 +236,8 @@ def test_alias_collision_is_rejected_before_save_and_recovery_targets_folders(ap
     window.close()
 
 
-def test_changed_source_does_not_inherit_success_for_previous_scope(app, source):
+@pytest.mark.parametrize('outcome', ['Stopped', 'Needs attention'])
+def test_changed_source_does_not_inherit_success_for_previous_scope(app, source, outcome):
     from ilias_sync.storage import source_scope
     from ilias_sync.gui import MainWindow
     settings=Settings()
@@ -250,8 +251,12 @@ def test_changed_source_does_not_inherit_success_for_previous_scope(app, source)
     window=MainWindow()
     assert 'Einstellungen seit' in window.sync_panel.title.text()
     window.close()
-    record_attempt(state,{'state':'Needs attention','finished':200,'scope':source_scope(source)},previous)
+    record_attempt(state,{'state':outcome,'finished':200,'scope':source_scope(source)},previous)
     assert read_json(state/'status.json',{})['last_success'] is None
+    restarted = MainWindow()
+    assert 'Letzte vollständige' not in restarted.sync_panel.meta.text()
+    assert 'result' not in read_json(state/'status.json',{})
+    restarted.close()
 
 
 async def test_failed_course_discovery_preserves_previous_sync_outcome(source,monkeypatch):
@@ -388,3 +393,61 @@ def test_settings_write_failure_keeps_draft_and_does_not_blame_scheduler(app):
     install.assert_not_called()
     uninstall.assert_not_called()
     dialog.reject()
+
+
+def test_last_complete_claim_requires_current_scope_including_legacy_states(app, source):
+    from ilias_sync.gui import MainWindow
+    from ilias_sync.storage import source_scope
+    settings = Settings()
+    settings.save_source(source)
+    state = data_dir()/'sources'/source.id
+    for scope in (None, 'old-configuration'):
+        status = {'state':'Needs attention','finished':200,'last_success':100}
+        if scope:
+            status['scope'] = scope
+        write_json(state/'status.json', status)
+        window = MainWindow()
+        assert 'Letzte vollständige' not in window.sync_panel.meta.text()
+        window.close()
+    status['scope'] = source_scope(source)
+    write_json(state/'status.json', status)
+    window = MainWindow()
+    assert 'Letzte vollständige' in window.sync_panel.meta.text()
+    window.close()
+
+
+def test_scope_covers_material_policy_but_not_cosmetic_name_or_enabled(source):
+    from dataclasses import replace
+    from ilias_sync.storage import source_scope
+    original = source_scope(source)
+    for field, value in {'url':'https://other.example.edu', 'username':'different', 'login':'session',
+        'client_id':'other', 'destination':source.destination+'2', 'targets':[source.url+'/go/crs/2'],
+        'automatic_courses':False, 'videos':True, 'folder_rules':{'course/crs-2':source.destination+'2'},
+        'folder_names':{'course/crs-2':'Alias'}, 'include_course_ids':True}.items():
+        assert source_scope(replace(source, **{field:value})) != original, field
+    assert source_scope(replace(source, name='Renamed', enabled=not source.enabled)) == original
+
+
+def test_narrow_sidebar_keeps_wrapped_schedule_text_visible(app, source):
+    from ilias_sync.gui import MainWindow
+    Settings().save_source(source)
+    window = MainWindow()
+    window.sidebar.setFixedWidth(190)
+    window.show()
+    window.filter_files()
+    app.processEvents()
+    assert window.schedule_label.height() >= window.schedule_label.heightForWidth(window.schedule_label.width())
+    window.close()
+
+
+def test_mapping_filter_selects_visible_context_and_disables_editor_on_no_results(app, source):
+    from ilias_sync.gui import FolderMappingDialog
+    mapping_fixture(source)
+    dialog = FolderMappingDialog(source, Settings())
+    dialog.search.setText('Lecture')
+    assert not dialog.tree.currentItem().isHidden()
+    dialog.search.setText('no such item')
+    assert dialog.tree.currentItem() is None
+    assert not dialog.choose_button.isEnabled() and not dialog.folder_name.isEnabled()
+    assert not dialog.effective_path.text()
+    dialog.close()

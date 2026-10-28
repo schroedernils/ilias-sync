@@ -78,14 +78,15 @@ async def worker(args):
                 record_attempt(path.parent, {**status, 'started': started, 'scope': source_scope(source)}, previous)
                 emit({"event": "result", "profile": source.id, "result": status})
                 errors += int(bool(incomplete))
-            except asyncio.CancelledError:
+            except asyncio.CancelledError as exc:
                 if not control.stopped:
                     raise
                 if args.discover:
                     write_json(path, previous)
                 else:
                     record_attempt(path.parent, {"state": "Stopped", 'started': started, "finished": time.time(),
-                                      "next_run": next_scheduled_run(settings.value), "login_required": False, 'scope': source_scope(source)}, previous)
+                                      "next_run": next_scheduled_run(settings.value), "login_required": False, 'scope': source_scope(source),
+                                      'evidence': getattr(exc, 'sync_evidence', {})}, previous)
                 emit({"event": "stopped", "profile": source.id})
                 break
             except Exception as exc:
@@ -104,6 +105,7 @@ async def worker(args):
                 status = {"state": "Sign in again" if login else "Needs attention", "finished": time.time(),
                           "next_run": next_scheduled_run(settings.value, failures), "failures": failures,
                           "login_required": login, "message": message}
+                status['evidence'] = getattr(exc, 'sync_evidence', {})
                 if collision:
                     status['recovery'] = 'folders'
                 record_attempt(path.parent, {**status, 'started': started, 'scope': source_scope(source)}, previous)

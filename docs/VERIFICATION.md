@@ -41,8 +41,11 @@ Its idle progress timer remained stopped. No live crawl was started merely to va
 
 A native Cocoa accessibility read exposed a Qt crash that the offscreen tests did not catch. The local compatibility
 layer has a deterministic native A/B regression: uncorrected placeholder destruction invalidates the table interface;
-25 corrected destructions preserve it. See [the bounded workaround](QT-COCOA-COMPAT.md). The final installed-dialog
-recheck is pending while the Mac is locked; the native ownership regression is not a substitute for that interaction check.
+25 corrected destructions preserve it. See [the bounded workaround](QT-COCOA-COMPAT.md). On 28 October the installed macOS app passed native dialog checks: folder selection/search, inherited file paths,
+draft names and ID toggling/reset/Cancel, general settings, daily time add/edit/duplicate prevention/remove/Cancel,
+separate topic help, a failed-attempt report, shared search with 1-of-53 count/reset and Enter opening the PDF in Preview.
+The previous accessibility-triggered folder-dialog crash did not recur. Settings stayed byte-identical and all 66 files
+matched the fresh pre-review hashes. These checks do not establish spoken screen-reader behavior.
 
 The packaged macOS runtime passed its offline self-test and strict code-signature verification. Signing is ad hoc,
 not notarization. Windows/Linux native installation and spoken screen-reader behavior have not been verified in this pass.

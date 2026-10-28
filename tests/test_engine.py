@@ -269,3 +269,58 @@ async def test_shibboleth_has_no_console_mfa_prompt(source):
     crawler.session = object()
     await crawler._authenticate()
     assert captured
+
+
+async def test_failed_subtree_without_enumerated_files_persists_attempted_scope(source, monkeypatch):
+    from types import SimpleNamespace
+    from ilias_sync.storage import Settings, data_dir, read_json
+    from ilias_sync.__main__ import worker
+    from ilias_sync.gui import SyncReportDialog
+    from PySide6.QtWidgets import QApplication
+    folder = '<div class="ilContainerListItemOuter"><img class="ilListItemIcon" src="fold.svg" alt="Ordner"/>' \
+             '<div class="il_ContainerListItem"><a class="il_ContainerItemTitle" href="/go/fold/456">Material</a></div></div>'
+    class FailedFolder(FixtureSession):
+        def get(self, url, **kwargs):
+            if 'Dashboard' in str(url):
+                return Response(url, page('<a href="/go/crs/123">Algorithms</a><a href="/go/crs/999">Not reached</a>'))
+            if '/go/fold/456' in str(url):
+                raise OSError('synthetic unavailable subtree')
+            if '/go/crs/123' in str(url):
+                return Response(url, page(folder))
+            return super().get(url, **kwargs)
+    monkeypatch.setattr('aiohttp.ClientSession', FailedFolder)
+    Settings().save_source(source)
+    assert await worker(SimpleNamespace(probe=None, profile=source.id, sync=True, discover=False)) == 1
+    state = data_dir()/'sources'/source.id
+    status = read_json(state/'status.json', {})
+    evidence = status.get('evidence') or status.get('result')
+    assert evidence['enumeration_complete']
+    assert evidence['course_scope'] == [{'id':'crs-123','name':'Algorithms'}]
+    assert evidence['intended_scope'] == [{'id':'crs-123','name':'Algorithms'}, {'id':'crs-999','name':'Not reached'}]
+    assert evidence['check_issues'][0]['path'].endswith('Material')
+    assert evidence['check_issues'][0]['reason'] == 'check_failed'
+    assert 'result' not in status or status['result']['files'] == 0
+    app = QApplication.instance() or QApplication([])
+    report = SyncReportDialog(status, '')
+    assert any('Material' in report.issues.topLevelItem(i).text(0) for i in range(report.issues.topLevelItemCount()))
+    report.close()
+    app.processEvents()
+    assert read_json(state/'history.json', [])[0] == status
+
+
+async def test_equal_mtime_does_not_pretend_to_be_remote_byte_revalidation(source, monkeypatch):
+    downloaded = []
+    contents = b'%PDF-1.4 original version'
+    class SameMetadata(FixtureSession):
+        def get(self, url, **kwargs):
+            if 'sendfile' in str(url):
+                downloaded.append(str(url))
+                return Response(url, contents, kind='application/pdf')
+            return super().get(url, **kwargs)
+    monkeypatch.setattr('aiohttp.ClientSession', SameMetadata)
+    await synchronize(source)
+    contents = b'%PDF-1.4 replaced on server without metadata change'
+    second = await synchronize(source)
+    assert second['material_counts'] == {'unchanged':1}
+    assert len(downloaded) == 1
+    assert list(Path(source.destination).rglob('*.pdf'))[0].read_bytes() == b'%PDF-1.4 original version'

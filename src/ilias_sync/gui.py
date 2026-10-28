@@ -281,11 +281,12 @@ class SyncReportDialog(QDialog):
             else:
                 text += '\n' + t('Legacy result: file totals may include course information.')
         else:
-            text = message(status.get('message', 'No completed result yet'))
+            text = t('No completed result yet')
         self.summary.setText(text)
         self.summary.setAccessibleDescription(QTextDocument_text(report_html(status)))
         self.issues.clear()
         reasons = {'server_missing': t('Server returned not found'), 'access_denied': t('Server denied access'),
+                   'check_failed': t('This item could not be checked'),
                    'transfer_failed': t('Transfer failed'), 'invalid_content': t('Invalid file content returned'), 'not_confirmed': t('Not confirmed for publication in this run')}
         details = result.get('unavailable_details') or [{'path': path, 'reason': 'not_confirmed'} for path in result.get('unavailable_items', [])]
         known = {row['path'] for row in details}
@@ -295,6 +296,11 @@ class SyncReportDialog(QDialog):
             row = QTreeWidgetItem(self.issues, [Path(path).name, reasons.get(detail.get('reason'), reasons['not_confirmed'])])
             row.setToolTip(0, path)
             row.setToolTip(1, reasons.get(detail.get('reason'), reasons['not_confirmed']))
+        facts = result or status.get('evidence') or {}
+        for detail in facts.get('check_issues', []):
+            path = t('Course list') if detail['path'] == 'Course list' else detail['path']
+            row = QTreeWidgetItem(self.issues, [path, reasons.get(detail.get('reason'), reasons['check_failed'])])
+            row.setToolTip(0, path)
         if not details and result.get('unavailable'):
             QTreeWidgetItem(self.issues, [t('{count} files unavailable', count=result['unavailable']), t('No filenames recorded in this older result.')])
         if counts.get('conflict'):
@@ -302,7 +308,7 @@ class SyncReportDialog(QDialog):
         if result.get('errors') or result.get('warnings'):
             QTreeWidgetItem(self.issues, [t('Checks requiring attention'), t('{count} errors', count=result.get('errors', 0)) + ' · ' + t('{count} warnings', count=result.get('warnings', 0))])
         if not self.issues.topLevelItemCount():
-            QTreeWidgetItem(self.issues, [t('No file issues recorded'), t('See the outcome above for the status of this attempt.')])
+            QTreeWidgetItem(self.issues, [t('No file details recorded') if not result else t('No file issues recorded'), t('See the outcome above for the status of this attempt.')])
         self.exclusions.clear()
         names = {'forum': t('Forums'), 'test': t('Tests'), 'groups without membership': t('Groups you have not joined')}
         for kind, count in result.get('skipped', {}).items():
@@ -310,8 +316,15 @@ class SyncReportDialog(QDialog):
         if not self.exclusions.topLevelItemCount():
             QTreeWidgetItem(self.exclusions, [t('No excluded content recorded'), ''])
         self.exclusions.setToolTip(t('Excluded types and groups are not failed file downloads.'))
-        scope = result.get('course_scope', [])
+        scope = facts.get('course_scope', [])
         scope_text = t('Courses included in this check') + ':\n' + '\n'.join(row['name'] + ' [' + row['id'] + ']' for row in scope) + '\n\n' if scope else ''
+        intended = facts.get('intended_scope', [])
+        if intended and intended != scope:
+            scope_text += t('Planned courses') + ':\n' + '\n'.join(row['name'] + ' [' + row['id'] + ']' for row in intended) + '\n\n'
+        if facts.get('enumeration_complete') is False:
+            scope_text += t('The course list could not be fully checked.') + '\n\n'
+        if facts.get('http'):
+            scope_text += t('HTTP request measurements') + ':\n' + json.dumps(facts['http'], ensure_ascii=False, indent=2) + '\n\n'
         self.log.setPlainText(scope_text + (self.activity_text if index == 0 and self.activity_text else t('No technical activity recorded in this window.')))
         if self.issues.topLevelItemCount():
             self.issues.setCurrentItem(self.issues.topLevelItem(0))
@@ -974,6 +987,13 @@ class FolderMappingDialog(QDialog):
                 return visible
             for i in range(self.tree.topLevelItemCount()):
                 visit(self.tree.topLevelItem(i))
+            current = self.tree.currentItem()
+            if current is None or current.isHidden():
+                visible = next((self.tree.topLevelItem(i) for i in range(self.tree.topLevelItemCount())
+                                if not self.tree.topLevelItem(i).isHidden()), None)
+                self.tree.setCurrentItem(visible)
+                if visible is None:
+                    self.selected(None)
         self.search.textChanged.connect(filter_tree)
         if self.tree.topLevelItemCount():
             self.tree.setCurrentItem(self.tree.topLevelItem(0))
@@ -1032,6 +1052,16 @@ class FolderMappingDialog(QDialog):
         self.choose_button.setEnabled(item is not None)
         self.reset_button.setEnabled(item is not None)
         self.folder_name.setEnabled(item is not None and not item.data(0, Qt.ItemDataRole.UserRole).startswith('file/'))
+        if item is None:
+            self.selected_label.setText(t('Select a course or file.'))
+            self.mapping_state.clear()
+            self.mapping_effect.clear()
+            self.effective_path.clear()
+            self.target.clear()
+            self.folder_name.clear()
+            self.folder_name.setPlaceholderText('')
+            self.reset_name_button.setEnabled(False)
+            return
         if item:
             ancestors = []
             current = item
@@ -1440,6 +1470,7 @@ class MainWindow(QMainWindow):
         sidebar.addWidget(self.add_button)
         sidebar.addSpacing(12)
         self.schedule_label = label(self.schedule_text(), 'sidebarNote')
+        self.schedule_label.setSizePolicy(QSizePolicy.Policy.Preferred, QSizePolicy.Policy.Preferred)
         sidebar.addWidget(self.schedule_label)
         self.settings_button = button('Settings', self.background)
         self.settings_button.setAccessibleName(t('Settings'))
@@ -1681,7 +1712,7 @@ class MainWindow(QMainWindow):
         self.sync_button.setText(t('Try again') if summary.recovery == 'retry' else t('Sync now'))
         checked = t('Last checked: {time}', time=local_time(status.get('finished'))) if status.get('finished') else t('Not yet checked')
         self.sync_panel.meta.setText(checked)
-        last_success = status.get('last_success')
+        last_success = status.get('last_success') if status.get('scope') == source_scope(source) else None
         if last_success and last_success != status.get('finished'):
             checked += ' · ' + t('Last complete check: {time}', time=local_time(last_success))
         self.sync_panel.meta.setText(checked + '\n' + schedule_expectation(self.settings.value, status))

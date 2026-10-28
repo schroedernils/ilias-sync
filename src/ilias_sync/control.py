@@ -104,9 +104,11 @@ class RunControl:
         self.save('running')
         try:
             return await task
-        except asyncio.CancelledError:
+        except asyncio.CancelledError as exc:
             if self.timed_out:
-                raise TimeoutError("Synchronization exceeded its active time limit") from None
+                timeout = TimeoutError("Synchronization exceeded its active time limit")
+                timeout.sync_evidence = getattr(exc, 'sync_evidence', {})
+                raise timeout from None
             raise
         finally:
             monitor.cancel()
