@@ -1,4 +1,4 @@
-"""Short, translated product facts, distinct from a university's own rules."""
+"""Task-oriented help using the same actions and boundaries as the desktop UI."""
 from html import escape
 
 from . import __version__, i18n
@@ -7,22 +7,133 @@ from . import __version__, i18n
 def info_sections():
     de = i18n.LANGUAGE == "de"
     sections = [
-        ("Dein Material" if de else "Your materials",
-         "Unter Materialien findest du die Dateien aus deinen Kursen. Suche nach Dateinamen oder Kursen. "
-         "Ein Doppelklick oder Enter öffnet die ausgewählte Datei. Über das Filtersymbol neben Datei "
-         "kannst du nach Kurs, Dateityp und Größe eingrenzen. Kursbeschreibungen und Links stehen in der Ansicht Kursinformationen."
+        ("Material finden" if de else "Find materials",
+         "Wähle links deine Hochschule. Unter Materialien suchst du nach Dateinamen oder Kursen; "
+         "Cmd+F auf dem Mac oder Strg+F öffnet die Suche. Wähle eine Datei und drücke Enter oder klicke doppelt, "
+         "um sie in deiner Standard-App zu öffnen.\n\n"
+         "Kein Treffer? Leere die Suche und setze aktive Filter zurück. Das Filtersymbol neben Datei grenzt "
+         "nach Kurs, Dateityp und Größe ein. Kursbeschreibungen und Links findest du unter Kursinformationen.\n\n"
+         "Noch keine Dateien? Wähle Kurse auswählen und starte Jetzt synchronisieren. Fehlt ein Kurs in der Auswahl, "
+         "kannst du dort seinen ILIAS-Kurs- oder Ordnerlink ergänzen."
          if de else
-         "Materials contains the files from your courses. Search by filename or course. "
-         "Double-click or press Enter to open the selected file. The filter beside File narrows the list by course, "
-         "type and size. Course descriptions and links are in the Course information view."),
-        ("Änderungen & Hinweise" if de else "Changes & notes",
-         "Zuletzt geändert zeigt neue und aktualisierte Materialien, sobald ihre Änderung von dieser App-Version erfasst wurde. "
-         "Der Sync-Bericht erklärt nicht verfügbare Downloads und ausgeschlossene Inhalte getrennt. "
-         "Eigene Bearbeitungen werden nicht überschrieben: Bei einem Konflikt bleibt deine Datei erhalten und eine separate ILIAS-Kopie wird gespeichert."
+         "Select your university on the left. In Materials, search by filename or course; Cmd+F on Mac or Ctrl+F "
+         "focuses search. Select a file and press Enter or double-click to open it in your default app.\n\n"
+         "No match? Clear search and reset active filters. The filter beside File narrows the list by course, "
+         "type and size. Course descriptions and links are in Course information.\n\n"
+         "No files yet? Use Choose courses, then Sync now. If a course is missing from the selection, "
+         "you can add its ILIAS course or folder link there."),
+        ("Änderungen" if de else "Changes",
+         "Wähle Zuletzt geändert, um erfasste neue und aktualisierte Materialien nach Änderungszeit zu sehen. "
+         "Der Kurs unter dem Dateinamen hilft, gleich benannte Dateien auseinanderzuhalten.\n\n"
+         "Die Ansicht ist ein Änderungsverlauf, keine Liste ungelesener Dateien. Sie wird durch Öffnen oder einen "
+         "Lauf ohne Änderungen nicht geleert. Die Zeit zeigt, wann IliasSync die Änderung gespeichert hat, "
+         "nicht unbedingt den Uploadzeitpunkt in ILIAS. Ältere Dateien ohne erfasste Änderung haben keine erfundene Zeit.\n\n"
+         "Neu oder aktualisiert beschreibt die gespeicherte Datei, nicht ihre Wichtigkeit. Hinweise zu "
+         "separaten Kopien und nicht verfügbaren Downloads stehen im Sync-Bericht."
          if de else
-         "Recent changes shows new and updated materials once a change has been recorded by this app version. "
-         "The sync report explains unavailable downloads separately from excluded content. "
-         "Local edits are not overwritten: on a conflict, your file is retained and a separate ILIAS copy is saved."),
+         "Choose Recent changes to see recorded new and updated materials in change-time order. "
+         "The course below each filename helps distinguish files with the same name.\n\n"
+         "This is a change history, not an unread list. Opening files or running an unchanged sync does not clear it. "
+         "The time records when IliasSync saved the change, which may differ from the ILIAS upload time. "
+         "Older files without recorded changes have no invented timestamp.\n\n"
+         "New or updated describes the saved file, not its importance. The Sync report explains "
+         "separate copies and unavailable downloads."),
+        ("Sync-Ergebnis" if de else "Sync results",
+         "Die letzte Prüfung beschreibt den damaligen Lauf und die dafür ausgewählten Kurse und Speicherziele. "
+         "Nach einer Änderung dieser Auswahl starte erneut Jetzt synchronisieren. Ein abgeschlossenes Ergebnis "
+         "bestätigt keinen späteren Cloud-Upload und keine dauerhafte Verfügbarkeit jeder Datei.\n\n"
+         "Bei Hinweisen oder einem unvollständigen Lauf öffne den Sync-Bericht. Unter Aktion erforderlich siehst du, "
+         "welche Datei oder welcher Kurs nicht geprüft oder gespeichert werden konnte. Ausgeschlossene Inhalte "
+         "wie Foren und Tests stehen separat; das sind keine fehlgeschlagenen Dateidownloads.\n\n"
+         "Oben im Bericht kannst du frühere Versuche auswählen. Die Zahlen gehören jeweils zu diesem Versuch, "
+         "nicht zur gesamten Ablage. Beginne mit dem Ergebnis und den betroffenen Materialien; "
+         "der technische Verlauf ist nur bei Bedarf nötig."
+         if de else
+         "The last check describes that run and its selected courses and destinations. After changing that "
+         "selection, use Sync now again. A completed result does not confirm a later cloud upload or "
+         "permanent availability of every file.\n\n"
+         "For notes or an incomplete run, open the Sync report. Needs attention shows which file or "
+         "course could not be checked or saved. Excluded content such as forums and tests is listed separately; "
+         "these are not failed file downloads.\n\n"
+         "Select earlier attempts at the top of the report. Counts belong to that attempt, not your whole archive. "
+         "Start with the outcome and affected materials; technical activity is there if you need it."),
+        ("Anmeldung" if de else "Sign-in",
+         "Zeigt die App Anmeldung prüfen, öffnet diese Aktion direkt die Anmeldung deiner Hochschule. "
+         "Bei Benutzername und Passwort kannst du den Zugang dort korrigieren. Ein leeres Passwortfeld "
+         "beim Bearbeiten behält das gespeicherte Passwort.\n\n"
+         "Bei Browsersitzung (MFA) melde dich in deinem Browser erneut bei ILIAS an und importiere einen frischen "
+         "Netscape-cookies.txt-Export. Die App liest dein Browserprofil nicht selbst. Auch eine importierte Sitzung kann ablaufen.\n\n"
+         "Speichere die Anmeldung und starte erneut Jetzt synchronisieren. Bis dahin warten automatische "
+         "Anmeldeversuche. Bereits gespeicherte Dateien werden deshalb nicht gelöscht. Gib Passwörter "
+         "oder Sitzungsexporte niemals in einem Fehlerbericht weiter."
+         if de else
+         "If the app offers Check sign-in, that action opens your university's sign-in settings directly. "
+         "Correct your username and password there if needed. Leaving the password blank when editing "
+         "keeps the saved password.\n\n"
+         "For Browser session (MFA), sign in to ILIAS in your browser again and import a fresh Netscape "
+         "cookies.txt export. The app does not read your browser profile itself. Imported sessions can expire too.\n\n"
+         "Save sign-in and use Sync now again. Automatic sign-in attempts wait until then. "
+         "Previously saved files are not deleted because sign-in failed. Never share passwords "
+         "or session exports in a bug report."),
+        ("Dateien" if de else "Files",
+         "Über Ordner zuordnen kannst du Ziele für Kurse, Unterordner oder einzelne Dateien wählen. "
+         "Die spezifischste Regel gilt: Datei vor Unterordner, Unterordner vor Kurs. Die Vorschau zeigt "
+         "das wirksame Ziel des ausgewählten Elements.\n\n"
+         "Ein neuer Zielort erzeugt beim nächsten Sync neue Kopien; vorhandene Kopien am alten Ort bleiben. "
+         "Das Umbenennen eines verwalteten Ordners nimmt dagegen dessen lokale Inhalte mit. "
+         "Abbrechen verwirft ungespeicherte Änderungen.\n\n"
+         "Bei erkannten eigenen Bearbeitungen bleibt deine Datei erhalten; die neue Serverfassung bekommt "
+         "eine separate ILIAS-Kopie. Ersetzte frühere Inhalte liegen unter Versions im jeweiligen Zielordner. "
+         "Kopiere eine gewünschte Fassung zur Wiederherstellung in einen separaten Ordner. "
+         "Versionen und verschwundene Serverdateien werden nicht automatisch gelöscht."
+         if de else
+         "Use Folder mapping to choose destinations for courses, subfolders or individual files. "
+         "The most specific rule wins: file before subfolder, subfolder before course. "
+         "The preview shows the selected item's effective destination.\n\n"
+         "A new destination creates new copies on the next sync; existing copies at the old location remain. "
+         "Renaming a managed folder instead moves its local contents with it. Cancel discards unsaved changes.\n\n"
+         "When local edits are detected, your file is kept and the new server version gets a separate ILIAS copy. "
+         "Replaced earlier contents are stored under Versions in the relevant destination. "
+         "To recover a version, copy it into a separate folder. Versions and files removed from ILIAS "
+         "are not automatically deleted."),
+        ("Offline & Cloud" if de else "Offline & cloud",
+         "Heruntergeladene Dokumente kannst du auch außerhalb von IliasSync mit deiner normalen Datei-App öffnen. "
+         "Prüfe vor dem Arbeiten ohne Netz, ob sich die benötigten Dateien tatsächlich öffnen lassen. "
+         "Ein Eintrag in der Liste allein ist kein Offline-Nachweis; ein Link braucht häufig weiterhin Internet.\n\n"
+         "Bei Google Drive, OneDrive oder anderen Cloud-Ordnern übernimmt der Cloud-Client Upload und lokale "
+         "Verfügbarkeit. Markiere benötigte Dateien dort bei Bedarf als offline verfügbar. IliasSync bestätigt "
+         "weder den Uploadabschluss noch, ob der Cloud-Client eine Datei später nur online vorhält.\n\n"
+         "Fehlt eine Datei lokal, prüfe zunächst den Zielordner und bei externen Laufwerken die Verbindung. "
+         "Ein erneuter Sync kann fehlende Kopien wiederherstellen, soweit der Inhalt noch zugänglich ist. "
+         "Für eine Sicherung brauchst du Downloadordner und App-Daten zusammen."
+         if de else
+         "You can open downloaded documents outside IliasSync with your usual file app. Before working "
+         "without a connection, check that the files you need actually open. A list entry alone does not "
+         "prove offline availability; links often still need internet access.\n\n"
+         "For Google Drive, OneDrive or other cloud folders, the cloud client handles uploads and local "
+         "availability. Mark needed files as available offline there if necessary. IliasSync confirms "
+         "neither completed uploads nor whether the cloud client later keeps a file online-only.\n\n"
+         "If a local file is missing, check its destination and the connection to any external drive first. "
+         "Another sync can restore missing copies if the content is still accessible. "
+         "Back up the download folders and application data together."),
+        ("Zeitplan" if de else "Schedule",
+         "Unter Einstellungen → Zeitplan aktivierst du automatische Läufe und wählst ein Intervall oder "
+         "feste tägliche Uhrzeiten. Standard sind sechs Stunden und Aufschieben im Akkubetrieb. "
+         "Erst Speichern übernimmt deine Änderungen; Abbrechen verwirft sie.\n\n"
+         "Pausieren unterbricht den laufenden Sync; Fortsetzen setzt ihn fort. Diesen Sync beenden beendet "
+         "nur diesen Lauf. Fertig gespeicherte Dateien und der Zeitplan bleiben erhalten. "
+         "Zum Abschalten künftiger Läufe deaktiviere Automatisch synchronisieren und speichere.\n\n"
+         "Der Computer muss wach, angemeldet und für neue Downloads online sein. Eine angezeigte nächste "
+         "Uhrzeit ist geplant, keine Ausführungsgarantie. Zwischen den Läufen bleibt kein Sync-Prozess aktiv. "
+         "Nach einer abgelaufenen Anmeldung ist zuerst eine neue Anmeldung nötig."
+         if de else
+         "In Settings → Schedule, enable automatic runs and choose an interval or fixed daily times. "
+         "Defaults are six hours and deferral on battery. Save applies changes; Cancel discards them.\n\n"
+         "Pause suspends the running sync; Resume continues it. Stop this sync ends only that run. "
+         "Completed files and the schedule are kept. To stop future runs, turn off Automatic sync and save.\n\n"
+         "Your computer must be awake, signed in and online for new downloads. The next displayed time "
+         "is planned, not guaranteed. No sync process stays active between runs. "
+         "An expired session needs a new sign-in first."),
         ("Nutzung" if de else "Use",
          "IliasSync ist ein unabhängiges Projekt, kein Angebot von ILIAS oder deiner Hochschule. "
          "Lade nur Inhalte herunter, auf die du berechtigt zugreifen darfst. Beachte die Regeln deiner Hochschule "
@@ -32,14 +143,6 @@ def info_sections():
          "IliasSync is an independent project, not a service from ILIAS or your university. "
          "Only download content you are entitled to access. Follow your institution's rules and content rights. "
          "The software license grants no rights to course materials. Check permission before storing or sharing them in a cloud folder."),
-        ("Server & Hintergrund" if de else "Server & background",
-         "Unter Einstellungen → Zeitplan wählst du ein Intervall oder feste tägliche Uhrzeiten. "
-         "Standardmäßig wird alle sechs Stunden synchronisiert und im Akkubetrieb pausiert. "
-         "Zwischen den Läufen bleibt kein Sync-Prozess aktiv. Der Computer muss wach und angemeldet sein."
-         if de else
-         "In Settings → Schedule, choose an interval or fixed daily times. "
-         "The default is every six hours, pausing on battery power. "
-         "No sync process stays active between runs. Your computer must be awake and signed in."),
         ("Kompatibilität" if de else "Compatibility",
          "Vorabversion für macOS 13+, Windows 10/11 x64 und Linux x64 (glibc 2.35+). "
          "Keine eigene Python- oder Java-Installation nötig. Hochschuldesigns, Plugins und SSO/MFA unterscheiden sich; "
@@ -50,7 +153,7 @@ def info_sections():
          "No separate Python or Java installation needed. Themes, plugins and SSO/MFA vary; "
          "not every institution is verified. Forums, tests and SCORM are not a complete offline archive. "
          "macOS is ad-hoc signed, not notarized; Windows has no publisher signature."),
-        ("Datenschutz & Lizenz" if de else "Privacy & license",
+        ("Datenschutz" if de else "Privacy",
          "Zugangsdaten bleiben im Passwortspeicher des Systems. Sitzungsimporte liegen in privaten App-Daten. "
          "Keine App-Telemetrie, kein eigenes Cloudkonto. Ein Cloud-Client lädt Dateien eigenständig hoch. "
          "GPL-3.0-or-later; die jeweiligen Lizenzen der enthaltenen Bibliotheken gelten zusätzlich."
@@ -64,15 +167,35 @@ def info_sections():
 
 def info_html():
     result = f"<h2>IliasSync {escape(__version__)}</h2>"
-    result += "".join(f"<h3>{escape(title)}</h3><p>{escape(body)}</p>" for title, body in info_sections())
+    result += "".join(topic_html(title, body) for title, body in info_sections())
     return result + info_links()
+
+
+def topic_html(title, body):
+    """Keep short task paragraphs readable without interpreting content as markup."""
+    return '<h3>' + escape(title) + '</h3>' + ''.join(
+        '<p>' + escape(paragraph) + '</p>' for paragraph in body.split('\n\n') if paragraph.strip())
 
 
 def info_links():
     de = i18n.LANGUAGE == 'de'
-    links = [("Projekt / README", "https://github.com/schroedernils/ilias-sync"),
+    links = [("Installation & Anmeldung" if de else "Installation & sign-in",
+              "https://github.com/schroedernils/ilias-sync/blob/main/docs/INSTALLATION.md"),
+             ("Dateien & Wiederherstellung" if de else "Files & recovery",
+              "https://github.com/schroedernils/ilias-sync/blob/main/docs/RECOVERY.md"),
+             ("Problem melden" if de else "Report a problem",
+              "https://github.com/schroedernils/ilias-sync/issues/new/choose"),
+             ("Projekt / README" if de else "Project / README", "https://github.com/schroedernils/ilias-sync"),
              ("PFERD", "https://github.com/Garmelon/PFERD"),
              ("Ilias Downloader Tool", "https://iliasdownloadertool.de/"),
              ("ILIAS-Sync2Folder", "https://viperinius.github.io/ILIAS-Sync2Folder/")]
+    access = ('Die Projektlinks benötigen während der privaten Alpha GitHub-Zugriff. '
+              'Ein fehlender Zugriff kann als 404 erscheinen.' if de else
+              'During the private alpha, project links need GitHub access. Missing access may appear as a 404.')
+    privacy = ('Für einen Fehlerbericht genügen App-/Build-Version, Betriebssystem und die Schritte zum Problem. '
+               'Entferne Passwörter, Cookies, private Dateipfade und Kursinhalte aus Texten und Bildern.' if de else
+               'For a bug report, include the app/build version, operating system and steps to the problem. '
+               'Remove passwords, cookies, private file paths and course contents from text and images.')
     return '<h3>' + ('Projekt & Quellen' if de else 'Project & references') + '</h3><p>' + '<br>'.join(
-        f'<a href="{url}">{name}</a>' for name, url in links) + '</p>'
+        f'<a href="{escape(url, quote=True)}">{escape(name)}</a>' for name, url in links) + '</p>' + (
+            '<p>' + escape(access) + '</p><p>' + escape(privacy) + '</p>')

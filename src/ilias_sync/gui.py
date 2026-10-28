@@ -1388,13 +1388,19 @@ class HelpDialog(QDialog):
         layout.addWidget(label('IliasSync ' + __version__ + ' · GPL-3.0-or-later', 'subtitle'))
         from .build_info import build_info
         layout.addWidget(label(t('Build: {id}', id=build_info()['id']), 'subtitle'))
-        from .info import info_sections, info_links
+        from .info import info_sections, info_links, topic_html
         self.topics_data = info_sections()
         split = QSplitter()
         self.topics = QListWidget()
         self.topics.setAccessibleName(t('Help topics'))
+        self.topics.setWordWrap(True)
+        self.topics.setResizeMode(QListWidget.ResizeMode.Adjust)
+        self.topics.setTextElideMode(Qt.TextElideMode.ElideNone)
+        self.topics.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
+        self.topics.setStyleSheet('QListWidget::item { padding: 6px 4px; margin: 2px 0; }')
+        self.topics.setMinimumWidth(150)
         self.topics.setMaximumWidth(210)
-        self.topics.addItems([title for title, _ in self.topics_data] + [t('Project & references')])
+        self.topics.addItems([title for title, _ in self.topics_data] + [t('Info')])
         split.addWidget(self.topics)
         self.info = QTextBrowser()
         self.info.setOpenExternalLinks(True)
@@ -1405,7 +1411,7 @@ class HelpDialog(QDialog):
         def show_topic(index):
             if index < len(self.topics_data):
                 title, body = self.topics_data[index]
-                self.info.setHtml('<h3>' + escape(title) + '</h3><p>' + escape(body) + '</p>')
+                self.info.setHtml(topic_html(title, body))
             else:
                 self.info.setHtml(info_links())
             self.info.setAccessibleDescription(self.info.toPlainText())
