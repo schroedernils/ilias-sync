@@ -72,3 +72,21 @@ records the limitation that metadata-based file reuse can retain old bytes when 
 
 The owner deferred tests with other people. Issue #2's student discovery and unseen-change/offline-readiness validation
 remain open; no recruitment, diary, participant metrics or offline-residency assurance was performed or invented.
+
+## Final local acceptance — 28 October 2026
+
+The integrated source passed **192 tests**, Ruff and whitespace checks. All 53 synthetic interface states were rendered
+again after the final fixes; the help-specific pass additionally reviewed 16 DE/EN/light/dark compact views. Independent
+agent probes reproduced and rechecked publication-checkpoint cancellation, a publication write failure, server pause
+with fixed times, and the prototype's selected-root symlink boundary. They are engineering checks, not a student study.
+
+Final help includes ten task-oriented topics, escaped paragraphs and a wrapped compact topic list. The report chooses
+exclusions when those are the only detailed items, without inventing a required action. Failed/cancelled attempts retain
+check scope through publication and final result writes. A fixed-time plan skips calendar triggers inside a server pause
+and states the pause separately rather than inventing an execution at the cooldown timestamp.
+
+The issue-2 comparison lives only under `experiments/` and `scripts/prototype_changes.py`, with a temporary fixture ledger.
+Seven deterministic tests and six rendered scenarios cover captured checkpoints, equal times/restart/undo, no events
+for baseline/route-only/repair/generated content, distinct IDs, and conservative local reads. It is not connected to
+production publication or an offline-residency guarantee. The remaining product decision can be made with Nils and
+agent walkthroughs; participants/recruitment are not a development prerequisite.

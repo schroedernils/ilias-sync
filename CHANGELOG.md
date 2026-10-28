@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+Add task-oriented bilingual help with readable paragraphs and compact topic navigation. Keep check evidence on publication-stage cancellation/errors; distinguish server cooldown from calendar execution and avoid counting server deferral as another failure. Prefer the report exclusions tab when it is the relevant detail. Add an isolated synthetic change-review/read-check comparison without connecting it to production or asserting offline residency.
+
 Bind preview packages and attempt history to a source build identity. Preserve attempted/planned course roots and failed-subtree evidence even before files are listed. Add a shared per-host HTTP budget across pages, streamed downloads, authentication and redirects, persisted Retry-After and bounded safe-method retries; keep POSTs non-replayed. Record actual sent-request counts and verify lower-concurrency coverage with a local HTTPS server.
 
 Distinguish settings-file access/write failures from native scheduler failures and retain unsaved input for retry.
