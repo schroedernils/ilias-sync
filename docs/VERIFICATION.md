@@ -90,3 +90,12 @@ Seven deterministic tests and six rendered scenarios cover captured checkpoints,
 for baseline/route-only/repair/generated content, distinct IDs, and conservative local reads. It is not connected to
 production publication or an offline-residency guarantee. The remaining product decision can be made with Nils and
 agent walkthroughs; participants/recruitment are not a development prerequisite.
+
+Final installed preview: **`f48d26581507-552975ab651a`**, from clean source revision `f48d265815078b4eb623879c0301fd9dc326316b`.
+Its packaged offline self-test and strict ad-hoc signature check passed. The native Help dialog displayed that exact ID;
+wrapped topics, separate paragraphs, keyboard topic navigation and cloud/schedule explanations were inspected. The final
+Folder mapping dialog opened under native accessibility, and an empty search cleared selection/disabled the stale editor;
+Cancel returned to the library. After these checks, settings remained byte-identical to the fresh 28 October snapshot and
+all 66 recorded file hashes matched, with no missing files. The preceding app bundle remains a recoverable local backup.
+GitHub issues #1/#3 contain the local implementation evidence; #2 records the isolated prototype and owner/agent method.
+They stay open for integration/remaining explicit gates. No push, merge or release was performed.
