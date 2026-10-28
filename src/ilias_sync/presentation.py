@@ -24,6 +24,9 @@ def sync_summary(status, material_count):
         return SyncSummary(t('Check the folder names'), message(status.get('message', '')), 'error', 'folders')
     if state == 'Running':
         return SyncSummary(t('Synchronizing your materials'), t('The current run has no completed result yet.'), 'running')
+    if status.get('server_deferred'):
+        return SyncSummary(t('Waiting for the server'),
+                           t('The server asked to retry later. Automatic sync will respect the requested time.'), 'warning', 'report')
     if status.get('login_required') or state == 'Sign in again':
         return SyncSummary(t('Sign in to continue'), t('Check the saved sign-in details. Your local files are still available.'),
                            'error', 'signin')
@@ -65,15 +68,20 @@ def schedule_expectation(settings, status, *, clock=None):
     if status.get('login_required'):
         return t('Automatic sync waits for sign-in')
     now = time.time() if clock is None else clock
+    facts = status.get('result') or status.get('evidence') or {}
+    retry_at = max(facts.get('http', {}).get('retry_at', 0), status.get('server_retry_at', 0))
+    waiting_for_server = retry_at > now
     if settings.get('schedule_mode') == 'times':
-        stamp = next_scheduled_run(settings, clock=now)
+        stamp = next_scheduled_run(settings, clock=max(now, retry_at - 0.001))
     else:
-        stamp = status.get('next_run')
+        stamp = max(status.get('next_run') or 0, retry_at)
+    if waiting_for_server:
+        return t('Server pause until {time}.', time=local_time(retry_at, now=now)) + ' ' + t('Next planned check: {time}', time=local_time(stamp, now=now))
     if status.get('deferred') == 'battery':
         return t('Last automatic run deferred on battery. Next attempt follows the schedule.')
     if not stamp or stamp <= now:
         return t('Next check: when the operating system starts the scheduled run')
-    return t('Next planned check: {time}', time=local_time(stamp))
+    return t('Next planned check: {time}', time=local_time(stamp, now=now))
 
 
 def progress_copy(raw):

@@ -451,3 +451,23 @@ def test_mapping_filter_selects_visible_context_and_disables_editor_on_no_result
     assert not dialog.choose_button.isEnabled() and not dialog.folder_name.isEnabled()
     assert not dialog.effective_path.text()
     dialog.close()
+
+
+def test_fixed_schedule_explains_server_pause_and_uses_next_real_calendar_time():
+    from datetime import datetime
+    from ilias_sync.presentation import schedule_expectation
+    now = datetime(2026,10,28,11,0).timestamp()
+    retry = datetime(2026,10,28,13,0).timestamp()
+    settings = {'scheduled':True,'schedule_mode':'times','sync_times':['12:00','18:00'],'interval_hours':4}
+    text = schedule_expectation(settings, {'next_run':retry,'evidence':{'http':{'retry_at':retry}}},clock=now)
+    assert 'Serverpause' in text and '13:00' in text and '18:00' in text
+    assert '12:00' not in text
+
+
+def test_report_prefers_actual_exclusions_without_an_attention_task(app):
+    from ilias_sync.gui import SyncReportDialog
+    dialog = SyncReportDialog({'state':'Up to date','result':{'material_counts':{'unchanged':2},
+        'counts':{'unchanged':2},'skipped':{'forum':1}}}, '')
+    assert dialog.sections.currentIndex() == 1
+    assert dialog.sections.tabText(0) == 'Dateien'
+    dialog.close()

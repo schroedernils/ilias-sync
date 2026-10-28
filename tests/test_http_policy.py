@@ -264,3 +264,24 @@ async def test_worker_defers_on_battery_without_requests_and_runs_sources_sequen
     monkeypatch.setattr('ilias_sync.engine.synchronize', operation)
     assert await worker(args) == 0
     assert calls == 2 and peak == 1 and active == 0
+
+
+async def test_server_defer_keeps_failure_count_and_has_waiting_summary(source, monkeypatch):
+    from types import SimpleNamespace
+    from ilias_sync.__main__ import worker
+    from ilias_sync.storage import Settings, data_dir, read_json, write_json
+    from ilias_sync.presentation import sync_summary
+    settings = Settings()
+    settings.save_source(source)
+    state = data_dir()/'sources'/source.id
+    write_json(state/'status.json', {'failures':1})
+    retry = time.time()+3600
+    async def deferred(*args, **kwargs):
+        raise HostDeferred(retry)
+    monkeypatch.setattr('ilias_sync.engine.synchronize', deferred)
+    assert await worker(SimpleNamespace(probe=None,profile=source.id,sync=True,discover=False)) == 1
+    status = read_json(state/'status.json',{})
+    assert status['failures'] == 1
+    assert status['server_retry_at'] == retry
+    assert sync_summary(status, 0).tone == 'warning'
+    assert sync_summary(status, 0).recovery == 'report'

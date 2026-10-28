@@ -275,7 +275,7 @@ class SyncReportDialog(QDialog):
             text += ' · ' + t('{count} unchanged', count=counts.get('unchanged', 0))
             if 'material_counts' in result:
                 text += '\n' + t('Material files processed: {count}', count=sum(counts.values()))
-                generated = sum(result.get('counts', {}).values()) - sum(counts.values())
+                generated = max(0, sum(result.get('counts', {}).values()) - sum(counts.values()))
                 if generated:
                     text += ' · ' + t('Course information: {count}', count=generated)
             else:
@@ -307,7 +307,8 @@ class SyncReportDialog(QDialog):
             QTreeWidgetItem(self.issues, [t('Local edits preserved'), t('Your edited files were kept. A separate ILIAS copy was saved beside them.')])
         if result.get('errors') or result.get('warnings'):
             QTreeWidgetItem(self.issues, [t('Checks requiring attention'), t('{count} errors', count=result.get('errors', 0)) + ' · ' + t('{count} warnings', count=result.get('warnings', 0))])
-        if not self.issues.topLevelItemCount():
+        has_issues = bool(self.issues.topLevelItemCount())
+        if not has_issues:
             QTreeWidgetItem(self.issues, [t('No file details recorded') if not result else t('No file issues recorded'), t('See the outcome above for the status of this attempt.')])
         self.exclusions.clear()
         names = {'forum': t('Forums'), 'test': t('Tests'), 'groups without membership': t('Groups you have not joined')}
@@ -316,6 +317,9 @@ class SyncReportDialog(QDialog):
         if not self.exclusions.topLevelItemCount():
             QTreeWidgetItem(self.exclusions, [t('No excluded content recorded'), ''])
         self.exclusions.setToolTip(t('Excluded types and groups are not failed file downloads.'))
+        self.sections.setTabText(0, t('Needs attention') if has_issues or summary.tone in {'error','warning'} else t('Files'))
+        if self.sections.currentIndex() != 2:
+            self.sections.setCurrentIndex(1 if not has_issues and result.get('skipped') else 0)
         scope = facts.get('course_scope', [])
         scope_text = t('Courses included in this check') + ':\n' + '\n'.join(row['name'] + ' [' + row['id'] + ']' for row in scope) + '\n\n' if scope else ''
         intended = facts.get('intended_scope', [])

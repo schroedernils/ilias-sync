@@ -324,3 +324,29 @@ async def test_equal_mtime_does_not_pretend_to_be_remote_byte_revalidation(sourc
     assert second['material_counts'] == {'unchanged':1}
     assert len(downloaded) == 1
     assert list(Path(source.destination).rglob('*.pdf'))[0].read_bytes() == b'%PDF-1.4 original version'
+
+
+@pytest.mark.parametrize('failure', ['cancel', 'publish', 'result_write'])
+async def test_evidence_survives_failures_through_publication(source, monkeypatch, failure):
+    import asyncio
+    from ilias_sync.storage import Archive
+    monkeypatch.setattr('aiohttp.ClientSession', FixtureSession)
+    def emit(event):
+        if failure == 'cancel' and event.get('message') == 'Saving files…':
+            asyncio.current_task().cancel()
+    if failure == 'publish':
+        monkeypatch.setattr(Archive, 'publish', lambda *args, **kwargs: (_ for _ in ()).throw(OSError('synthetic publish failure')))
+    if failure == 'result_write':
+        from ilias_sync import engine
+        real_write = engine.write_json
+        def failed_write(path, value):
+            if path.name == 'last-result.json':
+                raise OSError('synthetic result write failure')
+            return real_write(path, value)
+        monkeypatch.setattr(engine, 'write_json', failed_write)
+    with pytest.raises(asyncio.CancelledError if failure == 'cancel' else OSError) as error:
+        await synchronize(source, emit)
+    facts = error.value.sync_evidence
+    assert facts['course_scope'] == facts['intended_scope'] == [{'id':'crs-123','name':'Algorithms'}]
+    assert facts['enumeration_complete']
+    assert 'counts' not in facts

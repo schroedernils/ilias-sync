@@ -512,63 +512,63 @@ async def synchronize(source: Source, emit=lambda event: None, *, discover=False
             await crawler.run()
         else:
             await asyncio.wait_for(crawler.run(), timeout=90 if discover else 5400)
+        if discover:
+            return {"courses": crawler.roots}
+        state = data_dir() / "sources" / source.id
+        archive = Archive(state, Path(source.destination))
+        from .naming import align_folders, named_path
+        align_folders(archive, source, crawler.active_roots)
+        counts = Counter()
+        material_counts = Counter()
+        unavailable = []
+        paths = set()
+        emit({"event": "progress", "message": "Saving files…"})
+        for identity, item in crawler.files.items():
+            await checkpoint()
+            raw = state / "cache" / item["raw"]
+            if not raw.is_file() or item["raw"] not in crawler.report.known_files:
+                unavailable.append(identity)
+                continue
+            from .routing import route_file
+            destination, relative, route = route_file(source, identity, item['course_id'], item['logical'], item['path'])
+            action = archive.publish(identity, raw, relative, destination=destination, route=route,
+                                     metadata={'course_id':item['course_id'], 'course_name':item['course_name'],
+                                               'logical':item['logical'], 'original_path':item['path'],
+                                               'folder_names_applied': dict(source.folder_names)})
+            counts[action] += 1
+            material_counts[action] += 1
+            paths.add(item["raw"])
+            emit({"event": "progress", "message": f"{action.capitalize()}: {raw.name}"})
+        emit({"event": "progress", "message": "Saving course information…"})
+        for path in sorted(crawler.report.known_files):
+            await checkpoint()
+            if path in paths or path.parts[0] == "files":
+                continue
+            raw = state / "cache" / path
+            if raw.is_file():
+                # Preserve HTML resource-relative paths while isolating course information.
+                original = path.as_posix().split('/')
+                relative = '/'.join([crawler.course_folders.get(original[0], original[0]), *original[1:]])
+                relative = named_path(source, path.as_posix(), relative)
+                counts[archive.publish("generated:" + str(path), raw, "Course info/" + relative,
+                                       metadata={'course_id': original[0],
+                                                 'folder_names_applied': dict(source.folder_names)})] += 1
+        result = {"counts": dict(counts), "material_counts": dict(material_counts), "files": sum(counts.values()), "unavailable": len(unavailable),
+                  "unavailable_items": [crawler.files[identity]['path'] for identity in unavailable],
+                  "unavailable_details": [{'path': crawler.files[identity]['path'],
+                                           'reason': crawler.download_issues.get(identity, 'not_confirmed')}
+                                          for identity in unavailable],
+                  'transfer_issues': [{'path': crawler.files[identity]['path'], 'reason': reason}
+                                      for identity, reason in crawler.download_issues.items() if identity in crawler.files],
+                  "skipped": dict(crawler.skipped), "warnings": len(crawler.report.encountered_warnings),
+                  "errors": len(crawler.report.encountered_errors), "seconds": round(time.monotonic() - start, 2),
+                  "partial": not crawler.error_free}
+        result['pages'] = {'checked': len(crawler.page_index.used_urls), 'parsed': crawler.page_index.parsed,
+                           'reused': crawler.page_index.reused,
+                           'empty_meetings': len(crawler.page_index.empty_meetings)}
+        result.update(crawler.check_evidence())
+        write_json(state / "last-result.json", result)
+        return result
     except BaseException as exc:
         exc.sync_evidence = crawler.check_evidence()
         raise
-    if discover:
-        return {"courses": crawler.roots}
-    state = data_dir() / "sources" / source.id
-    archive = Archive(state, Path(source.destination))
-    from .naming import align_folders, named_path
-    align_folders(archive, source, crawler.active_roots)
-    counts = Counter()
-    material_counts = Counter()
-    unavailable = []
-    paths = set()
-    emit({"event": "progress", "message": "Saving files…"})
-    for identity, item in crawler.files.items():
-        await checkpoint()
-        raw = state / "cache" / item["raw"]
-        if not raw.is_file() or item["raw"] not in crawler.report.known_files:
-            unavailable.append(identity)
-            continue
-        from .routing import route_file
-        destination, relative, route = route_file(source, identity, item['course_id'], item['logical'], item['path'])
-        action = archive.publish(identity, raw, relative, destination=destination, route=route,
-                                 metadata={'course_id':item['course_id'], 'course_name':item['course_name'],
-                                           'logical':item['logical'], 'original_path':item['path'],
-                                           'folder_names_applied': dict(source.folder_names)})
-        counts[action] += 1
-        material_counts[action] += 1
-        paths.add(item["raw"])
-        emit({"event": "progress", "message": f"{action.capitalize()}: {raw.name}"})
-    emit({"event": "progress", "message": "Saving course information…"})
-    for path in sorted(crawler.report.known_files):
-        await checkpoint()
-        if path in paths or path.parts[0] == "files":
-            continue
-        raw = state / "cache" / path
-        if raw.is_file():
-            # Preserve HTML resource-relative paths while isolating course information.
-            original = path.as_posix().split('/')
-            relative = '/'.join([crawler.course_folders.get(original[0], original[0]), *original[1:]])
-            relative = named_path(source, path.as_posix(), relative)
-            counts[archive.publish("generated:" + str(path), raw, "Course info/" + relative,
-                                   metadata={'course_id': original[0],
-                                             'folder_names_applied': dict(source.folder_names)})] += 1
-    result = {"counts": dict(counts), "material_counts": dict(material_counts), "files": sum(counts.values()), "unavailable": len(unavailable),
-              "unavailable_items": [crawler.files[identity]['path'] for identity in unavailable],
-              "unavailable_details": [{'path': crawler.files[identity]['path'],
-                                       'reason': crawler.download_issues.get(identity, 'not_confirmed')}
-                                      for identity in unavailable],
-              'transfer_issues': [{'path': crawler.files[identity]['path'], 'reason': reason}
-                                  for identity, reason in crawler.download_issues.items() if identity in crawler.files],
-              "skipped": dict(crawler.skipped), "warnings": len(crawler.report.encountered_warnings),
-              "errors": len(crawler.report.encountered_errors), "seconds": round(time.monotonic() - start, 2),
-              "partial": not crawler.error_free}
-    result['pages'] = {'checked': len(crawler.page_index.used_urls), 'parsed': crawler.page_index.parsed,
-                       'reused': crawler.page_index.reused,
-                       'empty_meetings': len(crawler.page_index.empty_meetings)}
-    result.update(crawler.check_evidence())
-    write_json(state / "last-result.json", result)
-    return result

@@ -103,11 +103,17 @@ async def worker(args):
                 from .storage import FolderCollisionError
                 collision = isinstance(exc, FolderCollisionError)
                 from .http_policy import HostDeferred
+                server_deferred = isinstance(exc, HostDeferred)
+                if server_deferred:
+                    failures = previous.get('failures', 0)
                 message = str(exc) if login or collision or isinstance(exc, HostDeferred) else f"{type(exc).__name__}: sync could not complete. Existing files were retained."
                 status = {"state": "Sign in again" if login else "Needs attention", "finished": time.time(),
                           "next_run": next_scheduled_run(settings.value, failures), "failures": failures,
                           "login_required": login, "message": message}
                 status['evidence'] = getattr(exc, 'sync_evidence', {})
+                if server_deferred:
+                    status['server_deferred'] = True
+                    status['server_retry_at'] = exc.retry_at
                 status['next_run'] = max(status['next_run'], status['evidence'].get('http', {}).get('retry_at', 0),
                                          getattr(exc, 'retry_at', 0))
                 if collision:
