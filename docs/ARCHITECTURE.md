@@ -12,6 +12,11 @@ PFERD is a pinned dependency. The adapter supports dynamic local login form fiel
 
 Incremental parsing: a private, source-bound page index retains parsed navigation plans rather than cached freshness.
 Each run fetches known content pages again, with at most 64 queued page tasks, overlapping membership discovery and traversal. A shared per-host HTTP budget allows eight active requests across pages, streams, authentication and redirects; responses retain their slot until EOF or close.
+
+The first dashboard fetch establishes an authenticated session before speculative page tasks start. This ordering
+prevents expired-session redirects from outstanding prefetched pages from interfering with a newly accepted login.
+After bootstrap, known-page reads still overlap membership pagination and traversal; current navigation determines
+which pages count toward the result. Authentication is not bypassed and no cached page substitutes for a fresh read.
 Authenticated responses are compared using
 content, navigation, download-target and description fingerprints; random UI IDs, hidden form tokens and assignment
 countdowns do not invalidate parsing. Changed pages are parsed again with lxml, newly discovered pages are fetched,

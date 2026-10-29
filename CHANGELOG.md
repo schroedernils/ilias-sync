@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+Establish the authenticated dashboard before launching warm page prefetch. Parallel expired-session redirects could
+interfere with an otherwise successful sign-in and report LoginRequired repeatedly despite a valid stored password.
+Keep bounded parallel reads after bootstrap, overlapping membership discovery and traversal as before.
+
 Keep structured authentication and recovery facts through worker messages, localization and completion. Do not replace
 an expired-sign-in action with a generic retry after a failed sync. Prefer the current persisted attempt over transient
 worker text while retaining busy/start failures that have no new recorded outcome. Make critical failures more visible

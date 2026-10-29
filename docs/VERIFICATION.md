@@ -150,3 +150,28 @@ verification. Native inspection showed the real expired-session result with the 
 error area and **Anmeldung erneuern** action. The action opened the focused secure-password dialog with **Speichern
 und prüfen**. No credential was entered or live sign-in attempted. Current settings and all 66 archive file hashes were
 unchanged; the preceding app is retained privately under `.local/auth-action-fix-20261029/`.
+
+## Expired-session prefetch race — 29 October 2026
+
+A one-dashboard check established that the stored password was accepted by the institution. An isolated live
+comparison with the same 90-page warm index reproduced a failed dashboard when speculative reads started before
+authentication (279 responses, 37 redirects to login, 61 unauthenticated HTML responses). Bootstrapping the dashboard
+first succeeded with one authentication and all eight subsequent sample reads accepted. Only structural booleans,
+status counts and timings were recorded; no credential, cookie value or response body was exported as evidence.
+
+The adapter now fetches the dashboard before starting prefetch. A regression with an expired session and a warm index
+requires one successful authentication and no speculative private request before it. The overlap regression now checks
+membership pagination after bootstrap, including retention of files from a removed course. **238 tests passed in
+14.83 seconds**, with Ruff and whitespace checks clean.
+
+The full live check in a copied cache/isolated destination completed in 21.76 s, covering 69 files, no errors, two
+unavailable items and complete enumeration. Installed build **`9c69fd5bb0b4-1100c340e258`** passed packaged/installed
+offline self-tests and strict ad-hoc signature verification. The normal installed-app sync then completed against the
+existing archive in 36.19 s: **53 unchanged material files and 3 added material files**, plus 12 unchanged/1 updated
+generated course-information files, zero errors and two unavailable downloads. `login_required` is false.
+
+Native inspection showed 56 material files, the completed-with-notes result instead of sign-in recovery, and the next
+planned daily check. Actual pointer navigation from a course to the university and inline report expand/collapse worked.
+The app was left on the university's materials. Settings remained byte-identical; none of the preceding 66 files went
+missing. The one updated generated file retained its prior contents in Versions, verified by SHA-256. Private snapshots,
+isolated fixtures, metrics and the preceding app bundle remain excluded from Git under `.local/`.
