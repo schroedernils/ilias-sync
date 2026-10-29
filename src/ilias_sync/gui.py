@@ -1516,7 +1516,7 @@ class MainWindow(QMainWindow):
         self.recovery_button = button('View report', self.recover)
         self.sync_panel.recovery_layout.addWidget(self.recovery_button, alignment=Qt.AlignmentFlag.AlignTop)
         self.recovery_button.hide()
-        self.recovery_button.setObjectName('compactControl')
+        self.recovery_button.setObjectName('primary')
         self.sync_panel.disclosure.toggled.connect(self.toggle_report)
         self.details_button = self.sync_panel.disclosure
         library = QVBoxLayout()
