@@ -125,7 +125,9 @@ async def worker(args):
                 if collision:
                     status['recovery'] = 'folders'
                 record_attempt(path.parent, {**status, 'started': started, 'scope': source_scope(source)}, previous)
-                emit({"event": "error", "profile": source.id, "message": message})
+                emit({"event": "error", "profile": source.id, "message": message,
+                      'status': {key: status[key] for key in ('state', 'login_required', 'failure_kind', 'recovery',
+                                                             'server_deferred', 'server_retry_at') if key in status}})
                 errors += 1
     finally:
         lock.release()

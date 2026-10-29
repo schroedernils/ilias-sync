@@ -207,3 +207,68 @@ def test_leaving_missing_file_scope_does_not_replace_later_signin_recovery(app, 
         window.recover()
         edit.assert_called_once_with(signin=True, source=source)
     window.close()
+
+
+@pytest.mark.parametrize('language', ['de', 'en'])
+@pytest.mark.parametrize('structured', [False, True])
+def test_worker_auth_event_keeps_signin_action_through_translation_refresh_and_finish(app, source, language, structured):
+    import json
+    from ilias_sync.gui import MainWindow
+    settings = Settings()
+    settings.value['language'] = language
+    settings.save_source(source)
+    window = MainWindow()
+    window.job = ('sync', source)
+    window.job_started = 100
+    window.process = Mock()
+    event = {'event': 'error', 'profile': source.id, 'message': 'Sign-in expired or was rejected by ILIAS.'}
+    if structured:
+        event.update(message='Unrecognized authentication detail', status={'state': 'Sign in again', 'login_required': True})
+    window.event_path.write_text(json.dumps(event) + '\n')
+    window.read_output()
+    expected = 'Anmeldung erneuern' if language == 'de' else 'Renew sign-in'
+    assert window.recovery_button.text() == expected
+    assert window.recovery_plan.action == 'signin'
+    window.refresh()
+    write_json(data_dir() / 'sources' / source.id / 'status.json', {
+        'state': 'Sign in again', 'login_required': True, 'started': 101, 'finished': 102,
+        'message': event['message'], 'scope': source_scope(source)})
+    window.finished(1, None)
+    assert not window.ui_error
+    assert window.recovery_button.text() == expected
+    window.refresh()
+    assert window.recovery_button.text() == expected
+    with patch.object(window, 'edit') as edit:
+        window.recover()
+        edit.assert_called_once_with(signin=True)
+    window.close()
+
+
+def test_busy_worker_does_not_replace_its_message_with_a_previous_success(app, source):
+    import json
+    from ilias_sync.gui import MainWindow
+    Settings().save_source(source)
+    write_json(data_dir() / 'sources' / source.id / 'status.json', {
+        'state': 'Up to date', 'started': 10, 'finished': 20, 'scope': source_scope(source), 'result': {'counts': {}}})
+    window = MainWindow()
+    window.job = ('sync', source)
+    window.job_started = 100
+    window.process = Mock()
+    window.event_path.write_text(json.dumps({'event': 'busy', 'message': 'Another synchronization is already running.'}) + '\n')
+    window.finished(3, None)
+    assert window.ui_error
+    assert window.sync_panel.mark.tone == 'error'
+    window.close()
+
+
+async def test_worker_emits_structured_login_failure_for_unrecognized_message(source, monkeypatch):
+    from ilias_sync.__main__ import worker
+    from ilias_sync.security import LoginRequired
+    Settings().save_source(source)
+    events = []
+    monkeypatch.setattr('ilias_sync.__main__.emit', events.append)
+    monkeypatch.setattr('ilias_sync.engine.synchronize', AsyncMock(side_effect=LoginRequired('Custom authentication detail')))
+    assert await worker(SimpleNamespace(sync=True, discover=False, profile=source.id, probe=None)) == 1
+    error = next(event for event in events if event['event'] == 'error')
+    assert error['status']['state'] == 'Sign in again'
+    assert error['status']['login_required'] is True

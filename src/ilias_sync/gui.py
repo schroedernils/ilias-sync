@@ -1433,6 +1433,7 @@ class MainWindow(QMainWindow):
         self.ui_error_kind = ''
         self.ui_error_source = None
         self.ui_error_entry = None
+        self.ui_error_status = None
         self.repair_checks = {}
         container = QWidget()
         page = QVBoxLayout(container)
@@ -1646,6 +1647,7 @@ class MainWindow(QMainWindow):
         self.ui_error_kind = ''
         self.ui_error_source = None
         self.ui_error_entry = None
+        self.ui_error_status = None
         self.sync_panel.disclosure.setChecked(False)
         self.render_library()
 
@@ -1791,7 +1793,8 @@ class MainWindow(QMainWindow):
         if busy:
             self.show_progress(progress_copy(self.progress_message) if self.progress_message else t('Checking ILIAS…'))
         elif self.ui_error:
-            self.show_local_error(self.ui_error, kind=self.ui_error_kind, source_id=self.ui_error_source)
+            self.show_local_error(self.ui_error, kind=self.ui_error_kind, source_id=self.ui_error_source,
+                                  error_status=self.ui_error_status)
 
     def render_status(self):
         from .storage import source_scope
@@ -2031,17 +2034,20 @@ class MainWindow(QMainWindow):
         self.sync_panel.meta.setText(t('Your existing files stay available during the sync.'))
         self.sync_panel.schedule.setText(text)
 
-    def show_local_error(self, text, *, kind=None, source_id=None, entry=None):
+    def show_local_error(self, text, *, kind=None, source_id=None, entry=None, error_status=None):
         self.ui_error = text
+        self.ui_error_status = error_status or {'state': 'Needs attention', 'message': text, 'failure_kind': kind or 'local'}
         self.ui_error_kind = kind or 'local'
         if entry is not None:
             self.ui_error_entry = dict(entry)
         elif self.ui_error_kind not in {'missing', 'open', 'path'}:
             self.ui_error_entry = None
         self.ui_error_source = source_id or (self.job[1].id if self.job else self.selected().id if self.selected() else None)
-        self.sync_panel.set_state(t('Something needs attention'), text, 'error')
         self.recovery_source = self.ui_error_source
-        self.recovery_plan = recovery_plan({'state': 'Needs attention', 'message': text, 'failure_kind': self.ui_error_kind})
+        self.recovery_plan = recovery_plan(self.ui_error_status)
+        summary = sync_summary(self.ui_error_status, None) if error_status else None
+        self.sync_panel.set_state(summary.title if summary else t('Something needs attention'), message(text),
+                                  summary.tone if summary else 'error')
         self.recovery_button.setVisible(bool(self.ui_error_source))
         if self.ui_error_kind == 'open':
             self.recovery_button.setText(t('Open containing folder'))
@@ -2122,7 +2128,7 @@ class MainWindow(QMainWindow):
             return
         status = self.libraries[source_id]['status']
         if self.ui_error and (self.ui_error_source or (self.selected().id if self.selected() else None)) == source_id:
-            status = {'state': 'Needs attention', 'message': self.ui_error, 'failure_kind': self.ui_error_kind}
+            status = self.ui_error_status or {'state': 'Needs attention', 'message': self.ui_error, 'failure_kind': self.ui_error_kind}
         plan = recovery_plan(status)
         if source_id == self.ui_error_source and self.ui_error_kind == 'missing':
             plan = recovery_plan({'failure_kind': 'missing'})
@@ -2230,8 +2236,10 @@ class MainWindow(QMainWindow):
         if not source or self.process or self.run_info:
             return
         self.job = (action, source)
+        self.job_started = time.time()
         self.ui_error = ''
         self.ui_error_kind = ''
+        self.ui_error_status = None
         if source.id in self.repair_checks and self.repair_checks[source.id]['phase'] != 'checking':
             self.repair_checks.pop(source.id)
         self.progress_message = ""
@@ -2359,7 +2367,8 @@ class MainWindow(QMainWindow):
                 self.activity.append(escape(message(event["message"])))
             elif event["event"] in {"error", "busy"}:
                 self.activity.append(escape(message(event["message"])))
-                self.show_local_error(message(event["message"]), source_id=event.get('profile'))
+                status = {'state': 'Needs attention', 'message': event['message'], **event.get('status', {})}
+                self.show_local_error(event['message'], source_id=event.get('profile'), error_status=status)
             elif event["event"] == "result" and self.job[0] == "discover":
                 self.pending_courses = event["result"]["courses"]
 
@@ -2370,6 +2379,15 @@ class MainWindow(QMainWindow):
         self.process.deleteLater()
         self.process = None
         self.run_info = None
+        if self.job and self.job[0] == 'sync':
+            latest = read_json(data_dir() / 'sources' / self.job[1].id / 'status.json', {})
+            # Only the just-finished attempt may replace a transient worker
+            # message. Busy/failed-to-start workers must not inherit old success.
+            if (latest.get('finished') and latest.get('started', -1) >= getattr(self, 'job_started', time.time())
+                    and latest.get('state') != 'Checking courses'):
+                self.ui_error = ''
+                self.ui_error_kind = ''
+                self.ui_error_status = None
         if self.job and self.job[0] == 'sync' and self.job[1].id in self.repair_checks:
             repair = self.repair_checks[self.job[1].id]
             latest = read_json(data_dir() / 'sources' / self.job[1].id / 'status.json', {})
