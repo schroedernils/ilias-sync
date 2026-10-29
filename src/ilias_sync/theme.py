@@ -14,6 +14,9 @@ DARK = dict(window='#191a1c', surface='#242529', inset='#202124', text='#f0f1f3'
 
 def stylesheet(c):
     check = Path(__file__).parent / 'assets/icons/actions' / ('check-dark.svg' if QColor(c['on_accent']).lightness() < 128 else 'check-light.svg')
+    accent = QColor(c['accent'])
+    accent_hover = (accent.lighter(110) if accent.lightness() > 128 else accent.darker(110)).name()
+    accent_pressed = (accent.darker(110) if accent.lightness() > 128 else accent.darker(125)).name()
     return f"""
 QWidget {{ color: {c['text']}; font-size: 13px; }}
 QMainWindow, QDialog, QWidget#dialogBody, QWidget#page {{ background: {c['window']}; }}
@@ -68,6 +71,11 @@ QPushButton#iconControl:focus {{ border: 2px solid {c['accent']}; }}
 QPushButton#sidebarAction {{ background: transparent; }}
 QPushButton#sidebarAction:hover {{ background: {c['hover']}; }}
 QPushButton#toolbarControl {{ padding: 6px 12px; min-height: 18px; }}
+QPushButton#syncAction {{ background: {c['accent']}; color: {c['on_accent']}; border: 2px solid {c['accent']}; padding: 8px 20px; font-size: 14px; font-weight: 650; min-height: 22px; }}
+QPushButton#syncAction:hover {{ background: {accent_hover}; border-color: {accent_hover}; }}
+QPushButton#syncAction:pressed {{ background: {accent_pressed}; border-color: {accent_pressed}; }}
+QPushButton#syncAction:focus {{ border-color: {c['on_accent']}; }}
+QPushButton#syncAction:disabled {{ background: {c['inset']}; color: {c['disabled']}; border-color: {c['border']}; }}
 QLineEdit#materialSearch {{ padding: 7px 10px; }}
 QLineEdit#materialSearch:focus {{ padding: 6px 9px; }}
 QPushButton#compactControl {{ padding: 5px 9px; font-size: 11px; min-height: 16px; }}

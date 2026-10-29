@@ -74,7 +74,7 @@ class RunButton(QPushButton):
         self.setAccessibleName(name)
         self.setToolTip(name)
         self.setText(t('Stop this sync') if action == 'stop' else name)
-        height = max(36, self.fontMetrics().height() + 18)
+        height = max(42 if self.objectName() == 'syncAction' else 36, self.fontMetrics().height() + 18)
         if action:
             self.setMinimumSize(70, height)
             self.setMaximumSize(16777215, height)
@@ -1496,7 +1496,7 @@ class MainWindow(QMainWindow):
         title_group.addLayout(source_meta)
         source_heading.addLayout(title_group, 1)
         self.sync_button = RunButton('Sync now', self.sync_or_pause)
-        self.sync_button.setObjectName('toolbarControl')
+        self.sync_button.setObjectName('syncAction')
         self.stop_button = RunButton('Stop', self.stop_sync)
         self.stop_button.setObjectName('secondaryRun')
         self.stop_button.setToolTip(t('Stops this run. Completed files and the schedule are kept.'))
