@@ -1562,8 +1562,9 @@ class MainWindow(QMainWindow):
         self.files.setSelectionBehavior(QTableWidget.SelectionBehavior.SelectRows)
         self.files.setSelectionMode(QTableWidget.SelectionMode.SingleSelection)
         self.files.setSortingEnabled(True)
-        self.files.sortItems(0, Qt.SortOrder.AscendingOrder)
+        self.files.sortItems(2, Qt.SortOrder.DescendingOrder)
         self.files.horizontalHeader().sortIndicatorChanged.connect(lambda *_: QTimer.singleShot(0, self.apply_file_filters))
+        self.files.horizontalHeader().sortIndicatorChanged.connect(lambda *_: self.adapt_columns())
         self.files.itemDoubleClicked.connect(lambda *_: self.open_file())
         self.files.itemSelectionChanged.connect(self.update_file_actions)
         self.files.setContextMenuPolicy(Qt.ContextMenuPolicy.CustomContextMenu)
@@ -1743,7 +1744,7 @@ class MainWindow(QMainWindow):
         entries = [entry for identity, library in self.libraries.items() if not source or identity == source.id
                    for entry in library['entries'] if not scope[1] or entry.get('course_id') == scope[1]]
         column, order = self.files_header.sortIndicatorSection(), self.files_header.sortIndicatorOrder()
-        if scope_changed and self.library_view.currentData() == 'recent':
+        if scope_changed:
             column, order = 2, Qt.SortOrder.DescendingOrder
         selected = self.selected_entry()
         selected_key = (selected['_source_id'], selected['_identity']) if selected else None
@@ -1870,9 +1871,10 @@ class MainWindow(QMainWindow):
         if not hasattr(self, 'files'):
             return
         self.files.setColumnHidden(3, bool(self.sources.scope()[1]) or self.files.viewport().width() < 850)
-        # Compact windows retain dates in the tooltip; Recent always exposes
-        # its ordering. Broad windows support directly sortable date/course.
-        self.files.setColumnHidden(2, self.files.viewport().width() < 650 and self.library_view.currentData() != 'recent')
+        # Keep the active date order visible even in compact windows.
+        self.files.setColumnHidden(2, self.files.viewport().width() < 650 and
+                                   self.library_view.currentData() != 'recent' and
+                                   self.files_header.sortIndicatorSection() != 2)
         if hasattr(self, 'sync_panel'):
             self.sync_panel.report_host.setMaximumHeight(max(100, min(260, self.height() - 500)))
 
@@ -1902,8 +1904,7 @@ class MainWindow(QMainWindow):
             return
         self.apply_file_filters()
         self.adapt_columns()
-        if self.library_view.currentData() == 'recent':
-            self.files.sortItems(2, Qt.SortOrder.DescendingOrder)
+        self.files.sortItems(2, Qt.SortOrder.DescendingOrder)
 
     def clear_file_filters(self):
         self.file_filters = {'search': '', 'course': '', 'kind': '', 'size': ''}

@@ -51,6 +51,49 @@ def visible_entries(window):
             for row in range(window.files.rowCount()) if not window.files.isRowHidden(row)]
 
 
+def test_every_scope_and_view_defaults_to_newest_material_first(library_app, source, tmp_path):
+    from PySide6.QtCore import Qt
+    from ilias_sync.gui import MainWindow
+    first_state = university(source)
+    second = second_source(tmp_path)
+    second_state = university(second)
+    for state, dates in [(first_state, [100, 300, 0]), (second_state, [200, 400, 0])]:
+        manifest = read_json(state / 'manifest.json', {})
+        for entry, changed in zip(manifest['files'].values(), dates):
+            if changed:
+                entry['changed_at'] = changed
+        write_json(state / 'manifest.json', manifest)
+    window = MainWindow()
+    window.resize(820, 560)
+    window.show()
+    library_app.processEvents()
+
+    def assert_newest():
+        assert window.files_header.sortIndicatorSection() == 2
+        assert window.files_header.sortIndicatorOrder() == Qt.SortOrder.DescendingOrder
+        dates = [entry.get('changed_at', 0) for entry in visible_entries(window)]
+        assert dates == sorted(dates, reverse=True)
+        assert not window.files.isColumnHidden(2)
+
+    assert_newest()
+    for scope in [(source.id, ''), (second.id, 'crs-1'), ('', '')]:
+        window.files.sortItems(0, Qt.SortOrder.AscendingOrder)
+        window.sources.select_scope(*scope)
+        assert_newest()
+        for view in ['recent', 'info', 'all', 'materials']:
+            window.files.sortItems(1, Qt.SortOrder.AscendingOrder)
+            window.library_view.setCurrentIndex(window.library_view.findData(view))
+            assert_newest()
+        window.files.sortItems(0, Qt.SortOrder.AscendingOrder)
+        window.refresh()
+        assert window.files_header.sortIndicatorSection() == 0
+    window.close()
+    restored = MainWindow()
+    assert restored.files_header.sortIndicatorSection() == 2
+    assert restored.files_header.sortIndicatorOrder() == Qt.SortOrder.DescendingOrder
+    restored.close()
+
+
 def test_hierarchy_browses_global_university_and_course_without_changing_sync_selection(library_app, source, tmp_path):
     from ilias_sync.gui import MainWindow
     university(source)
