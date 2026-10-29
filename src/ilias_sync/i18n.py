@@ -304,6 +304,7 @@ DE.update({
 DE.update({
     'Renew sign-in': 'Anmeldung erneuern', 'Save and check': 'Speichern und prüfen',
     'Current university password': 'Aktuelles Hochschulpasswort',
+    'The file was kept. Open its folder to choose another application.': 'Die Datei bleibt erhalten. Öffne ihren Ordner, um eine andere Anwendung auszuwählen.',
     'Sign-in confirmed': 'Anmeldung bestätigt', 'Check successful again': 'Prüfung wieder erfolgreich',
     'New check not confirmed': 'Erneute Prüfung nicht bestätigt',
     'Check again': 'Erneut prüfen', 'Check storage location': 'Speicherort prüfen',

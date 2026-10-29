@@ -169,12 +169,14 @@ def main():
                 'logical': f'crs-1/Woche {i // 4 + 1}/Material {i:02}.{ext}', 'target_stat': [1024 * (i + 1)]}
                 for i, ext in enumerate(['pdf', 'zip', 'png', 'java', 'xlsx', 'mp4', 'docx', 'txt'] * 5)}
         write_json(second_state / 'manifest.json', {'files': many})
-        write_json(second_state / 'status.json', {'state': 'Up to date', 'scope': source_scope(second),
-            'finished': time.time(), 'result': {'counts': {'unchanged': 40}}})
+        second_success = {'state': 'Up to date', 'scope': source_scope(second),
+            'finished': time.time(), 'result': {'counts': {'unchanged': 40}}}
+        write_json(second_state / 'status.json', second_success)
         settings.value['language'] = 'de'
         settings.save()
         for mode in ('light', 'dark'):
             app.theme.set_mode(mode)
+            write_json(second_state / 'status.json', second_success)
             window = MainWindow()
             window.sources.select_scope()
             for width, height in [(820, 560), (980, 700), (1280, 800)]:

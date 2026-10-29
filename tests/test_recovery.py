@@ -172,3 +172,38 @@ def test_successful_recovery_label_is_not_reused_after_a_later_failure(app, sour
     assert window.sync_panel.mark.tone == 'error'
     assert window.recovery_button.text() == 'Erneut prüfen'
     window.close()
+
+
+def test_file_repair_keeps_the_failed_file_identity_after_another_row_is_selected(app, source):
+    from ilias_sync.gui import MainWindow
+    from test_presentation import prepare_library
+    prepare_library(source)
+    window = MainWindow()
+    window.files.selectRow(0)
+    failed = window.selected_entry()
+    window.file_target().unlink()
+    window.open_file()
+    window.files.selectRow(1)
+    assert window.selected_entry()['_identity'] != failed['_identity']
+    with patch.object(window, 'start'):
+        window.recover()
+    assert window.repair_checks[source.id]['identity'] == failed['_identity']
+    window.close()
+
+
+def test_leaving_missing_file_scope_does_not_replace_later_signin_recovery(app, source):
+    from ilias_sync.gui import MainWindow
+    Settings().save_source(source)
+    state = data_dir() / 'sources' / source.id
+    write_json(state / 'manifest.json', {'files': {'file:1': {'path': 'Absent.pdf'}}})
+    write_json(state / 'status.json', {'state': 'Sign in again', 'login_required': True})
+    window = MainWindow()
+    window.files.selectRow(0)
+    window.open_file()
+    window.sources.select_scope()
+    assert not window.ui_error_kind
+    assert window.recovery_button.text() == 'Anmeldung erneuern'
+    with patch.object(window, 'edit') as edit:
+        window.recover()
+        edit.assert_called_once_with(signin=True, source=source)
+    window.close()

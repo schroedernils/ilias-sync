@@ -1432,6 +1432,7 @@ class MainWindow(QMainWindow):
         self.ui_error = ''
         self.ui_error_kind = ''
         self.ui_error_source = None
+        self.ui_error_entry = None
         self.repair_checks = {}
         container = QWidget()
         page = QVBoxLayout(container)
@@ -1642,6 +1643,9 @@ class MainWindow(QMainWindow):
         # Search/filter state belongs to a browsing scope, never to sync targets.
         self.clear_file_filters()
         self.ui_error = ''
+        self.ui_error_kind = ''
+        self.ui_error_source = None
+        self.ui_error_entry = None
         self.sync_panel.disclosure.setChecked(False)
         self.render_library()
 
@@ -1978,7 +1982,8 @@ class MainWindow(QMainWindow):
         try:
             return safe_path(Path(entry.get('root', entry['_destination'])), entry['path'])
         except ValueError:
-            self.show_local_error(t('This file path is unavailable. Try synchronizing again.'))
+            self.show_local_error(t('This file path is unavailable. Try synchronizing again.'), kind='path',
+                                  source_id=entry['_source_id'], entry=entry)
             return None
 
     def open_file(self):
@@ -1988,9 +1993,10 @@ class MainWindow(QMainWindow):
         if not target.is_file():
             entry = self.selected_entry()
             self.show_local_error(t('This file is missing locally. Sync again to restore it.'),
-                                  kind='missing', source_id=entry['_source_id'])
+                                  kind='missing', source_id=entry['_source_id'], entry=entry)
         elif not QDesktopServices.openUrl(QUrl.fromLocalFile(str(target))):
-            self.show_local_error(t('The file could not be opened. Check its default application.'))
+            self.show_local_error(t('The file could not be opened. Check its default application.'), kind='open',
+                                  source_id=self.selected_entry()['_source_id'], entry=self.selected_entry())
 
     def reveal_file(self):
         target = self.file_target()
@@ -2025,18 +2031,38 @@ class MainWindow(QMainWindow):
         self.sync_panel.meta.setText(t('Your existing files stay available during the sync.'))
         self.sync_panel.schedule.setText(text)
 
-    def show_local_error(self, text, *, kind=None, source_id=None):
+    def show_local_error(self, text, *, kind=None, source_id=None, entry=None):
         self.ui_error = text
         self.ui_error_kind = kind or 'local'
-        self.ui_error_source = source_id
+        if entry is not None:
+            self.ui_error_entry = dict(entry)
+        elif self.ui_error_kind not in {'missing', 'open', 'path'}:
+            self.ui_error_entry = None
+        self.ui_error_source = source_id or (self.job[1].id if self.job else self.selected().id if self.selected() else None)
         self.sync_panel.set_state(t('Something needs attention'), text, 'error')
-        self.recovery_button.setVisible(self.ui_error_kind == 'missing')
-        if self.ui_error_kind == 'missing':
+        self.recovery_source = self.ui_error_source
+        self.recovery_plan = recovery_plan({'state': 'Needs attention', 'message': text, 'failure_kind': self.ui_error_kind})
+        self.recovery_button.setVisible(bool(self.ui_error_source))
+        if self.ui_error_kind == 'open':
+            self.recovery_button.setText(t('Open containing folder'))
+            self.recovery_button.setToolTip(t('The file was kept. Open its folder to choose another application.'))
+        elif self.ui_error_kind == 'missing':
             self.recovery_button.setText(t('Restore file'))
             self.recovery_button.setToolTip(t('Checks this university and downloads missing materials again. Existing files are kept.'))
+        elif self.recovery_plan:
+            self.recovery_button.setText(self.recovery_plan.button)
+            self.recovery_button.setToolTip(self.recovery_plan.explanation)
+        self.refresh_controls()
 
     def recover(self):
-        if self.ui_error_kind == 'missing':
+        if self.ui_error and self.ui_error_kind == 'open':
+            from .storage import safe_path
+            entry = self.ui_error_entry
+            if entry:
+                target = safe_path(Path(entry.get('root', entry['_destination'])), entry['path'])
+                QDesktopServices.openUrl(QUrl.fromLocalFile(str(target.parent)))
+            return
+        if self.ui_error and self.ui_error_kind == 'missing':
             source = next((source for source in self.settings.sources() if source.id == self.ui_error_source), None)
             if source:
                 self.begin_repair(source, 'missing')
@@ -2061,8 +2087,8 @@ class MainWindow(QMainWindow):
     def begin_repair(self, source, kind):
         self.last_repair_source = source.id
         self.repair_checks[source.id] = {'kind': kind, 'phase': 'checking', 'started': time.time()}
-        if kind == 'missing' and self.selected_entry():
-            self.repair_checks[source.id]['identity'] = self.selected_entry()['_identity']
+        if kind == 'missing' and (self.ui_error_entry or self.selected_entry()):
+            self.repair_checks[source.id]['identity'] = (self.ui_error_entry or self.selected_entry())['_identity']
         self.ui_error = ''
         self.ui_error_kind = ''
         self.start('sync', source)
@@ -2110,7 +2136,9 @@ class MainWindow(QMainWindow):
             guide_layout.addWidget(steps)
             actions = QHBoxLayout()
             if source_id != getattr(self, 'recovery_source', None) or self.recovery_button.isHidden():
-                actions.addWidget(button(plan.button, lambda: self.run_recovery(source_id, plan)))
+                action = button(plan.button, lambda: self.run_recovery(source_id, plan))
+                action.setEnabled(not (self.process or self.run_info))
+                actions.addWidget(action)
             if plan.action != 'browser':
                 actions.addWidget(button('Open ILIAS', lambda: QDesktopServices.openUrl(QUrl(self.libraries[source_id]['source'].url))))
             actions.addStretch()
@@ -2331,7 +2359,7 @@ class MainWindow(QMainWindow):
                 self.activity.append(escape(message(event["message"])))
             elif event["event"] in {"error", "busy"}:
                 self.activity.append(escape(message(event["message"])))
-                self.show_local_error(message(event["message"]))
+                self.show_local_error(message(event["message"]), source_id=event.get('profile'))
             elif event["event"] == "result" and self.job[0] == "discover":
                 self.pending_courses = event["result"]["courses"]
 

@@ -263,3 +263,24 @@ def test_stale_configuration_never_hides_a_critical_error_and_files_have_distinc
     assert source_summary(load_library([changed])[source.id]).tone == 'error'
     assert len({file_family('a' + suffix) for suffix in ('.pdf', '.zip', '.png', '.mp4', '.java', '.xlsx', '.docx')}) == 7
     assert material_context({'path': 'Algorithms/Folder/a.pdf', 'logical': 'crs-1/Folder/a.pdf'}, 'course') == 'Folder'
+
+
+def test_real_tree_click_and_arrows_change_browsing_scope(library_app, source):
+    from PySide6.QtCore import Qt
+    from PySide6.QtTest import QTest
+    from ilias_sync.gui import MainWindow
+    university(source)
+    window = MainWindow()
+    window.show()
+    library_app.processEvents()
+    university_item = window.sources.topLevelItem(1)
+    course_item = university_item.child(0)
+    QTest.mouseClick(window.sources.viewport(), Qt.MouseButton.LeftButton,
+                     pos=window.sources.visualItemRect(course_item).center())
+    assert window.sources.scope() == (source.id, 'crs-1')
+    assert window.source_title.full_text == 'Algorithms'
+    QTest.keyClick(window.sources, Qt.Key.Key_Up)
+    assert window.sources.scope() == (source.id, '')
+    QTest.keyClick(window.sources, Qt.Key.Key_Up)
+    assert window.sources.scope() == ('', '')
+    window.close()
