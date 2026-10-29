@@ -208,11 +208,15 @@ class StatusMark(QWidget):
     def __init__(self, parent=None, compact=False):
         super().__init__(parent)
         self.tone = 'neutral'
+        self.compact = compact
         self.setFixedSize(22 if compact else 42, 22 if compact else 42)
         self.setAccessibleName(t('Synchronization status'))
 
     def set_tone(self, tone):
         self.tone = tone
+        size = 32 if self.compact and tone == 'error' else 22 if self.compact else 42
+        self.setFixedSize(size, size)
+        self.setAccessibleName(t('Needs attention') if tone == 'error' else t('Synchronization status'))
         self.update()
 
     def paintEvent(self, event):
@@ -224,6 +228,18 @@ class StatusMark(QWidget):
         p = QPainter(self)
         p.setRenderHint(QPainter.RenderHint.Antialiasing)
         p.scale(self.width() / 42, self.height() / 42)
+        if self.tone == 'error':
+            high_contrast = getattr(getattr(QApplication.instance(), 'theme', None), 'high_contrast', False)
+            fill = self.palette().color(QPalette.ColorRole.Highlight) if high_contrast else QColor(
+                '#d63832' if colors is DARK else '#b42318')
+            foreground = self.palette().color(QPalette.ColorRole.HighlightedText) if high_contrast else QColor('#ffffff')
+            p.setPen(Qt.PenStyle.NoPen)
+            p.setBrush(fill)
+            p.drawEllipse(1, 1, 40, 40)
+            p.setBrush(foreground)
+            p.drawRoundedRect(QRect(19, 9, 4, 17), 2, 2)
+            p.drawEllipse(19, 30, 4, 4)
+            return
         fill = QColor(color)
         fill.setAlpha(22)
         p.setBrush(fill)
@@ -368,7 +384,16 @@ class SyncPanel(QFrame):
         self.title.setText(title)
         self.detail.setText(detail)
         self.detail.setAccessibleName(detail)
+        tone_changed = self.property('tone') != tone
         self.tone = tone
+        if tone_changed:
+            self.setProperty('tone', tone)
+            if self.compact:
+                self.layout().setContentsMargins(10, 8, 10, 8) if tone == 'error' else self.layout().setContentsMargins(0, 6, 0, 6)
+                self.layout().setSpacing(8 if tone == 'error' else 5)
+            for widget in (self, self.title):
+                widget.style().unpolish(widget)
+                widget.style().polish(widget)
         self.mark.set_tone(tone)
         self.progress.setVisible(busy)
         self.set_expanded(self.disclosure.isChecked())

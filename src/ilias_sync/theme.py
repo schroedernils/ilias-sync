@@ -40,6 +40,8 @@ QFrame#syncPanel {{ background: {c['surface']}; border: 1px solid {c['border']};
 QFrame#syncPanel QLabel {{ background: transparent; border: none; }}
 QFrame#compactSync {{ background: transparent; border: none; border-top: 1px solid {c['border']}; }}
 QFrame#compactSync QLabel {{ border: none; }}
+QFrame#compactSync[tone="error"] {{ background: rgba(180, 35, 24, 14); border: 1px solid {c['error']}; border-left: 3px solid {c['error']}; border-radius: 7px; }}
+QFrame#compactSync[tone="error"] QLabel#compactStatusTitle {{ color: {c['error']}; font-weight: 650; }}
 QLabel#compactStatusTitle {{ font-size: 12px; font-weight: 500; }}
 QWidget#inlineReport {{ background: transparent; }}
 QWidget#inlineReport QTabWidget::pane {{ padding-top: 5px; }}
