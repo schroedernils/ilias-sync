@@ -17,6 +17,7 @@ class SyncSummary:
 
 
 def sync_summary(status, material_count):
+    from .recovery import needs_signin
     result = status.get('result') or {}
     counts = result.get('material_counts', result.get('counts', {}))
     state = status.get('state', '')
@@ -27,7 +28,7 @@ def sync_summary(status, material_count):
     if status.get('server_deferred'):
         return SyncSummary(t('Waiting for the server'),
                            t('The server asked to retry later. Automatic sync will respect the requested time.'), 'warning', 'report')
-    if status.get('login_required') or state == 'Sign in again':
+    if needs_signin(status):
         return SyncSummary(t('Sign in to continue'), t('Check the saved sign-in details. Your local files are still available.'),
                            'error', 'signin')
     if state == 'Needs attention' or result.get('errors'):
@@ -57,7 +58,7 @@ def sync_summary(status, material_count):
     detail = (t('{added} new · {updated} updated', added=counts.get('added', 0), updated=counts.get('updated', 0))
               if changed else t('No new materials in this run.') if material_count is None else
               t('No new materials. {count} files recorded in your archive.', count=material_count))
-    return SyncSummary(t('Last check completed'), detail, 'success', 'recent' if changed else '')
+    return SyncSummary(t('Materials synchronized') if changed else t('Last check completed'), detail, 'success', 'recent' if changed else '')
 
 
 def schedule_expectation(settings, status, *, clock=None):
@@ -65,7 +66,8 @@ def schedule_expectation(settings, status, *, clock=None):
     from .policy import next_scheduled_run
     if not settings.get('scheduled'):
         return t('Automatic sync is off')
-    if status.get('login_required'):
+    from .recovery import needs_signin
+    if needs_signin(status):
         return t('Automatic sync waits for sign-in')
     now = time.time() if clock is None else clock
     facts = status.get('result') or status.get('evidence') or {}

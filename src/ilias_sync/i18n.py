@@ -276,6 +276,90 @@ DE.update({
 
 DE.update({'Change time':'Zeit ändern','Remove time':'Zeit entfernen'})
 
+DE.update({
+    'All materials': 'Alle Materialien', 'Library navigation': 'Bibliotheksnavigation',
+    'All course materials': 'Alle Kursmaterialien', 'Across {count} universities': 'Aus {count} Hochschulen',
+    'Search in this course…': 'Diesen Kurs durchsuchen …', 'Search this university…': 'Diese Hochschule durchsuchen …',
+    'Search all universities…': 'Alle Hochschulen durchsuchen …',
+    'University actions': 'Hochschule verwalten', 'University report': 'Bericht der Hochschule',
+    'Hide sidebar': 'Seitenleiste ausblenden', 'Show sidebar': 'Seitenleiste einblenden', 'View': 'Ansicht',
+    'Show synchronization details': 'Synchronisierungsdetails einblenden',
+    'Hide synchronization details': 'Synchronisierungsdetails ausblenden', 'Hide details': 'Details ausblenden',
+    'Sync all': 'Alle synchronisieren',
+    'Checks all configured courses at this university; browsing a course does not change the sync selection.':
+        'Prüft alle eingerichteten Kurse dieser Hochschule. Der angezeigte Kurs verändert die Sync-Auswahl nicht.',
+    'Checks all enabled universities one after another.': 'Prüft alle aktivierten Hochschulen nacheinander.',
+    'Universities need attention': 'Hochschulen benötigen Aufmerksamkeit',
+    'Checks completed with notes': 'Prüfungen mit Hinweisen', 'Not all universities checked': 'Noch nicht alle Hochschulen geprüft',
+    'University checks completed': 'Hochschulprüfungen abgeschlossen',
+    'Each university has its own last check. Expand the details to see individual results.':
+        'Jede Hochschule hat einen eigenen Prüfstand. Die einzelnen Ergebnisse stehen in den Details.',
+    'Automatic checks follow each university’s schedule': 'Automatische Prüfungen gemäß Hochschulstatus · Details einblenden',
+    'Materials synchronized': 'Materialien synchronisiert',
+})
+
+
+DE.update({
+    'Renew sign-in': 'Anmeldung erneuern', 'Save and check': 'Speichern und prüfen',
+    'Sign-in confirmed': 'Anmeldung bestätigt', 'Check successful again': 'Prüfung wieder erfolgreich',
+    'New check not confirmed': 'Erneute Prüfung nicht bestätigt',
+    'Check again': 'Erneut prüfen', 'Check storage location': 'Speicherort prüfen',
+    'Open ILIAS': 'ILIAS öffnen', 'Open ILIAS in browser': 'ILIAS im Browser öffnen',
+    'Steps to recover': 'Schritte zur Behebung', 'Restore file': 'Datei wiederherstellen',
+    'The problem is not resolved yet.': 'Das Problem ist noch nicht behoben.',
+    'The new check completed. You can continue using your materials.': 'Die erneute Prüfung ist abgeschlossen. Du kannst deine Materialien weiter nutzen.',
+    'ILIAS needs a new sign-in. Existing materials remain in your library; new downloads are waiting.':
+        'ILIAS benötigt eine neue Anmeldung. Vorhandene Materialien bleiben in deiner Bibliothek; neue Downloads warten.',
+    '1. Update the password or import a fresh browser session.': '1. Aktualisiere dein Passwort oder importiere eine neue Browsersitzung.',
+    '2. Save and check. IliasSync tests the sign-in by checking this university.':
+        '2. Speichern und prüfen: IliasSync prüft die Hochschule mit der neuen Anmeldung.',
+    '3. The new result confirms whether syncing works again.': '3. Das neue Ergebnis zeigt, ob die Synchronisierung wieder funktioniert.',
+    'Sign in to ILIAS in your browser, export a fresh cookies.txt session with your browser tool, then choose that file here. Signing in in the browser alone does not renew IliasSync’s session.':
+        'Melde dich im Browser bei ILIAS an. Exportiere mit deinem Browserwerkzeug eine neue cookies.txt-Sitzung und wähle sie hier aus. Eine Anmeldung im Browser allein erneuert die Sitzung in IliasSync nicht.',
+    'Enter the current university password. Save and check starts a new check to confirm the sign-in. If your university requires MFA, use Browser session instead.':
+        'Gib dein aktuelles Hochschulpasswort ein. „Speichern und prüfen“ startet eine erneute Prüfung der Anmeldung. Falls deine Hochschule MFA erfordert, verwende eine Browsersitzung.',
+    'Choose a fresh browser session file before checking again.': 'Wähle vor der erneuten Prüfung eine neue Datei mit deiner Browsersitzung aus.',
+    'Enter the current password before checking again.': 'Gib vor der erneuten Prüfung dein aktuelles Passwort ein.',
+    'Two folders would use the same name. Your existing files have been kept.':
+        'Zwei Ordner würden denselben Namen verwenden. Deine vorhandenen Dateien bleiben erhalten.',
+    '1. Choose another folder name or reset its custom name.': '1. Wähle einen anderen Ordnernamen oder setze den eigenen Namen zurück.',
+    '2. Save the mapping, then IliasSync checks the university again.': '2. Speichere die Zuordnung. IliasSync prüft die Hochschule anschließend erneut.',
+    'ILIAS asked for a pause. Retrying immediately would not fix it. Your materials remain accessible.':
+        'ILIAS hat eine Pause angefordert. Sofortige Wiederholungen helfen hier nicht. Deine vorhandenen Materialien bleiben zugänglich.',
+    '1. Wait until the server pause ends; the planned time is shown above.': '1. Warte das Ende der Serverpause ab. Die geplante Zeit steht im Status.',
+    '2. Automatic checks resume at the next eligible scheduled time. With automation off, start a check yourself afterwards.':
+        '2. Automatische Prüfungen gehen zum nächsten zulässigen Termin weiter. Ist die Automatik ausgeschaltet, starte danach selbst eine Prüfung.',
+    'The device reported insufficient storage space.': 'Das Gerät hat zu wenig freien Speicher gemeldet.',
+    'The device denied file access.': 'Das Gerät hat einen Dateizugriff verweigert.',
+    '1. Free some storage space; IliasSync will not delete your files.': '1. Schaffe freien Speicher. IliasSync löscht dafür keine deiner Dateien.',
+    '1. Check access to the download folder and IliasSync application data.': '1. Prüfe den Zugriff auf den Zielordner und die App-Daten von IliasSync.',
+    '2. Review the download location if needed, then save and check again.': '2. Prüfe bei Bedarf den Zielordner. Speichere und starte eine erneute Prüfung.',
+    'The connection could not be completed. Previously downloaded materials remain accessible.':
+        'Die Verbindung konnte nicht hergestellt werden. Bereits heruntergeladene Materialien bleiben zugänglich.',
+    'The check could not finish. The exact cause is not confirmed; existing materials have been kept.':
+        'Die Prüfung konnte nicht abgeschlossen werden. Die genaue Ursache steht noch nicht fest; vorhandene Materialien bleiben erhalten.',
+    '1. Check your internet or VPN connection and whether ILIAS opens in the browser.': '1. Prüfe deine Internet- oder VPN-Verbindung und ob sich ILIAS im Browser öffnen lässt.',
+    '1. Check the recorded message and whether ILIAS opens in the browser.': '1. Prüfe die aufgezeichnete Meldung und ob sich ILIAS im Browser öffnen lässt.',
+    '2. Check again. If it still fails, keep using your files and review the new result below.':
+        '2. Prüfe erneut. Falls es weiter fehlschlägt, kannst du deine Dateien nutzen und unten das neue Ergebnis prüfen.',
+    'Some downloads were unavailable. The rest of your materials can still be used.':
+        'Einige Downloads waren nicht verfügbar. Deine übrigen Materialien kannst du weiter nutzen.',
+    '1. Select an affected file below to see its path and the known reason.': '1. Wähle unten eine betroffene Datei aus, um ihren Pfad und den bekannten Grund zu sehen.',
+    '2. Check its availability in ILIAS. A removed file or missing permission cannot be repaired by repeated syncing.':
+        '2. Prüfe die Verfügbarkeit in ILIAS. Eine entfernte Datei oder fehlende Berechtigung lässt sich durch wiederholtes Synchronisieren nicht beheben.',
+    '3. When access is restored, check the university again.': '3. Sobald der Zugriff wieder möglich ist, prüfe die Hochschule erneut.',
+    'This file is missing from its recorded location. Other materials remain available.':
+        'Diese Datei fehlt am erfassten Speicherort. Andere Materialien bleiben verfügbar.',
+    '1. Check this university to download missing materials again.': '1. Prüfe diese Hochschule, um fehlende Materialien erneut herunterzuladen.',
+    '2. If the file stays missing, check whether it is still available to you in ILIAS. Existing files are never deleted by this repair.':
+        '2. Falls die Datei weiter fehlt, prüfe ihren Zugriff in ILIAS. Vorhandene Dateien werden bei dieser Wiederherstellung nicht gelöscht.',
+    'Checks this university and downloads missing materials again. Existing files are kept.':
+        'Prüft diese Hochschule und lädt fehlende Materialien erneut herunter. Vorhandene Dateien bleiben erhalten.',
+    'The file is still missing. Check whether it is available in ILIAS before trying again.':
+        'Die Datei fehlt weiterhin. Prüfe vor einer Wiederholung, ob sie in ILIAS verfügbar ist.',
+})
+
+
 def set_language(language):
     global LANGUAGE
     LANGUAGE = language if language in {"de", "en"} else "de"

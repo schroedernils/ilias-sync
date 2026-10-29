@@ -52,7 +52,8 @@ async def worker(args):
             path = data_dir() / "sources" / source.id / "status.json"
             previous = read_json(path, {})
             manual = bool(args.profile)
-            if not manual and (previous.get('login_required') or
+            from .recovery import needs_signin
+            if not manual and (needs_signin(previous) or
                                (not getattr(args, 'scheduled_time', False) and not due(previous))):
                 continue
             if args.sync and not manual and settings.value["battery_saver"] and on_battery():
@@ -111,6 +112,11 @@ async def worker(args):
                           "next_run": next_scheduled_run(settings.value, failures), "failures": failures,
                           "login_required": login, "message": message}
                 status['evidence'] = getattr(exc, 'sync_evidence', {})
+                # Only persist causes established by exception type/errno.
+                # Unknown failures retain their existing generic recovery.
+                from .recovery import failure_kind
+                if known_kind := failure_kind(exc):
+                    status['failure_kind'] = known_kind
                 if server_deferred:
                     status['server_deferred'] = True
                     status['server_retry_at'] = exc.retry_at
