@@ -33,7 +33,7 @@ Die Oberfläche startet auf Deutsch. Unter **Einstellungen → Allgemein** kanns
 
 ## Entwicklungsstand und veröffentlichtes Paket
 
-Die hier beschriebenen neuen Ordner-, Filter-, Tageszeitplan- und Berichtsabläufe gehören zum lokalen Entwicklungsstand. Der Downloadlink führt weiterhin zum veröffentlichten Alpha 2 vom 22.10.2026. Diese Arbeit wurde nicht gepusht oder als Release veröffentlicht. Neue lokale Pakete zeigen unter **Hilfe & Über IliasSync** eine Build-Kennung aus Git-Revision und Quellfingerprint; dieselbe Kennung steht im Offline-Selbsttest und bei neu aufgezeichneten Versuchen. Die Versionsnummer `0.1.0a2` allein unterscheidet diese Pakete nicht. [Prüfnachweise](docs/VERIFICATION.md).
+Die hier beschriebenen neuen Bibliotheks-, Wiederherstellungs-, Ordner-, Filter-, Tageszeitplan- und Berichtsabläufe gehören zum lokalen Entwicklungsstand. Der Downloadlink führt weiterhin zum veröffentlichten Alpha 2 vom 22.10.2026. Diese Arbeit wurde nicht gepusht oder als Release veröffentlicht. Neue lokale Pakete zeigen unter **Hilfe & Über IliasSync** eine Build-Kennung aus Git-Revision und Quellfingerprint; dieselbe Kennung steht im Offline-Selbsttest und bei neu aufgezeichneten Versuchen. Die Versionsnummer `0.1.0a2` allein unterscheidet diese Pakete nicht. [Prüfnachweise](docs/VERIFICATION.md).
 
 ## Herunterladen
 

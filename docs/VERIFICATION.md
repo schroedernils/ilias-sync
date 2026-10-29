@@ -99,3 +99,39 @@ Cancel returned to the library. After these checks, settings remained byte-ident
 all 66 recorded file hashes matched, with no missing files. The preceding app bundle remains a recoverable local backup.
 GitHub issues #1/#3 contain the local implementation evidence; #2 records the isolated prototype and owner/agent method.
 They stay open for integration/remaining explicit gates. No push, merge or release was performed.
+
+## Material-first library and guided recovery — 29 October 2026
+
+The integrated source passed **231 tests in 13.90 seconds**, including the loopback HTTP integration suite.
+Ruff and whitespace checks passed. The renderer covered **87 synthetic interface states**, including 820×560,
+980×700 and 1280×800 shared libraries, individual courses, type filters, inline error details, and focused sign-in
+renewal in both palettes. At the standard test font, the unchanged library fits at least 5/9/11 complete material
+rows at those heights. Expanded reports intentionally use part of that space and remain scrollable.
+
+New regressions cover colliding source/course/object identities, custom destination roots, global course filtering,
+pointer and arrow-key navigation in Qt tests, preserved selection through refresh, navigation during work,
+enabled-source batching/stop, scope persistence and compact geometry. Recovery tests cover cancelled correction,
+required fresh sign-in input, automatic verification after Save, successful versus failed/stale verification, later
+failures replacing earlier repair confirmation, warning preservation, a file still missing after a successful crawl,
+and keeping the failed file as the action's subject after another row is selected. Exact legacy authentication
+messages pause scheduled retry consistently with the UI. Unknown exception text does not establish a cause.
+
+A synthetic 5,000-file/two-university benchmark measured first paint **0.355 s**, search **0.018 s** and course
+navigation **0.047 s** (single local run, not a live sync or an energy/participant measurement). Classifying file
+icons does not open materials or hydrate cloud placeholders.
+
+Final installed package: **`51b1e3440881-50624687621d`**, built from clean source revision
+`51b1e34408811e44179532f740f64d288f05ec44`. Its source fingerprint matches the current implementation; the
+packaged and installed offline self-tests and strict ad-hoc signature verification passed. The preceding app bundles
+are retained privately under `.local/library-ui-native-20261029/`.
+
+Native inspection in this session's preceding package verified the material-first library with the actual expired
+session, the direct Renew sign-in action, focused secure password field, visible step guidance, fresh-input validation,
+and Cancel returning to the unchanged library. No credential was entered and no live authenticated check was run.
+The Mac locked during the final course-pointer check. Therefore the final build's native course/report walkthrough
+remains unobserved; automated Qt pointer/keyboard tests and the installed Cocoa offline self-test passed. No spoken
+VoiceOver, native Windows/Linux or additional external participant test is claimed.
+
+The user's current settings (including their daily schedule) remained byte-identical, and SHA-256 comparisons of all
+**66 existing archive files** found no missing or modified files after installation and native cancellation. Private
+snapshots and the comparison receipt are excluded from Git. No push, merge or release was performed.
