@@ -3,12 +3,13 @@ from __future__ import annotations
 
 import json
 import sys
+import time
 from html import escape
 from dataclasses import replace
 from pathlib import Path
 from uuid import uuid4
 
-from PySide6.QtCore import QFileSystemWatcher, QProcess, Qt, QTimer, QUrl, Signal, QTime
+from PySide6.QtCore import QFileSystemWatcher, QProcess, Qt, QTimer, QUrl, QTime
 from PySide6.QtGui import QAction, QColor, QDesktopServices, QPainter, QFontDatabase, QPalette, QKeySequence, QShortcut
 from PySide6.QtWidgets import (
     QApplication, QCheckBox, QComboBox, QDialog, QDialogButtonBox, QFileDialog, QFormLayout,
@@ -26,7 +27,9 @@ from .i18n import message, set_language, t
 from .scheduler import command, install, uninstall
 from .security import import_session, store_password
 from .storage import Settings, Source, data_dir, read_json, write_json
-from .library_widgets import MaterialDelegate, MaterialTable, SourceDelegate, SyncPanel, ElidedLabel
+from .library_widgets import MaterialDelegate, MaterialTable, SyncPanel, ElidedLabel, LibraryNavigation
+from .library import load_library, course_key, source_summary, library_summary
+from .recovery import recovery_plan
 from .presentation import file_size, is_course_info, local_time, sync_summary, schedule_expectation, progress_copy, file_context
 
 STYLE = stylesheet(LIGHT)
@@ -180,10 +183,11 @@ class FileFilterDialog(QWidget):
         courses, kinds = {}, set()
         for row in range(window.files.rowCount()):
             entry = window.files.item(row, 0).data(Qt.ItemDataRole.UserRole + 1)
-            if entry.get('course_id'):
-                courses.setdefault(entry['course_id'], entry['course_id'])
+            key = course_key(entry, global_scope=not window.selected())
+            if key:
+                courses.setdefault(key, entry['course_id'])
                 if entry.get('course_name'):
-                    courses[entry['course_id']] = entry['course_name']
+                    courses[key] = (entry['_source_name'] + ' · ' if not window.selected() else '') + entry['course_name']
             kinds.add(Path(entry['path']).suffix.casefold())
         for identity, name in sorted(courses.items(), key=lambda value: value[1].casefold()):
             self.course.addItem(name, identity)
@@ -209,19 +213,24 @@ class FileFilterDialog(QWidget):
 
 
 class SyncReportDialog(QDialog):
-    def __init__(self, status, activity, parent=None, history=None):
+    def __init__(self, status, activity, parent=None, history=None, *, embedded=False):
         super().__init__(parent)
         self.status = status
         self.activity_text = activity
         self.history = history or [status]
         self.setWindowTitle(t('Sync report'))
-        self.resize(720, 560)
-        self.setMinimumSize(520, 410)
+        if embedded:
+            self.setWindowFlags(Qt.WindowType.Widget)
+            self.setObjectName('inlineReport')
+        else:
+            self.resize(720, 560)
+            self.setMinimumSize(520, 410)
         layout = QVBoxLayout(self)
-        layout.setContentsMargins(24, 22, 24, 20)
-        layout.setSpacing(12)
+        layout.setContentsMargins(0, 0, 0, 0) if embedded else layout.setContentsMargins(24, 22, 24, 20)
+        layout.setSpacing(6 if embedded else 12)
         heading = QHBoxLayout()
-        heading.addWidget(label('Sync report', 'title'), 1)
+        if not embedded:
+            heading.addWidget(label('Sync report', 'title'), 1)
         self.attempts = Dropdown()
         self.attempts.setAccessibleName(t('Synchronization history'))
         for index, attempt in enumerate(self.history):
@@ -230,6 +239,7 @@ class SyncReportDialog(QDialog):
         layout.addLayout(heading)
         self.outcome = SyncPanel()
         layout.addWidget(self.outcome)
+        self.outcome.setVisible(not embedded)
         self.summary = label('', 'subtitle')
         self.summary.setAccessibleName(t('Synchronization result'))
         layout.addWidget(self.summary)
@@ -250,13 +260,17 @@ class SyncReportDialog(QDialog):
         self.log.setAccessibleName(t('Technical activity'))
         self.sections.addTab(self.log, t('Technical activity'))
         layout.addWidget(self.sections, 1)
+        if embedded:
+            self.sections.setMinimumHeight(100)
+            self.sections.setMaximumHeight(160)
         self.issue_path = label('', 'pathPreview')
         self.issue_path.setTextInteractionFlags(Qt.TextInteractionFlag.TextSelectableByMouse | Qt.TextInteractionFlag.TextSelectableByKeyboard)
         layout.addWidget(self.issue_path)
         self.issues.currentItemChanged.connect(lambda item, _: self.issue_path.setText(item.toolTip(0) if item else ''))
-        close = button('Close', self.accept)
-        close.setDefault(True)
-        layout.addWidget(close, alignment=Qt.AlignmentFlag.AlignRight)
+        if not embedded:
+            close = button('Close', self.accept)
+            close.setDefault(True)
+            layout.addWidget(close, alignment=Qt.AlignmentFlag.AlignRight)
         self.attempts.currentIndexChanged.connect(self.render_attempt)
         self.render_attempt(0)
 
@@ -341,70 +355,6 @@ def QTextDocument_text(html):
     return document.toPlainText()
 
 
-class SourceList(QListWidget):
-    editRequested = Signal()
-
-    def __init__(self):
-        super().__init__()
-        self.setObjectName('sourceList')
-        self.setItemDelegate(SourceDelegate(self))
-        self.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
-        self.setMouseTracking(True)
-        self.viewport().setMouseTracking(True)
-        self.hovered = None
-        self.edit_button = IconButton('Edit source', 'pencil', self.edit_hovered)
-        self.edit_button.setParent(self.viewport())
-        self.edit_button.hide()
-        self.setContextMenuPolicy(Qt.ContextMenuPolicy.CustomContextMenu)
-        self.customContextMenuRequested.connect(self.show_menu)
-
-    def mouseMoveEvent(self, event):
-        super().mouseMoveEvent(event)
-        self.hovered = self.itemAt(event.position().toPoint())
-        if self.hovered is None:
-            self.edit_button.hide()
-            return
-        rect = self.visualItemRect(self.hovered)
-        self.edit_button.move(rect.right() - 38, rect.center().y() - 17)
-        self.edit_button.setVisible(self.edit_button.isEnabled())
-
-    def leaveEvent(self, event):
-        super().leaveEvent(event)
-        if not self.edit_button.underMouse():
-            self.edit_button.hide()
-
-    def edit_hovered(self):
-        if self.hovered and self.edit_button.isEnabled():
-            self.setCurrentItem(self.hovered)
-            self.editRequested.emit()
-
-    def show_menu(self, point):
-        item = self.itemAt(point)
-        if item is None:
-            return
-        self.setCurrentItem(item)
-        menu = QMenu(self)
-        action = menu.addAction(t('Edit source'))
-        action.setEnabled(self.edit_button.isEnabled())
-        action.triggered.connect(self.editRequested)
-        menu.exec(self.viewport().mapToGlobal(point))
-
-    def keyPressEvent(self, event):
-        if event.key() == Qt.Key.Key_F2 and self.currentItem() and self.edit_button.isEnabled():
-            self.editRequested.emit()
-        elif (event.key() == Qt.Key.Key_Menu or
-              (event.key() == Qt.Key.Key_F10 and event.modifiers() & Qt.KeyboardModifier.ShiftModifier)):
-            if self.currentItem():
-                self.show_menu(self.visualItemRect(self.currentItem()).center())
-        else:
-            super().keyPressEvent(event)
-
-    def clear(self):
-        self.hovered = None
-        self.edit_button.hide()
-        super().clear()
-
-
 class Dropdown(QComboBox):
     """Keep a visible disclosure affordance with either native or custom palettes."""
     def paintEvent(self, event):
@@ -419,10 +369,12 @@ class Dropdown(QComboBox):
 
 
 class SourceDialog(QDialog):
-    def __init__(self, settings, existing=None, parent=None):
+    def __init__(self, settings, existing=None, parent=None, *, signin_recovery=False, verify_on_save=False):
         super().__init__(parent)
         self.settings = settings
         self.existing = existing
+        self.signin_recovery = signin_recovery
+        self.verify_on_save = signin_recovery or verify_on_save
         self.process = None
         self.event_file = data_dir() / ("probe-" + str(uuid4()) + ".jsonl")
         self.source = None
@@ -442,7 +394,7 @@ class SourceDialog(QDialog):
         for title in ('Your university', 'Sign-in', 'Download folder'):
             self.sections.addTab(t(title))
         self.sections.setExpanding(False)
-        self.sections.setVisible(existing is not None)
+        self.sections.setVisible(existing is not None and not signin_recovery)
         outer.addWidget(self.sections)
         self.stack = QStackedWidget()
         self.pages = []
@@ -481,7 +433,7 @@ class SourceDialog(QDialog):
         self.user.setAccessibleName(t("Username"))
         self.password = QLineEdit()
         self.password.setEchoMode(QLineEdit.EchoMode.Password)
-        self.password.setPlaceholderText(t("Leave blank to keep saved password") if existing else "")
+        self.password.setPlaceholderText(t('Current university password') if signin_recovery else t("Leave blank to keep saved password") if existing else "")
         self.idp = QLineEdit(existing.idp_host if existing else "")
         self.idp.setPlaceholderText("idp.example.edu")
         self.session = QLineEdit()
@@ -537,6 +489,10 @@ class SourceDialog(QDialog):
         self.forms[1].addWidget(self.advanced, alignment=Qt.AlignmentFlag.AlignLeft)
         self.vault_note = label("Saved in the system credential vault", "subtitle")
         self.forms[1].addWidget(self.vault_note)
+        self.recovery_note = label('', 'subtitle')
+        self.forms[1].insertWidget(0, self.recovery_note)
+        self.browser_button = button('Open ILIAS in browser', self.open_ilias)
+        self.forms[1].insertWidget(1, self.browser_button, alignment=Qt.AlignmentFlag.AlignLeft)
         self.forms[2].insertWidget(1, self.automatic)
         self.forms[2].addWidget(self.videos)
         self.forms[2].addWidget(label("A folder in Google Drive or OneDrive works too.", "subtitle"))
@@ -559,6 +515,11 @@ class SourceDialog(QDialog):
         footer.addWidget(self.next_button)
         outer.addLayout(footer)
         self.update_step()
+        if signin_recovery:
+            self.resize(620, 600)
+            self.stack.setCurrentIndex(1)
+            self.update_step()
+            (self.session if self.mode.currentData() == 'session' else self.password).setFocus()
 
     def address_changed(self, *_):
         bound_url = self.probed_url or (self.probe_url if getattr(self, 'probe_attempted', False) else None)
@@ -571,12 +532,12 @@ class SourceDialog(QDialog):
 
     def update_step(self):
         index = self.stack.currentIndex()
-        self.step_label.setVisible(self.existing is None)
-        self.step_label.setText(t("Step {step} of 3", step=index + 1))
-        self.heading.setText(t('University settings') if self.existing else t(["Your university", "Sign in to ILIAS", "Choose your files"][index]))
+        self.step_label.setVisible(self.existing is None or self.signin_recovery)
+        self.step_label.setText(self.existing.name if self.signin_recovery else t("Step {step} of 3", step=index + 1))
+        self.heading.setText(t('Renew sign-in') if self.signin_recovery else t('University settings') if self.existing else t(["Your university", "Sign in to ILIAS", "Choose your files"][index]))
         self.back_button.setEnabled(index > 0)
         self.back_button.setVisible(self.existing is None)
-        self.next_button.setText(t("Save" if index == 2 or self.existing else "Continue"))
+        self.next_button.setText(t('Save and check') if self.verify_on_save else t("Save" if index == 2 or self.existing else "Continue"))
         self.error.hide()
         if not self.existing:
             self.resize(self.width(), [460, 550, 500][index])
@@ -642,6 +603,18 @@ class SourceDialog(QDialog):
         self.note.setVisible(mode == "session")
         self.vault_note.setVisible(mode != "session") if hasattr(self, "vault_note") else None
         self.advanced.setVisible(mode == "local") if hasattr(self, "advanced") else None
+        if hasattr(self, 'recovery_note'):
+            self.recovery_note.setVisible(self.signin_recovery)
+            self.browser_button.setVisible(self.signin_recovery)
+            self.recovery_note.setText(t('Sign in to ILIAS in your browser, export a fresh cookies.txt session with your browser tool, then choose that file here. Signing in in the browser alone does not renew IliasSync’s session.')
+                                      if mode == 'session' else t('Enter the current university password. Save and check starts a new check to confirm the sign-in. If your university requires MFA, use Browser session instead.'))
+
+    def open_ilias(self):
+        from .storage import server_url
+        try:
+            QDesktopServices.openUrl(QUrl(server_url(self.url.text())))
+        except ValueError as exc:
+            self.show_error(str(exc))
 
     def choose_folder(self):
         folder = QFileDialog.getExistingDirectory(self, t("Choose a dedicated download folder"))
@@ -739,6 +712,11 @@ class SourceDialog(QDialog):
 
     def save(self):
         try:
+            if self.signin_recovery:
+                if self.mode.currentData() == 'session' and not self.session.text():
+                    raise ValueError('Choose a fresh browser session file before checking again.')
+                if self.mode.currentData() != 'session' and not self.password.text():
+                    raise ValueError('Enter the current password before checking again.')
             kwargs = {"id": self.existing.id} if self.existing else {}
             source = Source(name=self.name.text().strip(), url=self.url.text(), destination=self.destination.text(),
                             username=self.user.text().strip(), client_id=self.client.text().strip(),
@@ -1437,6 +1415,9 @@ class MainWindow(QMainWindow):
         self.progress_token = None
         self.buffer = ""
         self.job = None
+        self.sync_queue = []
+        self.libraries = {}
+        self.report_widget = None
         self.event_path = data_dir() / ("job-" + str(uuid4()) + ".jsonl")
         self.event_offset = 0
         self.progress_timer = QTimer(self)
@@ -1449,6 +1430,9 @@ class MainWindow(QMainWindow):
         self.library_source = None
         self.filter_panel = None
         self.ui_error = ''
+        self.ui_error_kind = ''
+        self.ui_error_source = None
+        self.repair_checks = {}
         container = QWidget()
         page = QVBoxLayout(container)
         page.setContentsMargins(0, 0, 0, 0)
@@ -1457,31 +1441,28 @@ class MainWindow(QMainWindow):
         left = QFrame()
         left.setObjectName('sidebar')
         left.setMinimumWidth(190)
-        left.setMaximumWidth(280)
+        left.setMaximumWidth(360)
         self.sidebar = left
         sidebar = QVBoxLayout(left)
-        sidebar.setContentsMargins(14, 24, 14, 16)
-        sidebar.setSpacing(12)
+        sidebar.setContentsMargins(12, 16, 12, 12)
+        sidebar.setSpacing(8)
         brand = QHBoxLayout()
         brand.setSpacing(9)
         mark = BrandMark()
         brand.addWidget(mark)
         brand.addWidget(label('IliasSync', 'appTitle'), 1)
         sidebar.addLayout(brand)
-        sidebar.addSpacing(18)
-        sidebar.addWidget(label('Your universities', 'eyebrow'))
-        self.sources = SourceList()
-        self.sources.editRequested.connect(self.edit)
-        self.sources.setAccessibleName(t('ILIAS sources'))
-        self.sources.currentRowChanged.connect(self.refresh)
+        sidebar.addSpacing(8)
+        sidebar.addWidget(label('Library', 'eyebrow'))
+        self.sources = LibraryNavigation()
+        self.sources.scopeChanged.connect(self.navigate)
+        self.sources.manageRequested.connect(lambda identity: self.edit_source(identity))
+        self.sources.setContextMenuPolicy(Qt.ContextMenuPolicy.CustomContextMenu)
+        self.sources.customContextMenuRequested.connect(self.navigation_menu)
         sidebar.addWidget(self.sources, 1)
         self.add_button = button('Add ILIAS', self.add)
         self.add_button.setObjectName('sidebarAction')
         sidebar.addWidget(self.add_button)
-        sidebar.addSpacing(12)
-        self.schedule_label = label(self.schedule_text(), 'sidebarNote')
-        self.schedule_label.setSizePolicy(QSizePolicy.Policy.Preferred, QSizePolicy.Policy.Preferred)
-        sidebar.addWidget(self.schedule_label)
         self.settings_button = button('Settings', self.background)
         self.settings_button.setAccessibleName(t('Settings'))
         sidebar.addWidget(self.settings_button)
@@ -1489,13 +1470,15 @@ class MainWindow(QMainWindow):
         right = QWidget()
         content = QVBoxLayout(right)
         self.content_layout = content
-        content.setContentsMargins(26, 25, 26, 16)
-        content.setSpacing(14)
+        content.setContentsMargins(20, 14, 20, 10)
+        content.setSpacing(8)
         self.welcome_brand = BrandMark()
         content.addWidget(self.welcome_brand)
         source_heading = QHBoxLayout()
+        self.sidebar_button = IconButton('Hide sidebar', 'sidebar', self.toggle_sidebar)
+        source_heading.addWidget(self.sidebar_button, alignment=Qt.AlignmentFlag.AlignTop)
         title_group = QVBoxLayout()
-        title_group.setSpacing(4)
+        title_group.setSpacing(2)
         self.source_title = ElidedLabel(t('Connect ILIAS'))
         self.source_title.setObjectName('title')
         self.source_host = ElidedLabel()
@@ -1510,7 +1493,8 @@ class MainWindow(QMainWindow):
         source_meta.addWidget(self.destination, 1)
         title_group.addLayout(source_meta)
         source_heading.addLayout(title_group, 1)
-        self.sync_button = RunButton('Sync now', self.sync_or_pause, True)
+        self.sync_button = RunButton('Sync now', self.sync_or_pause)
+        self.sync_button.setObjectName('toolbarControl')
         self.stop_button = RunButton('Stop', self.stop_sync)
         self.stop_button.setObjectName('secondaryRun')
         self.stop_button.setToolTip(t('Stops this run. Completed files and the schedule are kept.'))
@@ -1518,37 +1502,26 @@ class MainWindow(QMainWindow):
         self.stop_button.hide()
         source_heading.addWidget(self.sync_button, alignment=Qt.AlignmentFlag.AlignTop)
         source_heading.addWidget(self.stop_button, alignment=Qt.AlignmentFlag.AlignTop)
+        self.management_button = IconButton('University actions', 'more', self.management_menu)
+        source_heading.addWidget(self.management_button, alignment=Qt.AlignmentFlag.AlignTop)
         content.addLayout(source_heading)
         self.onboard_button = button('Connect ILIAS', self.add, True)
         content.addWidget(self.onboard_button, alignment=Qt.AlignmentFlag.AlignLeft)
         self.empty_spacer = QWidget()
         content.addWidget(self.empty_spacer, 1)
-        self.sync_panel = SyncPanel()
+        self.sync_panel = SyncPanel(compact=True)
         self.status = self.sync_panel.detail
         self.recovery_button = button('View report', self.recover)
         self.sync_panel.recovery_layout.addWidget(self.recovery_button, alignment=Qt.AlignmentFlag.AlignTop)
         self.recovery_button.hide()
-        content.addWidget(self.sync_panel)
-        actions = QHBoxLayout()
-        actions.setContentsMargins(0, 0, 0, 0)
-        actions.setSpacing(7)
-        self.courses_button = button('Choose courses', lambda: self.start('discover'))
-        self.routing_button = IconButton('Folder mapping', 'folder-tree', self.folder_mapping)
-        self.edit_button = self.sources.edit_button
-        self.open_button = IconButton('Open folder', 'folder-open', self.open_folder)
-        for item in (self.courses_button, self.routing_button, self.open_button):
-            actions.addWidget(item)
-        actions.addStretch()
-        self.course_count = label('', 'subtitle')
-        actions.addWidget(self.course_count)
-        self.actions_widget = QWidget()
-        self.actions_widget.setLayout(actions)
-        content.addWidget(self.actions_widget)
+        self.recovery_button.setObjectName('compactControl')
+        self.sync_panel.disclosure.toggled.connect(self.toggle_report)
+        self.details_button = self.sync_panel.disclosure
         library = QVBoxLayout()
         library.setSpacing(9)
         heading = QHBoxLayout()
-        heading.addWidget(label('Library', 'sectionTitle'))
         self.file_search = QLineEdit()
+        self.file_search.setObjectName('materialSearch')
         self.file_search.setPlaceholderText(t('Search materials…'))
         self.file_search.setAccessibleName(t('Search materials'))
         self.file_search.setClearButtonEnabled(True)
@@ -1566,8 +1539,10 @@ class MainWindow(QMainWindow):
         self.library_widget.layout().setContentsMargins(0, 0, 0, 0)
         content.addWidget(self.library_widget)
         self.files = MaterialTable()
+        self.files.resized.connect(self.adapt_columns)
         self.files.setAccessibleName(t('Downloaded files'))
-        self.files.setHorizontalHeaderLabels([t('File'), t('Size'), t('Changed')])
+        self.files.setColumnCount(4)
+        self.files.setHorizontalHeaderLabels([t('File'), t('Size'), t('Changed'), t('Course')])
         self.files_header = FileHeader(self.files, self.filter_files)
         self.files.setHorizontalHeader(self.files_header)
         self.files.setItemDelegate(MaterialDelegate(self.files))
@@ -1575,11 +1550,10 @@ class MainWindow(QMainWindow):
         self.files.horizontalHeader().setSectionResizeMode(0, QHeaderView.ResizeMode.Stretch)
         self.files.horizontalHeader().setSectionResizeMode(1, QHeaderView.ResizeMode.ResizeToContents)
         self.files.horizontalHeader().setSectionResizeMode(2, QHeaderView.ResizeMode.ResizeToContents)
-        # Change dates live with each filename; this hidden key keeps recent
-        # sorting numeric without spending a second column on duplicate dates.
-        self.files.setColumnHidden(2, True)
+        self.files.horizontalHeader().setSectionResizeMode(3, QHeaderView.ResizeMode.Interactive)
+        self.files.setColumnWidth(3, 210)
         self.files.verticalHeader().hide()
-        self.files.verticalHeader().setDefaultSectionSize(max(58, self.files.fontMetrics().height() * 2 + 18))
+        self.files.verticalHeader().setDefaultSectionSize(max(44, self.files.fontMetrics().height() * 2 + 10))
         self.files.setShowGrid(False)
         self.files.setTabKeyNavigation(False)
         self.files.setEditTriggers(QTableWidget.EditTrigger.NoEditTriggers)
@@ -1603,26 +1577,26 @@ class MainWindow(QMainWindow):
         footer.addWidget(self.clear_filters_button)
         footer.addStretch()
         self.file_open_button = button('Open file', self.open_file)
+        self.file_open_button.setObjectName('compactControl')
         footer.addWidget(self.file_open_button)
-        self.details_button = button('Sync report', self.report)
-        footer.addWidget(self.details_button)
         self.library_footer = QWidget()
         self.library_footer.setLayout(footer)
         content.addWidget(self.library_footer)
+        content.addWidget(self.sync_panel)
         self.activity = QTextEdit(self)
         self.activity.setReadOnly(True)
         self.activity.setAccessibleName(t('Activity'))
         self.activity.document().setMaximumBlockCount(150)
         self.activity.hide()
         split.addWidget(right)
-        split.setSizes([210, 770])
+        self.split = split
+        split.setSizes([240, 740])
         page.addWidget(split, 1)
         self.setCentralWidget(container)
         self.shortcuts = []
-        for key, callback, target in [(QKeySequence.StandardKey.Find, self.focus_search, self),
-                                      (QKeySequence.StandardKey.Open, self.open_file, self.files),
-                                      ('Return', self.open_file, self.files),
+        for key, callback, target in [('Return', self.open_file, self.files),
                                       (QKeySequence.StandardKey.Refresh, self.sync_or_pause, self),
+                                      ('Ctrl+Shift+S', self.toggle_sidebar, self),
                                       (QKeySequence.StandardKey.Preferences, self.background, self)]:
             shortcut = QShortcut(QKeySequence(key), target)
             shortcut.setContext(Qt.ShortcutContext.WidgetWithChildrenShortcut if target is self.files else Qt.ShortcutContext.WindowShortcut)
@@ -1630,115 +1604,155 @@ class MainWindow(QMainWindow):
             self.shortcuts.append(shortcut)
         about = QAction(t("About IliasSync"), self)
         about.triggered.connect(self.about)
+        file_menu = self.menuBar().addMenu(t('File'))
+        file_menu.addAction(t('Open file'), self.open_file, QKeySequence(QKeySequence.StandardKey.Open))
+        file_menu.addAction(t('Open containing folder'), self.reveal_file)
+        file_menu.addSeparator()
+        file_menu.addAction(t('Add ILIAS'), self.add)
+        view_menu = self.menuBar().addMenu(t('View'))
+        self.sidebar_action = view_menu.addAction(t('Hide sidebar'), self.toggle_sidebar)
+        view_menu.addAction(t('Search materials'), self.focus_search, QKeySequence(QKeySequence.StandardKey.Find))
         self.menuBar().addAction(about)
         self.timeout = QTimer(self)
         self.timeout.setSingleShot(True)
         self.timeout.timeout.connect(self.timeout_job)
         self.populate()
+        self.sidebar.setVisible(bool(self.settings.sources()) and not self.view_state.get('sidebar_hidden', False))
         if not self.settings.sources():
             self.setMinimumSize(620, 390)
             self.resize(660, 420)
         self.run_watch = QFileSystemWatcher([str(data_dir())], self)
         self.run_watch.directoryChanged.connect(self.check_active_run)
+        self.library_refresh = QTimer(self)
+        self.library_refresh.setSingleShot(True)
+        self.library_refresh.setInterval(120)
+        self.library_refresh.timeout.connect(self.refresh)
+        self.library_watch = QFileSystemWatcher(self)
+        self.library_watch.directoryChanged.connect(lambda *_: self.library_refresh.start())
+        self.watch_library()
         self.check_active_run()
 
     def selected(self):
-        row = self.sources.currentRow()
-        sources = self.settings.sources()
-        return sources[row] if 0 <= row < len(sources) else None
+        identity = self.sources.scope()[0]
+        return next((source for source in self.settings.sources() if source.id == identity), None)
+
+    def navigate(self):
+        if not hasattr(self, 'files'):
+            return
+        # Search/filter state belongs to a browsing scope, never to sync targets.
+        self.clear_file_filters()
+        self.ui_error = ''
+        self.sync_panel.disclosure.setChecked(False)
+        self.render_library()
 
     def populate(self, selected_id=None):
-        self.sources.blockSignals(True)
-        self.sources.clear()
-        for source in self.settings.sources():
-            item = QListWidgetItem(source.name + "\n" + QUrl(source.url).host())
-            self.sources.addItem(item)
-        selected_id = selected_id or self.view_state.get('source')
-        row = next((i for i, s in enumerate(self.settings.sources()) if s.id == selected_id), 0)
-        self.sources.setCurrentRow(row)
-        self.sources.blockSignals(False)
-        self.refresh()
+        self.libraries = load_library(self.settings.sources())
+        saved = self.view_state.get('navigation')
+        if selected_id:
+            scope = (selected_id, '')
+        elif self.sources.topLevelItemCount():
+            scope = self.sources.scope()
+        elif isinstance(saved, list) and len(saved) == 2:
+            scope = tuple(saved)
+        else:
+            # Keep the previous single-university starting point; several
+            # universities start at the shared library unless a scope was saved.
+            identity = self.view_state.get('source')
+            if not identity and len(self.libraries) == 1:
+                identity = next(iter(self.libraries))
+            scope = (identity or '', '')
+        self.sources.populate(self.libraries, scope)
+        self.render_library()
+        if hasattr(self, 'library_watch'):
+            self.watch_library()
+
+    def watch_library(self):
+        paths = [str(data_dir() / 'sources')]
+        paths += [str(data_dir() / 'sources' / identity) for identity in self.libraries]
+        existing = set(self.library_watch.directories())
+        wanted = {path for path in paths if Path(path).is_dir()}
+        if existing - wanted:
+            self.library_watch.removePaths(list(existing - wanted))
+        if wanted - existing:
+            self.library_watch.addPaths(list(wanted - existing))
 
     def refresh(self):
+        scope = self.sources.scope()
+        self.libraries = load_library(self.settings.sources())
+        self.sources.populate(self.libraries)
+        if self.sources.scope() != scope:
+            self.clear_file_filters()
+        self.render_library()
+        if hasattr(self, 'library_watch'):
+            self.watch_library()
+
+    def render_library(self):
         source = self.selected()
+        scope = self.sources.scope()
+        has_sources = bool(self.libraries)
         busy = self.process is not None or self.run_info is not None
-        self.sidebar.setVisible(bool(self.settings.sources()))
-        self.onboard_button.setVisible(source is None)
-        self.welcome_brand.setVisible(source is None)
-        self.empty_spacer.setVisible(source is None)
-        self.schedule_label.setVisible(source is not None)
-        self.source_host.setVisible(source is not None)
-        for item in (self.sync_button, self.edit_button, self.courses_button, self.routing_button):
-            item.setEnabled(source is not None and not busy)
-        self.open_button.setEnabled(source is not None)
-        for widget in (self.actions_widget, self.sync_panel, self.files, self.library_widget, self.library_footer,
-                       self.sync_button, self.routing_button, self.open_button):
-            widget.setVisible(source is not None)
-        if not source:
+        self.onboard_button.setVisible(not has_sources)
+        self.welcome_brand.setVisible(not has_sources)
+        self.empty_spacer.setVisible(not has_sources)
+        self.source_host.setVisible(has_sources)
+        self.destination.hide()
+        self.sidebar_button.setVisible(has_sources)
+        self.management_button.setVisible(has_sources)
+        for widget in (self.sync_panel, self.files, self.library_widget, self.library_footer, self.sync_button):
+            widget.setVisible(has_sources)
+        if not has_sources:
+            self.sources.blockSignals(True)
+            self.sources.clear()
+            self.sources.blockSignals(False)
+            self.source_title.setText(t('Connect ILIAS'))
+            self.source_host.setVisible(True)
+            self.source_host.setText(t('Add your university to download course files.'))
+            self.refresh_controls()
             return
-        if self.library_source != source.id:
+        scope_key = '/'.join(scope)
+        scope_changed = self.library_source != scope_key
+        if scope_changed:
             if self.library_source:
                 self.view_state.setdefault('views', {})[self.library_source] = self.library_view.currentData()
-            self.library_source = source.id
-            view = self.view_state.get('views', {}).get(source.id, 'materials')
+            self.library_source = scope_key
+            saved_view = self.view_state.get('views', {}).get(scope_key,
+                         self.view_state.get('views', {}).get(scope[0], 'materials'))
             self.library_view.blockSignals(True)
-            self.library_view.setCurrentIndex(max(0, self.library_view.findData(view)))
+            self.library_view.setCurrentIndex(max(0, self.library_view.findData(saved_view)))
             self.library_view.blockSignals(False)
-            self.file_filters = {'search': '', 'course': '', 'kind': '', 'size': ''}
-            self.file_search.blockSignals(True)
-            self.file_search.clear()
-            self.file_search.blockSignals(False)
-            self.ui_error = ''
-            self.activity.clear()
-            if self.filter_panel:
-                self.filter_panel.hide()
-                self.filter_panel.deleteLater()
-                self.filter_panel = None
             self.files.clearSelection()
             self.files.setCurrentCell(-1, -1)
-        self.source_title.setText(source.name)
-        self.source_host.setText(QUrl(source.url).host())
-        self.destination.setText(t('Saved in {folder}', folder=Path(source.destination).name))
-        self.destination.setToolTip(source.destination)
-        state = data_dir() / 'sources' / source.id
-        status = read_json(state / 'status.json', {})
-        entries = read_json(state / 'manifest.json', {'files': {}})['files']
-        courses = read_json(state / 'courses.json', [])
-        count = len(courses) if source.automatic_courses else len(source.targets)
-        self.course_count.setText(t('{count} courses and groups', count=count) if count else '')
-        material_count = sum(not is_course_info({**entry, '_identity': identity}) for identity, entry in entries.items())
-        summary = sync_summary(status, material_count)
-        from .storage import source_scope
-        if status.get('result') and not status.get('scope') and summary.tone == 'success':
-            from .presentation import SyncSummary
-            summary = SyncSummary(t('A new check is needed'), t('This older result has no recorded course and destination scope. Sync once to confirm the current setup.'), 'neutral', 'retry')
-        if status.get('scope') and status['scope'] != source_scope(source):
-            from .presentation import SyncSummary
-            summary = SyncSummary(t('Settings changed since the last check'), t('Start a sync to check the current courses and destinations.'), 'neutral', 'retry')
-        self.sync_panel.set_state(summary.title, summary.detail, summary.tone)
-        self.recovery = summary.recovery
-        self.recovery_button.setText(t('Check sign-in') if summary.recovery == 'signin' else t('Check folder names') if summary.recovery == 'folders' else t('See recent changes') if summary.recovery == 'recent' else t('View report'))
-        self.recovery_button.setVisible(summary.recovery in {'signin', 'report', 'folders', 'recent'})
-        self.sync_button.setText(t('Try again') if summary.recovery == 'retry' else t('Sync now'))
-        checked = t('Last checked: {time}', time=local_time(status.get('finished'))) if status.get('finished') else t('Not yet checked')
-        self.sync_panel.meta.setText(checked)
-        last_success = status.get('last_success') if status.get('scope') == source_scope(source) else None
-        if last_success and last_success != status.get('finished'):
-            checked += ' · ' + t('Last complete check: {time}', time=local_time(last_success))
-        self.sync_panel.meta.setText(checked + '\n' + schedule_expectation(self.settings.value, status))
-        self.sync_panel.meta.setToolTip(self.schedule_text())
+        if scope[1] and source:
+            self.source_title.setText(self.libraries[source.id]['courses'].get(scope[1], scope[1]))
+            self.source_host.setText(source.name)
+        elif source:
+            self.source_title.setText(source.name)
+            self.source_host.setText(t('All course materials'))
+        else:
+            self.source_title.setText(t('All materials'))
+            self.source_host.setText(t('From one university') if len(self.libraries) == 1 else t('Across {count} universities', count=len(self.libraries)))
+        self.file_search.setPlaceholderText(t('Search in this course…') if scope[1] else
+                                            t('Search this university…') if source else t('Search all universities…'))
+        self.file_search.setToolTip(self.file_search.placeholderText())
+        entries = [entry for identity, library in self.libraries.items() if not source or identity == source.id
+                   for entry in library['entries'] if not scope[1] or entry.get('course_id') == scope[1]]
         column, order = self.files_header.sortIndicatorSection(), self.files_header.sortIndicatorOrder()
+        if scope_changed and self.library_view.currentData() == 'recent':
+            column, order = 2, Qt.SortOrder.DescendingOrder
         selected = self.selected_entry()
-        selected_id = selected.get('_identity') if selected else None
+        selected_key = (selected['_source_id'], selected['_identity']) if selected else None
+        self.files.setUpdatesEnabled(False)
         self.files.setSortingEnabled(False)
         self.files.setRowCount(len(entries))
-        for row, (identity, value) in enumerate(entries.items()):
-            entry = {**value, '_identity': identity}
+        self.files.library_scope = 'course' if scope[1] else 'source' if source else 'global'
+        for row, entry in enumerate(entries):
             item = FileCell(entry['path'])
             item.setData(Qt.ItemDataRole.UserRole, (Path(entry['path']).name.casefold(), entry['path'].casefold()))
             item.setData(Qt.ItemDataRole.UserRole + 1, entry)
-            item.setData(Qt.ItemDataRole.AccessibleTextRole, entry['path'] + ' · ' + file_context(entry))
-            item.setToolTip(str(Path(entry.get('root', source.destination)) / entry['path']))
+            item.setData(Qt.ItemDataRole.AccessibleTextRole,
+                         entry['path'] + ' · ' + entry['_source_name'] + ' · ' + file_context(entry))
+            item.setToolTip(entry['_source_name'] + '\n' + entry.get('course_name', '') + '\n' +
+                            str(Path(entry.get('root', entry['_destination'])) / entry['path']))
             self.files.setItem(row, 0, item)
             size = entry.get('target_stat', [0])[0]
             size_item = FileCell(file_size(size))
@@ -1750,21 +1764,114 @@ class MainWindow(QMainWindow):
             date_item.setData(Qt.ItemDataRole.UserRole, changed)
             date_item.setToolTip(t('No recorded change') if not changed else local_time(changed))
             self.files.setItem(row, 2, date_item)
+            course_item = FileCell(entry.get('course_name', ''))
+            course_item.setData(Qt.ItemDataRole.UserRole, entry.get('course_name', '').casefold())
+            course_item.setToolTip(entry.get('course_name', ''))
+            self.files.setItem(row, 3, course_item)
         self.files.setSortingEnabled(True)
         self.files.sortItems(max(0, column), order)
+        self.files.setUpdatesEnabled(True)
+        self.adapt_columns()
         if self.filter_panel:
             self.filter_panel.reload_options()
         self.apply_file_filters()
-        if selected_id:
+        if selected_key:
             for row in range(self.files.rowCount()):
-                if self.files.item(row, 0).data(Qt.ItemDataRole.UserRole + 1)['_identity'] == selected_id:
+                entry = self.files.item(row, 0).data(Qt.ItemDataRole.UserRole + 1)
+                if (entry['_source_id'], entry['_identity']) == selected_key and not self.files.isRowHidden(row):
                     self.files.selectRow(row)
                     break
         self.update_file_actions()
+        self.render_status()
+        self.refresh_controls()
         if busy:
             self.show_progress(progress_copy(self.progress_message) if self.progress_message else t('Checking ILIAS…'))
         elif self.ui_error:
-            self.show_local_error(self.ui_error)
+            self.show_local_error(self.ui_error, kind=self.ui_error_kind, source_id=self.ui_error_source)
+
+    def render_status(self):
+        from .storage import source_scope
+        source = self.selected()
+        relevant = {source.id: self.libraries[source.id]} if source else self.libraries
+        summary = source_summary(relevant[source.id]) if source else library_summary(relevant)
+        problem_sources = [identity for identity, library in relevant.items() if recovery_plan(library['status'])]
+        self.recovery_source = source.id if source else next((identity for identity in problem_sources
+            if source_summary(relevant[identity]).tone == 'error'), next(iter(problem_sources), None))
+        plan = recovery_plan(relevant[self.recovery_source]['status']) if self.recovery_source else None
+        title = summary.title
+        status = relevant[source.id]['status'] if source else {}
+        unavailable = (status.get('result') or {}).get('unavailable', 0)
+        if unavailable and summary.tone == 'warning':
+            title += ' · ' + t('{count} files unavailable', count=unavailable)
+        if source and status.get('finished'):
+            title += ' · ' + local_time(status['finished'])
+        repair_id = source.id if source else getattr(self, 'last_repair_source', None)
+        repair = self.repair_checks.get(repair_id)
+        if repair and repair_id in self.libraries and repair.get('phase') != 'checking':
+            if self.libraries[repair_id]['status'].get('finished') != repair.get('finished'):
+                repair = None
+        if repair and repair.get('phase') == 'verified':
+            title = t('Sign-in confirmed') if repair['kind'] == 'signin' else t('Check successful again')
+            if not source:
+                title += ' · ' + self.libraries[repair_id]['source'].name
+            if summary.tone in {'error', 'warning'}:
+                title += ' · ' + summary.title
+            summary = replace(summary, detail=t('The new check completed. You can continue using your materials.') + ' ' + summary.detail)
+        elif repair and repair.get('phase') == 'failed':
+            summary = replace(summary, detail=t('The problem is not resolved yet.') + ' ' + summary.detail)
+            if summary.tone == 'success':
+                summary = replace(summary, title=t('New check not confirmed'), tone='error', recovery='retry')
+                title = summary.title
+                plan = recovery_plan({'state': 'Needs attention'})
+                self.recovery_source = repair_id
+        self.sync_panel.set_state(title, summary.detail, summary.tone)
+        self.recovery = summary.recovery
+        self.recovery_plan = plan
+        self.recovery_button.setText(plan.button if plan else '')
+        self.recovery_button.setToolTip(relevant[self.recovery_source]['source'].name + '\n' + plan.explanation if plan else '')
+        self.recovery_button.setVisible(bool(plan and summary.tone == 'error'))
+        if plan and summary.tone == 'error':
+            detail = plan.explanation
+            if not source:
+                detail = relevant[self.recovery_source]['source'].name + ': ' + detail
+            if repair and repair.get('phase') == 'failed':
+                detail = t('The problem is not resolved yet.') + ' ' + detail
+            self.sync_panel.detail.setText(detail)
+            self.sync_panel.detail.setAccessibleName(detail)
+        checked = t('Last checked: {time}', time=local_time(status.get('finished'))) if status.get('finished') else t('Not yet checked')
+        if source and status.get('scope') == source_scope(source):
+            last_success = status.get('last_success')
+            if last_success and last_success != status.get('finished'):
+                checked += ' · ' + t('Last complete check: {time}', time=local_time(last_success))
+        schedules = [library['source'].name + ': ' + schedule_expectation(self.settings.value, library['status'])
+                     for library in relevant.values()]
+        self.sync_panel.meta.setText(checked if source else '\n'.join(schedules))
+        if source:
+            next_check = schedule_expectation(self.settings.value, status)
+        elif not self.settings.value.get('scheduled'):
+            next_check = t('Automatic sync is off')
+        elif len({schedule_expectation(self.settings.value, library['status']) for library in relevant.values()}) == 1:
+            next_check = schedule_expectation(self.settings.value, next(iter(relevant.values()))['status'])
+        else:
+            next_check = t('Automatic checks follow each university’s schedule')
+        self.sync_panel.schedule.setText(next_check)
+        self.sync_panel.schedule.setToolTip('\n'.join(schedules) + '\n' + self.schedule_text())
+        if self.sync_panel.disclosure.isChecked():
+            self.build_report()
+
+    def adapt_columns(self):
+        if not hasattr(self, 'files'):
+            return
+        self.files.setColumnHidden(3, bool(self.sources.scope()[1]) or self.files.viewport().width() < 850)
+        # Compact windows retain dates in the tooltip; Recent always exposes
+        # its ordering. Broad windows support directly sortable date/course.
+        self.files.setColumnHidden(2, self.files.viewport().width() < 650 and self.library_view.currentData() != 'recent')
+        if hasattr(self, 'sync_panel'):
+            self.sync_panel.report_host.setMaximumHeight(max(100, min(260, self.height() - 500)))
+
+    def resizeEvent(self, event):
+        super().resizeEvent(event)
+        self.adapt_columns()
 
     def filter_files(self):
         if self.filter_panel is None:
@@ -1779,7 +1886,7 @@ class MainWindow(QMainWindow):
         self.apply_file_filters()
 
     def focus_search(self):
-        if self.selected():
+        if self.libraries:
             self.file_search.setFocus()
             self.file_search.selectAll()
 
@@ -1787,6 +1894,7 @@ class MainWindow(QMainWindow):
         if not hasattr(self, 'files'):
             return
         self.apply_file_filters()
+        self.adapt_columns()
         if self.library_view.currentData() == 'recent':
             self.files.sortItems(2, Qt.SortOrder.DescendingOrder)
 
@@ -1824,9 +1932,9 @@ class MainWindow(QMainWindow):
                        filters['size'] == 'small' and size <= 1024 ** 2 or
                        filters['size'] == 'medium' and 1024 ** 2 < size <= 10 * 1024 ** 2 or
                        filters['size'] == 'large' and size > 10 * 1024 ** 2)
-            searchable = ' '.join((entry['path'], entry.get('course_name', ''))).casefold()
+            searchable = ' '.join((entry['path'], entry.get('course_name', ''), entry.get('_source_name', ''))).casefold()
             matches = (in_view and filters['search'].casefold() in searchable and
-                       (not filters['course'] or entry.get('course_id') == filters['course']) and
+                       (not filters['course'] or course_key(entry, global_scope=not self.selected()) == filters['course']) and
                        (not filters['kind'] or (Path(entry['path']).suffix.casefold() or '<none>') == filters['kind']) and size_ok)
             self.files.setRowHidden(row, not matches)
             visible += bool(matches)
@@ -1864,12 +1972,11 @@ class MainWindow(QMainWindow):
 
     def file_target(self):
         entry = self.selected_entry()
-        source = self.selected()
-        if not entry or not source:
+        if not entry:
             return None
         from .storage import safe_path
         try:
-            return safe_path(Path(entry.get('root', source.destination)), entry['path'])
+            return safe_path(Path(entry.get('root', entry['_destination'])), entry['path'])
         except ValueError:
             self.show_local_error(t('This file path is unavailable. Try synchronizing again.'))
             return None
@@ -1879,7 +1986,9 @@ class MainWindow(QMainWindow):
         if target is None:
             return
         if not target.is_file():
-            self.show_local_error(t('This file is missing locally. Sync again to restore it.'))
+            entry = self.selected_entry()
+            self.show_local_error(t('This file is missing locally. Sync again to restore it.'),
+                                  kind='missing', source_id=entry['_source_id'])
         elif not QDesktopServices.openUrl(QUrl.fromLocalFile(str(target))):
             self.show_local_error(t('The file could not be opened. Check its default application.'))
 
@@ -1896,6 +2005,10 @@ class MainWindow(QMainWindow):
         menu = QMenu(self)
         menu.addAction(t('Open file'), self.open_file)
         menu.addAction(t('Open containing folder'), self.reveal_file)
+        entry = self.selected_entry()
+        if entry and entry.get('course_id') and self.sources.scope() != (entry['_source_id'], entry['course_id']):
+            menu.addSeparator()
+            menu.addAction(t('Show course'), lambda: self.sources.select_scope(entry['_source_id'], entry['course_id']))
         menu.exec(self.files.viewport().mapToGlobal(point))
 
     def show_progress(self, text):
@@ -1903,34 +2016,163 @@ class MainWindow(QMainWindow):
         loading = self.job and self.job[0] == 'discover'
         title = {'running': t('Loading your courses') if loading else t('Synchronizing your materials'), 'paused': t('Synchronization paused'),
                  'stopping': t('Finishing safely…')}[state]
+        identity = self.run_info.get('source') if self.run_info else self.job[1].id if self.job else None
+        library = self.libraries.get(identity)
+        if library:
+            title += ' · ' + library['source'].name
         self.sync_panel.set_state(title, text, 'running' if state == 'running' else 'neutral', busy=state != 'paused')
         self.recovery_button.hide()
         self.sync_panel.meta.setText(t('Your existing files stay available during the sync.'))
+        self.sync_panel.schedule.setText(text)
 
-    def show_local_error(self, text):
+    def show_local_error(self, text, *, kind=None, source_id=None):
         self.ui_error = text
+        self.ui_error_kind = kind or 'local'
+        self.ui_error_source = source_id
         self.sync_panel.set_state(t('Something needs attention'), text, 'error')
-        self.recovery_button.hide()
+        self.recovery_button.setVisible(self.ui_error_kind == 'missing')
+        if self.ui_error_kind == 'missing':
+            self.recovery_button.setText(t('Restore file'))
+            self.recovery_button.setToolTip(t('Checks this university and downloads missing materials again. Existing files are kept.'))
 
     def recover(self):
-        if self.recovery == 'signin':
-            self.edit(signin=True)
-        elif self.recovery == 'folders':
-            self.folder_mapping()
-        elif self.recovery == 'recent':
-            self.library_view.setCurrentIndex(self.library_view.findData('recent'))
+        if self.ui_error_kind == 'missing':
+            source = next((source for source in self.settings.sources() if source.id == self.ui_error_source), None)
+            if source:
+                self.begin_repair(source, 'missing')
+            return
+        self.run_recovery(self.recovery_source, self.recovery_plan)
+
+    def run_recovery(self, identity, plan):
+        source = next((source for source in self.settings.sources() if source.id == identity), None)
+        if not source or not plan or self.process or self.run_info:
+            return
+        if plan.action == 'signin':
+            self.edit(signin=True) if self.selected() and self.selected().id == identity else self.edit(signin=True, source=source)
+        elif plan.action == 'folders':
+            self.folder_mapping(verify=True) if self.selected() and self.selected().id == identity else self.folder_mapping(source, verify=True)
+        elif plan.action == 'storage':
+            self.edit(source=source, storage=True, verify=True)
+        elif plan.action == 'browser':
+            QDesktopServices.openUrl(QUrl(source.url))
         else:
-            self.report()
+            self.begin_repair(source, plan.kind)
+
+    def begin_repair(self, source, kind):
+        self.last_repair_source = source.id
+        self.repair_checks[source.id] = {'kind': kind, 'phase': 'checking', 'started': time.time()}
+        if kind == 'missing' and self.selected_entry():
+            self.repair_checks[source.id]['identity'] = self.selected_entry()['_identity']
+        self.ui_error = ''
+        self.ui_error_kind = ''
+        self.start('sync', source)
 
     def report(self):
+        self.sync_panel.disclosure.setChecked(True)
+
+    def toggle_report(self, expanded):
+        if expanded:
+            self.build_report()
+
+    def build_report(self, identity=None):
+        previous = identity or (self.report_source.currentData() if hasattr(self, 'report_source') else None)
+        host = self.sync_panel.report_layout
+        while host.count():
+            widget = host.takeAt(0).widget()
+            if widget:
+                widget.hide()
+                widget.deleteLater()
+        self.report_source = Dropdown()
+        self.report_source.setAccessibleName(t('University report'))
+        source = self.selected()
+        choices = [source] if source else [row['source'] for row in self.libraries.values()]
+        for choice in choices:
+            self.report_source.addItem(choice.name, choice.id)
+        self.report_source.setCurrentIndex(max(0, self.report_source.findData(previous)))
+        host.addWidget(self.report_source)
+        self.report_source.setVisible(len(choices) > 1)
+        source_id = self.report_source.currentData()
+        if not source_id:
+            return
+        status = self.libraries[source_id]['status']
+        if self.ui_error and (self.ui_error_source or (self.selected().id if self.selected() else None)) == source_id:
+            status = {'state': 'Needs attention', 'message': self.ui_error, 'failure_kind': self.ui_error_kind}
+        plan = recovery_plan(status)
+        if source_id == self.ui_error_source and self.ui_error_kind == 'missing':
+            plan = recovery_plan({'failure_kind': 'missing'})
+        if plan:
+            guide = QWidget()
+            guide_layout = QVBoxLayout(guide)
+            guide_layout.setContentsMargins(0, 0, 0, 0)
+            explain = source_id != getattr(self, 'recovery_source', None) or self.sync_panel.tone != 'error'
+            steps = label((plan.explanation + '\n\n' if explain else '') + '\n'.join(plan.steps), 'subtitle')
+            steps.setAccessibleName(t('Steps to recover'))
+            guide_layout.addWidget(steps)
+            actions = QHBoxLayout()
+            if source_id != getattr(self, 'recovery_source', None) or self.recovery_button.isHidden():
+                actions.addWidget(button(plan.button, lambda: self.run_recovery(source_id, plan)))
+            if plan.action != 'browser':
+                actions.addWidget(button('Open ILIAS', lambda: QDesktopServices.openUrl(QUrl(self.libraries[source_id]['source'].url))))
+            actions.addStretch()
+            guide_layout.addLayout(actions)
+            host.addWidget(guide)
+        active_id = self.run_info.get('source') if self.run_info else self.job[1].id if self.process and self.job else None
+        if active_id == source_id:
+            status = {'state': 'Running', 'started': status.get('started')}
+        history = read_json(data_dir() / 'sources' / source_id / 'history.json', [])
+        history = [status, *[row for row in history if (row.get('finished'), row.get('started')) != (status.get('finished'), status.get('started'))]]
+        self.report_widget = SyncReportDialog(status, self.activity.toPlainText() if active_id == source_id else '',
+                                              self.sync_panel.report_host, history=history, embedded=True)
+        host.addWidget(self.report_widget)
+        self.report_widget.show()
+        self.report_source.currentIndexChanged.connect(lambda *_: self.build_report(self.report_source.currentData()))
+
+    def toggle_sidebar(self):
+        visible = not self.sidebar.isVisible()
+        self.sidebar.setVisible(visible)
+        self.view_state['sidebar_hidden'] = not visible
+        name = t('Hide sidebar') if visible else t('Show sidebar')
+        self.sidebar_button.setToolTip(name)
+        self.sidebar_button.setAccessibleName(name)
+        self.sidebar_action.setText(name)
+        self.adapt_columns()
+
+    def edit_source(self, identity):
+        if self.process or self.run_info:
+            return
+        self.sources.select_scope(identity)
+        self.edit()
+
+    def source_menu(self, source, parent):
+        menu = QMenu(source.name, parent)
+        for name, callback in [('Choose sync courses…', lambda: self.start('discover', source)),
+                               ('Folder mapping', lambda: self.folder_mapping(source)),
+                               ('Open folder', lambda: self.open_folder(source)),
+                               ('Edit source', lambda: self.edit_source(source.id))]:
+            action = menu.addAction(t(name), callback)
+            action.setEnabled(name == 'Open folder' or not (self.process or self.run_info))
+        return menu
+
+    def management_menu(self):
         source = self.selected()
         if source:
-            status = read_json(data_dir() / 'sources' / source.id / 'status.json', {})
-            if self.process or self.run_info:
-                status = {'state': 'Running', 'started': status.get('started')}
-            history = read_json(data_dir() / 'sources' / source.id / 'history.json', [])
-            history = [status, *[row for row in history if (row.get('finished'), row.get('started')) != (status.get('finished'), status.get('started'))]]
-            SyncReportDialog(status, self.activity.toPlainText(), self, history=history).exec()
+            menu = self.source_menu(source, self)
+        else:
+            menu = QMenu(self)
+            for library in self.libraries.values():
+                menu.addMenu(self.source_menu(library['source'], menu))
+            menu.addSeparator()
+            menu.addAction(t('Add ILIAS'), self.add).setEnabled(not (self.process or self.run_info))
+        menu.exec(self.management_button.mapToGlobal(self.management_button.rect().bottomLeft()))
+
+    def navigation_menu(self, point):
+        item = self.sources.itemAt(point)
+        if not item:
+            return
+        identity = item.data(0, Qt.ItemDataRole.UserRole)[0]
+        if identity:
+            menu = self.source_menu(self.libraries[identity]['source'], self)
+            menu.exec(self.sources.viewport().mapToGlobal(point))
 
     def add(self):
         if self.process or self.run_info:
@@ -1941,22 +2183,29 @@ class MainWindow(QMainWindow):
             self.resize(980, 700)
             self.populate(dialog.source.id)
 
-    def edit(self, *, signin=False):
-        if not self.selected() or self.process or self.run_info:
+    def edit(self, *, signin=False, source=None, storage=False, verify=False):
+        source = source or self.selected()
+        if not source or self.process or self.run_info:
             return
-        dialog = SourceDialog(self.settings, self.selected(), self)
-        if signin:
-            dialog.stack.setCurrentIndex(1)
+        dialog = SourceDialog(self.settings, source, self, signin_recovery=signin, verify_on_save=verify)
+        if storage:
+            dialog.stack.setCurrentIndex(2)
             dialog.update_step()
+            dialog.next_button.setText(t('Save and check'))
         if dialog.exec():
-            self.populate(dialog.source.id)
+            self.populate()
+            if signin or verify:
+                self.begin_repair(dialog.source, 'signin' if signin else 'storage')
 
-    def start(self, action):
-        source = self.selected()
+    def start(self, action, source=None):
+        source = source or self.selected()
         if not source or self.process or self.run_info:
             return
         self.job = (action, source)
         self.ui_error = ''
+        self.ui_error_kind = ''
+        if source.id in self.repair_checks and self.repair_checks[source.id]['phase'] != 'checking':
+            self.repair_checks.pop(source.id)
         self.progress_message = ""
         self.progress_token = None
         self.process = QProcess(self)
@@ -1984,19 +2233,17 @@ class MainWindow(QMainWindow):
             self.progress_timer.stop()
             self.process.deleteLater()
             self.process = None
+            self.sync_queue.clear()
             self.show_local_error(t("The worker could not start."))
             self.refresh_controls()
 
     def check_active_run(self, *_):
         run = active_run()
         self.run_info = run if run and run.get("state") in {"running", "paused", "stopping"} else None
-        if self.run_info and (not self.selected() or self.selected().id != self.run_info["source"]):
-            for index, source in enumerate(self.settings.sources()):
-                if source.id == self.run_info["source"]:
-                    self.sources.setCurrentRow(index)
-                    break
         self.refresh_controls()
         if self.run_info:
+            if self.run_info['state'] == 'stopping':
+                self.sync_queue.clear()
             if self.progress_token != self.run_info['token']:
                 self.progress_message = ""
                 self.progress_token = self.run_info['token']
@@ -2021,9 +2268,15 @@ class MainWindow(QMainWindow):
         if run and run.get("state") in {"running", "paused"}:
             send_command(run, "resume" if run["state"] == "paused" else "pause")
         elif not self.process:
-            self.start("sync")
+            if self.selected():
+                self.start("sync")
+            else:
+                self.sync_queue = [source for source in self.settings.sources() if source.enabled]
+                if self.sync_queue:
+                    self.start('sync', self.sync_queue.pop(0))
 
     def stop_sync(self):
+        self.sync_queue.clear()
         run = self.run_info or active_run()
         if run and run.get("state") in {"running", "paused"}:
             send_command(run, "stop")
@@ -2032,14 +2285,20 @@ class MainWindow(QMainWindow):
 
     def refresh_controls(self):
         busy = self.process is not None or self.run_info is not None
-        self.sources.setEnabled(not busy)
-        for item in (self.edit_button, self.courses_button, self.routing_button):
-            item.setEnabled(not busy and self.selected() is not None)
-        self.sync_button.setEnabled(self.selected() is not None)
+        self.sources.setEnabled(True)
+        has_recovery = hasattr(self, 'recovery_plan') and self.recovery_plan and self.recovery_plan.action != 'browser' and self.sync_panel.tone == 'error'
+        self.sync_button.setVisible(bool(self.libraries) and (busy or not has_recovery))
+        self.sync_button.setEnabled(bool(self.selected() or any(source.enabled for source in self.settings.sources())) or busy)
         self.sync_button.set_action("resume" if self.run_info and self.run_info["state"] == "paused" else "pause" if busy else None)
         if not busy and getattr(self, 'recovery', '') == 'retry':
             self.sync_button.setText(t('Try again'))
             self.sync_button.setAccessibleName(t('Try again'))
+        elif not busy and not self.selected() and self.libraries:
+            self.sync_button.setText(t('Sync all'))
+            self.sync_button.setAccessibleName(t('Sync all'))
+        if not busy:
+            self.sync_button.setToolTip(t('Checks all configured courses at this university; browsing a course does not change the sync selection.')
+                                       if self.selected() else t('Checks all enabled universities one after another.'))
         self.add_button.setEnabled(not busy)
         self.settings_button.setEnabled(not busy)
         self.recovery_button.setEnabled(not busy)
@@ -2083,28 +2342,61 @@ class MainWindow(QMainWindow):
         self.process.deleteLater()
         self.process = None
         self.run_info = None
+        if self.job and self.job[0] == 'sync' and self.job[1].id in self.repair_checks:
+            repair = self.repair_checks[self.job[1].id]
+            latest = read_json(data_dir() / 'sources' / self.job[1].id / 'status.json', {})
+            result = latest.get('result')
+            from .storage import source_scope
+            verified = (not exit_code and latest.get('finished', 0) >= repair['started'] and
+                        latest.get('state') in {'Up to date', 'Completed with warnings'} and
+                        latest.get('scope') == source_scope(self.job[1]) and
+                        result is not None and not result.get('errors'))
+            repair['phase'] = 'verified' if verified else 'failed'
+            repair['finished'] = latest.get('finished')
+            if verified and repair['kind'] == 'missing':
+                from .storage import safe_path
+                entry = read_json(data_dir() / 'sources' / self.job[1].id / 'manifest.json', {'files': {}})['files'].get(repair.get('identity'))
+                try:
+                    present = entry and safe_path(Path(entry.get('root', self.job[1].destination)), entry['path']).is_file()
+                except (ValueError, OSError):
+                    present = False
+                if not present:
+                    repair['phase'] = 'failed'
+                    self.ui_error = t('The file is still missing. Check whether it is available in ILIAS before trying again.')
+                    self.ui_error_kind = 'missing'
+                    self.ui_error_source = self.job[1].id
         self.refresh()
         if self.job[0] == "discover" and hasattr(self, "pending_courses"):
             courses = self.pending_courses
             del self.pending_courses
             CoursesDialog(courses, self.job[1], self.settings, self).exec()
+            self.refresh()
         elif exit_code and self.selected():
             self.activity.append(t("Some items need attention. Existing files were kept."))
         self.refresh_controls()
+        if self.sync_queue:
+            next_source = self.sync_queue.pop(0)
+            QTimer.singleShot(0, lambda: self.start('sync', next_source))
 
     def timeout_job(self):
         if self.process:
             self.stop_sync()
             self.activity.append(t("The job exceeded its time limit and was stopped. It can be retried safely."))
 
-    def folder_mapping(self):
-        source = self.selected()
+    def folder_mapping(self, source=None, *, verify=False):
+        source = source if isinstance(source, Source) else self.selected()
         if source and not self.process and not self.run_info:
-            FolderMappingDialog(source, self.settings, self).exec()
+            dialog = FolderMappingDialog(source, self.settings, self)
+            if verify:
+                dialog.findChild(QDialogButtonBox).button(QDialogButtonBox.StandardButton.Save).setText(t('Save and check'))
+            saved = dialog.exec()
             self.refresh()
+            if saved and verify:
+                updated = next(row for row in self.settings.sources() if row.id == source.id)
+                self.begin_repair(updated, 'folders')
 
-    def open_folder(self):
-        source = self.selected()
+    def open_folder(self, source=None):
+        source = source if isinstance(source, Source) else self.selected()
         if source:
             QDesktopServices.openUrl(QUrl.fromLocalFile(source.destination))
 
@@ -2116,11 +2408,12 @@ class MainWindow(QMainWindow):
         dialog = SettingsDialog(self.settings, self)
         dialog.tabs.setCurrentIndex(tab if isinstance(tab, int) else 0)
         if dialog.exec():
-            self.schedule_label.setText(self.schedule_text())
+            self.refresh()
             if previous_language != self.settings.value.get("language", "de"):
                 replacement = MainWindow()
                 replacement.resize(self.size())
                 replacement.populate(self.selected().id if self.selected() else None)
+                replacement.sources.select_scope(*self.sources.scope())
                 QApplication.instance().main_window = replacement
                 replacement.show()
                 self.close()
@@ -2142,9 +2435,10 @@ class MainWindow(QMainWindow):
             event.ignore()
         else:
             source = self.selected()
-            self.view_state.update(size=[self.width(), self.height()], source=source.id if source else None)
-            if source:
-                self.view_state.setdefault('views', {})[source.id] = self.library_view.currentData()
+            self.view_state.update(size=[self.width(), self.height()], source=source.id if source else None,
+                                   navigation=list(self.sources.scope()))
+            if self.libraries:
+                self.view_state.setdefault('views', {})['/'.join(self.sources.scope())] = self.library_view.currentData()
             write_json(data_dir() / 'view-state.json', self.view_state)
             self.event_path.unlink(missing_ok=True)
             event.accept()

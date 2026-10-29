@@ -232,7 +232,7 @@ def test_alias_collision_is_rejected_before_save_and_recovery_targets_folders(ap
     window=MainWindow()
     with patch.object(window,'folder_mapping') as mapping:
         window.recovery_button.click()
-        mapping.assert_called_once()
+        mapping.assert_called_once_with(verify=True)
     window.close()
 
 
@@ -428,15 +428,17 @@ def test_scope_covers_material_policy_but_not_cosmetic_name_or_enabled(source):
     assert source_scope(replace(source, name='Renamed', enabled=not source.enabled)) == original
 
 
-def test_narrow_sidebar_keeps_wrapped_schedule_text_visible(app, source):
+def test_compact_status_keeps_full_schedule_accessible(app, source):
     from ilias_sync.gui import MainWindow
     Settings().save_source(source)
     window = MainWindow()
     window.sidebar.setFixedWidth(190)
+    window.resize(820, 560)
     window.show()
-    window.filter_files()
     app.processEvents()
-    assert window.schedule_label.height() >= window.schedule_label.heightForWidth(window.schedule_label.width())
+    assert window.sync_panel.schedule.isVisible()
+    assert window.sync_panel.schedule.accessibleName()
+    assert window.sync_panel.schedule.toolTip()
     window.close()
 
 

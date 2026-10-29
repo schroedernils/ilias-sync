@@ -16,7 +16,7 @@ def test_empty_window_accessibility_and_no_idle_polling(app):
     window = MainWindow()
     assert window.width() <= 700
     assert window.height() <= 450
-    assert window.sources.count() == 0
+    assert window.sources.topLevelItemCount() == 0
     assert not window.sync_button.isEnabled()
     assert not window.progress_timer.isActive()
     assert window.files.accessibleName() == "Heruntergeladene Dateien"
@@ -234,33 +234,28 @@ def test_mapping_menu_builds_course_folder_file_hierarchy(app, source):
     dialog.close()
 
 
-def test_source_actions_are_compact_accessible_icons(app, source):
+def test_management_and_sidebar_icons_are_accessible(app, source):
     from ilias_sync.gui import MainWindow
     from ilias_sync.storage import Settings
-    settings=Settings()
-    settings.save_source(source)
-    window=MainWindow()
-    assert window.width() <= 1000
-    for action in (window.routing_button, window.edit_button, window.open_button):
+    Settings().save_source(source)
+    window = MainWindow()
+    for action in (window.management_button, window.sidebar_button):
         assert action.text() == ''
-        assert action.toolTip()
-        assert action.accessibleName()
+        assert action.toolTip() and action.accessibleName()
         assert action.width() == 34
     window.close()
 
 
-def test_folder_actions_sit_after_course_selection(app, source):
+def test_folder_and_course_configuration_share_one_university_menu(app, source):
     from ilias_sync.gui import MainWindow
     from ilias_sync.storage import Settings
-    settings = Settings()
-    settings.save_source(source)
+    Settings().save_source(source)
     window = MainWindow()
-    window.show()
-    app.processEvents()
-    assert window.courses_button.geometry().right() < window.routing_button.geometry().left()
-    assert window.routing_button.geometry().right() < window.open_button.geometry().left()
-    assert window.routing_button.parentWidget() == window.courses_button.parentWidget()
-    assert abs(window.courses_button.geometry().center().y() - window.open_button.geometry().center().y()) <= 1
+    menu = window.source_menu(source, window)
+    assert [action.text() for action in menu.actions()] == ['Sync-Kurse auswählen …', 'Ordner zuordnen', 'Ordner öffnen', 'Bearbeiten']
+    with patch.object(window, 'start') as start:
+        menu.actions()[0].trigger()
+        start.assert_called_once_with('discover', source)
     window.close()
 
 
@@ -361,54 +356,44 @@ def test_settings_expose_multiple_daily_times_and_validate_empty_list(app):
     dialog.close()
 
 
-def test_hover_edit_targets_its_source_and_keyboard_respects_busy(app):
+def test_navigation_keyboard_edit_respects_busy_and_targets_university(app, source):
     from PySide6.QtCore import Qt
     from PySide6.QtTest import QTest
-    from ilias_sync.gui import SourceList
-    listing = SourceList()
-    listing.addItems(['Hochschule A\na.example.edu', 'Hochschule B\nb.example.edu'])
-    listing.resize(260, 260)
-    listing.show()
-    app.processEvents()
-    assert not listing.edit_button.isVisible()
-    requested = []
-    listing.editRequested.connect(lambda: requested.append(listing.currentRow()))
-    QTest.mouseMove(listing.viewport(), listing.visualItemRect(listing.item(1)).center())
-    app.processEvents()
-    assert listing.edit_button.isVisible()
-    listing.edit_button.click()
-    assert requested == [1]
-    listing.setCurrentRow(0)
-    QTest.keyClick(listing, Qt.Key.Key_F2)
-    assert requested == [1, 0]
-    listing.edit_button.setEnabled(False)
-    QTest.keyClick(listing, Qt.Key.Key_F2)
-    assert requested == [1, 0]
-    listing.close()
+    from ilias_sync.gui import MainWindow
+    from ilias_sync.storage import Settings
+    Settings().save_source(source)
+    window = MainWindow()
+    with patch.object(window, 'edit') as edit:
+        QTest.keyClick(window.sources, Qt.Key.Key_F2)
+        edit.assert_called_once()
+        window.run_info = {'state': 'running'}
+        QTest.keyClick(window.sources, Qt.Key.Key_F2)
+        edit.assert_called_once()
+    window.run_info = None
+    window.close()
 
 
-def test_source_context_menu_edits_the_clicked_row(app):
+def test_navigation_context_actions_target_clicked_university(app, source, tmp_path):
     from PySide6.QtCore import QTimer
     from PySide6.QtWidgets import QMenu
-    from ilias_sync.gui import SourceList
-    listing = SourceList()
-    listing.addItems(['A', 'B'])
-    listing.resize(240, 240)
-    listing.show()
+    from ilias_sync.gui import MainWindow
+    from ilias_sync.storage import Settings, Source
+    settings = Settings()
+    settings.save_source(source)
+    second = Source('B', 'https://b.example.edu', str(tmp_path/'B'), client_id='test')
+    settings.save_source(second)
+    window = MainWindow()
+    window.show()
     app.processEvents()
-    requested = []
-    listing.editRequested.connect(lambda: requested.append(listing.currentRow()))
-
     def activate():
-        menu = listing.findChild(QMenu)
-        assert menu.actions()[0].text() == 'Bearbeiten'
-        menu.actions()[0].trigger()
+        menu = next(menu for menu in window.findChildren(QMenu) if menu.title() == 'B')
+        menu.actions()[3].trigger()
         menu.close()
-
-    QTimer.singleShot(20, activate)
-    listing.show_menu(listing.visualItemRect(listing.item(1)).center())
-    assert requested == [1]
-    listing.close()
+    with patch.object(window, 'edit_source') as edit:
+        QTimer.singleShot(20, activate)
+        window.navigation_menu(window.sources.visualItemRect(window.sources.topLevelItem(2)).center())
+        edit.assert_called_once_with(second.id)
+    window.close()
 
 
 @pytest.mark.parametrize('background', [False, True])

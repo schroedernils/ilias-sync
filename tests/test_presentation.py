@@ -134,7 +134,7 @@ def test_filter_selection_resets_when_switching_sources(app, source, tmp_path):
     settings.save_source(second)
     window = MainWindow()
     window.file_search.setText('Algorithms')
-    window.sources.setCurrentRow(1)
+    window.sources.select_scope(second.id)
     assert window.file_search.text() == ''
     assert not any(window.file_filters.values())
     window.close()

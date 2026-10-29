@@ -30,6 +30,7 @@ QLabel {{ background: transparent; }}
 QLabel#eyebrow, QLabel#subtitle {{ color: {c['muted']}; }}
 QLabel#eyebrow {{ font-size: 12px; font-weight: 600; }}
 QLabel#title {{ font-size: 24px; font-weight: 650; }}
+QMainWindow QLabel#title {{ font-size: 21px; font-weight: 650; }}
 QLabel#appTitle {{ font-size: 19px; font-weight: 650; }}
 QLabel#sidebarNote {{ color: {c['muted']}; font-size: 11px; }}
 QLabel#statusTitle {{ font-size: 16px; font-weight: 600; }}
@@ -37,6 +38,13 @@ QLabel#statusMeta {{ color: {c['muted']}; font-size: 11px; }}
 QFrame#sidebar {{ background: {c['sidebar']}; border: none; }}
 QFrame#syncPanel {{ background: {c['surface']}; border: 1px solid {c['border']}; border-radius: 10px; }}
 QFrame#syncPanel QLabel {{ background: transparent; border: none; }}
+QFrame#compactSync {{ background: transparent; border: none; border-top: 1px solid {c['border']}; }}
+QFrame#compactSync QLabel {{ border: none; }}
+QLabel#compactStatusTitle {{ font-size: 12px; font-weight: 500; }}
+QWidget#inlineReport {{ background: transparent; }}
+QWidget#inlineReport QTabWidget::pane {{ padding-top: 5px; }}
+QWidget#inlineReport QTabBar::tab {{ padding: 5px 9px; }}
+QWidget#inlineReport QComboBox {{ padding: 5px 26px 5px 8px; }}
 QWidget#libraryEmpty {{ background: {c['surface']}; }}
 QProgressBar {{ background: {c['inset']}; border: none; border-radius: 1px; }}
 QProgressBar::chunk {{ background: {c['accent']}; border-radius: 1px; }}
@@ -57,6 +65,9 @@ QPushButton#iconControl:checked {{ background: {c['selection']}; border-color: {
 QPushButton#iconControl:focus {{ border: 2px solid {c['accent']}; }}
 QPushButton#sidebarAction {{ background: transparent; }}
 QPushButton#sidebarAction:hover {{ background: {c['hover']}; }}
+QPushButton#toolbarControl {{ padding: 6px 12px; min-height: 18px; }}
+QLineEdit#materialSearch {{ padding: 7px 10px; }}
+QLineEdit#materialSearch:focus {{ padding: 6px 9px; }}
 QPushButton#compactControl {{ padding: 5px 9px; font-size: 11px; min-height: 16px; }}
 QPushButton#stopControl {{ background: #c53030; border-color: #c53030; color: #ffffff; padding: 0; min-height: 34px; }}
 QPushButton#stopControl:hover {{ background: #ae2525; border-color: #ae2525; }}
@@ -81,9 +92,15 @@ QListWidget#sourceList {{ background: transparent; padding: 0; border-radius: 0;
 QListWidget#sourceList::item {{ padding: 0; margin: 0 0 5px 0; }}
 QTreeWidget, QTableWidget {{ background: {c['surface']}; alternate-background-color: {c['inset']}; border: 1px solid {c['border']}; border-radius: 7px; gridline-color: {c['inset']}; }}
 QTreeWidget::item:selected, QTableWidget::item:selected {{ background: {c['selection']}; color: {c['selected_text']}; }}
+QTreeWidget#libraryNavigation {{ background: transparent; border: none; border-radius: 0; }}
+QTreeWidget#libraryNavigation::item {{ height: 30px; padding: 0 5px; border-radius: 5px; }}
+QTreeWidget#libraryNavigation::item:hover {{ background: {c['hover']}; }}
+QTreeWidget#libraryNavigation::item:selected {{ background: {c['selection']}; color: {c['selected_text']}; }}
+QTreeWidget#libraryNavigation::item:focus {{ border: 1px solid {c['accent']}; }}
 QTableWidget::item {{ border: none; border-bottom: 1px solid {c['inset']}; padding: 0 12px; }}
 QTableWidget::item:hover {{ background: {c['hover']}; }}
 QHeaderView::section {{ background: {c['inset']}; color: {c['text']}; padding: 10px; border: none; font-weight: 600; }}
+QMainWindow QHeaderView::section {{ padding: 6px 10px; }}
 QTextEdit#activity {{ font-size: 12px; color: {c['muted']}; }}
 QSplitter::handle {{ background: {c['border']}; width: 1px; }}
 QToolTip {{ background: {c['surface']}; color: {c['text']}; border: 1px solid {c['border']}; }}

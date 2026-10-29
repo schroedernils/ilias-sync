@@ -1,13 +1,14 @@
 """Small native widgets for readable materials and non-modal synchronization feedback."""
 from pathlib import PurePosixPath
 
-from PySide6.QtCore import QRect, QSize, Qt
+from PySide6.QtCore import QRect, QSize, Qt, Signal
 from PySide6.QtGui import QColor, QFont, QPalette, QPainter, QPen
 from PySide6.QtWidgets import (QApplication, QFrame, QHBoxLayout, QLabel, QProgressBar, QStyle,
-                              QStyledItemDelegate, QStyleOptionViewItem, QTableWidget, QVBoxLayout, QWidget)
+                              QStyledItemDelegate, QStyleOptionViewItem, QTableWidget, QVBoxLayout, QWidget,
+                              QTreeWidget, QTreeWidgetItem, QPushButton)
+from PySide6.QtWidgets import QScrollArea
 
 from .i18n import t
-from .presentation import file_context
 from .theme import DARK, LIGHT
 
 
@@ -55,15 +56,14 @@ class MaterialDelegate(QStyledItemDelegate):
         high_contrast = getattr(getattr(QApplication.instance(), 'theme', None), 'high_contrast', False)
         muted = color if selected or high_contrast else QColor(colors['muted'])
         painter.save()
-        icon = style.standardIcon(QStyle.StandardPixmap.SP_FileIcon)
-        icon.paint(painter, QRect(option.rect.left() + 12, option.rect.center().y() - 10, 20, 20))
-        text_rect = option.rect.adjusted(44, 7, -12, -7)
+        paint_file_icon(painter, QRect(option.rect.left() + 10, option.rect.center().y() - 12, 26, 26), entry, muted)
+        text_rect = option.rect.adjusted(46, 3, -10, -3)
         font = QFont(option.font)
         font.setWeight(QFont.Weight.Medium)
         painter.setFont(font)
         painter.setPen(color)
         title = PurePosixPath(entry['path']).name
-        line_height = max(20, painter.fontMetrics().height())
+        line_height = painter.fontMetrics().height() + 1
         painter.drawText(QRect(text_rect.left(), text_rect.top(), text_rect.width(), line_height),
                          Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignVCenter,
                          painter.fontMetrics().elidedText(title, Qt.TextElideMode.ElideMiddle, text_rect.width()))
@@ -71,49 +71,144 @@ class MaterialDelegate(QStyledItemDelegate):
         font.setWeight(QFont.Weight.Normal)
         painter.setFont(font)
         painter.setPen(muted)
-        painter.drawText(QRect(text_rect.left(), text_rect.top() + line_height + 1, text_rect.width(), max(18, painter.fontMetrics().height())),
+        context = material_context(entry, getattr(option.widget, 'library_scope', 'source'))
+        painter.drawText(QRect(text_rect.left(), text_rect.top() + line_height, text_rect.width(), painter.fontMetrics().height() + 2),
                          Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignVCenter,
-                         painter.fontMetrics().elidedText(file_context(entry), Qt.TextElideMode.ElideMiddle, text_rect.width()))
+                         painter.fontMetrics().elidedText(context, Qt.TextElideMode.ElideRight, text_rect.width()))
         painter.restore()
 
     def sizeHint(self, option, index):
-        return QSize(super().sizeHint(option, index).width(), 58)
+        return QSize(super().sizeHint(option, index).width(), max(44, option.fontMetrics.height() * 2 + 10))
 
 
-class SourceDelegate(QStyledItemDelegate):
-    def paint(self, painter, option, index):
-        styled = QStyleOptionViewItem(option)
-        self.initStyleOption(styled, index)
-        styled.text = ''
-        style = option.widget.style() if option.widget else QApplication.style()
-        style.drawControl(QStyle.ControlElement.CE_ItemViewItem, styled, painter, option.widget)
-        lines = str(index.data() or '').split('\n', 1)
-        selected = bool(option.state & QStyle.StateFlag.State_Selected)
-        painter.save()
-        text = option.palette.color(QPalette.ColorRole.HighlightedText if selected else QPalette.ColorRole.Text)
-        muted = text if selected else option.palette.color(QPalette.ColorRole.PlaceholderText)
-        rect = option.rect.adjusted(12, 8, -36, -8)
-        for i, line in enumerate(lines):
-            font = QFont(option.font)
-            font.setWeight(QFont.Weight.Medium if i == 0 else QFont.Weight.Normal)
-            if i:
-                font.setPixelSize(max(11, round(option.fontMetrics.height() * 0.78)))
-            painter.setFont(font)
-            painter.setPen(text if i == 0 else muted)
-            painter.drawText(QRect(rect.left(), rect.top() + i * 20, rect.width(), 20),
-                             Qt.AlignmentFlag.AlignVCenter,
-                             painter.fontMetrics().elidedText(line, Qt.TextElideMode.ElideRight, rect.width()))
-        painter.restore()
+def material_context(entry, scope):
+    """Course/source context leads in aggregate views; folders lead within a course."""
+    parent = str(PurePosixPath(entry['path']).parent)
+    if scope == 'course':
+        logical = entry.get('logical', '')
+        parent = str(PurePosixPath(logical).parent) if logical else parent
+        if '/' in parent:
+            parent = parent.split('/', 1)[1]
+        elif parent == entry.get('course_name') or logical:
+            parent = ''
+        return parent if parent != '.' else ''
+    parts = [entry.get('_source_name', '')] if scope == 'global' else []
+    parts.append(entry.get('course_name') or (parent if parent != '.' else ''))
+    logical = entry.get('logical', '')
+    folder = str(PurePosixPath(logical).parent) if logical else parent
+    if '/' in folder:
+        parts.append(folder.split('/', 1)[1])
+    return ' · '.join(part for part in parts if part)
 
-    def sizeHint(self, option, index):
-        return QSize(180, 60)
+
+def file_family(path):
+    suffix = PurePosixPath(path).suffix.casefold()
+    for kind, extensions in [('PDF', {'.pdf'}), ('ZIP', {'.zip', '.7z', '.tar', '.gz', '.rar'}),
+                             ('IMG', {'.png', '.jpg', '.jpeg', '.gif', '.svg', '.heic'}),
+                             ('VID', {'.mp4', '.mov', '.mkv', '.webm'}), ('AUD', {'.mp3', '.wav', '.m4a'}),
+                             ('XLS', {'.csv', '.xlsx', '.xls', '.ods'}), ('DOC', {'.docx', '.doc', '.odt', '.rtf'}),
+                             ('PPT', {'.pptx', '.ppt', '.odp'}), ('WEB', {'.url', '.html', '.htm'}),
+                             ('</>', {'.py', '.java', '.js', '.c', '.cpp', '.json', '.xml'})]:
+        if suffix in extensions:
+            return kind
+    return 'TXT' if suffix in {'.txt', '.md'} else 'FILE'
+
+
+def paint_file_icon(painter, rect, entry, color):
+    # Extension-only classification: drawing rows never opens/stat-checks files
+    # or hydrates cloud placeholders. Text distinguishes types without color.
+    painter.save()
+    painter.setPen(QPen(color, 1.1))
+    painter.setBrush(Qt.BrushStyle.NoBrush)
+    painter.drawRoundedRect(rect.adjusted(3, 1, -3, -1), 2, 2)
+    font = QFont(painter.font())
+    font.setPixelSize(8)
+    font.setWeight(QFont.Weight.DemiBold)
+    painter.setFont(font)
+    painter.drawText(rect, Qt.AlignmentFlag.AlignCenter, file_family(entry['path']))
+    painter.restore()
+
+
+class LibraryNavigation(QTreeWidget):
+    """Two-level, read-only university/course navigation with stable identities."""
+    scopeChanged = Signal()
+    manageRequested = Signal(str)
+
+    def __init__(self, parent=None):
+        super().__init__(parent)
+        self.setObjectName('libraryNavigation')
+        self.setColumnCount(1)
+        self.setHeaderHidden(True)
+        self.setAccessibleName(t('Library navigation'))
+        self.setSelectionMode(QTreeWidget.SelectionMode.SingleSelection)
+        self.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
+        self.setTextElideMode(Qt.TextElideMode.ElideMiddle)
+        self.setIndentation(16)
+        self.setUniformRowHeights(True)
+        self.setExpandsOnDoubleClick(False)
+        self.currentItemChanged.connect(lambda *_: self.scopeChanged.emit())
+
+    def scope(self):
+        item = self.currentItem()
+        return tuple(item.data(0, Qt.ItemDataRole.UserRole)) if item else ('', '')
+
+    def select_scope(self, source_id='', course_id=''):
+        for index in range(self.topLevelItemCount()):
+            parent = self.topLevelItem(index)
+            for item in [parent, *[parent.child(i) for i in range(parent.childCount())]]:
+                if tuple(item.data(0, Qt.ItemDataRole.UserRole)) == (source_id, course_id):
+                    if item.parent():
+                        item.parent().setExpanded(True)
+                    self.setCurrentItem(item)
+                    return True
+        return False
+
+    def populate(self, libraries, scope=None):
+        scope = scope if scope is not None else self.scope()
+        expanded = {self.topLevelItem(i).data(0, Qt.ItemDataRole.UserRole)[0]: self.topLevelItem(i).isExpanded()
+                    for i in range(self.topLevelItemCount())}
+        scroll = self.verticalScrollBar().value()
+        self.blockSignals(True)
+        self.clear()
+        root = QTreeWidgetItem(self, [t('All materials')])
+        root.setData(0, Qt.ItemDataRole.UserRole, ('', ''))
+        root.setIcon(0, self.style().standardIcon(QStyle.StandardPixmap.SP_DirHomeIcon))
+        for identity, library in libraries.items():
+            source = library['source']
+            parent = QTreeWidgetItem(self, [source.name])
+            parent.setData(0, Qt.ItemDataRole.UserRole, (identity, ''))
+            parent.setToolTip(0, source.name + '\n' + source.url)
+            from .library import source_summary
+            summary = source_summary(library)
+            if summary.tone in {'error', 'warning'}:
+                parent.setIcon(0, self.style().standardIcon(QStyle.StandardPixmap.SP_MessageBoxCritical if summary.tone == 'error'
+                                                          else QStyle.StandardPixmap.SP_MessageBoxWarning))
+                parent.setToolTip(0, source.name + '\n' + summary.title + '\n' + summary.detail)
+            font = parent.font(0)
+            font.setWeight(QFont.Weight.DemiBold)
+            parent.setFont(0, font)
+            for course, name in sorted(library['courses'].items(), key=lambda row: row[1].casefold()):
+                child = QTreeWidgetItem(parent, [name])
+                child.setData(0, Qt.ItemDataRole.UserRole, (identity, course))
+                child.setToolTip(0, name + '\n' + source.name)
+            parent.setExpanded(expanded.get(identity, True))
+        if not self.select_scope(*scope):
+            self.select_scope(scope[0]) or self.select_scope()
+        self.verticalScrollBar().setValue(scroll)
+        self.blockSignals(False)
+
+    def keyPressEvent(self, event):
+        if event.key() == Qt.Key.Key_F2 and self.scope()[0]:
+            self.manageRequested.emit(self.scope()[0])
+        else:
+            super().keyPressEvent(event)
 
 
 class StatusMark(QWidget):
-    def __init__(self, parent=None):
+    def __init__(self, parent=None, compact=False):
         super().__init__(parent)
         self.tone = 'neutral'
-        self.setFixedSize(42, 42)
+        self.setFixedSize(22 if compact else 42, 22 if compact else 42)
         self.setAccessibleName(t('Synchronization status'))
 
     def set_tone(self, tone):
@@ -128,11 +223,12 @@ class StatusMark(QWidget):
             color = self.palette().color(QPalette.ColorRole.Text)
         p = QPainter(self)
         p.setRenderHint(QPainter.RenderHint.Antialiasing)
+        p.scale(self.width() / 42, self.height() / 42)
         fill = QColor(color)
         fill.setAlpha(22)
         p.setBrush(fill)
         p.setPen(Qt.PenStyle.NoPen)
-        p.drawRoundedRect(self.rect(), 12, 12)
+        p.drawRoundedRect(QRect(0, 0, 42, 42), 12, 12)
         p.setBrush(Qt.BrushStyle.NoBrush)
         p.setPen(QPen(color, 1.8, Qt.PenStyle.SolidLine, Qt.PenCapStyle.RoundCap, Qt.PenJoinStyle.RoundJoin))
         p.drawEllipse(10, 10, 22, 22)
@@ -148,6 +244,8 @@ class StatusMark(QWidget):
 
 
 class MaterialTable(QTableWidget):
+    resized = Signal()
+
     def __init__(self, parent=None):
         super().__init__(0, 3, parent)
         self.empty = QWidget(self.viewport())
@@ -176,24 +274,35 @@ class MaterialTable(QTableWidget):
     def resizeEvent(self, event):
         super().resizeEvent(event)
         self.empty.setGeometry(self.viewport().rect())
+        self.resized.emit()
+
+    def keyPressEvent(self, event):
+        if event.key() == Qt.Key.Key_Menu or (event.key() == Qt.Key.Key_F10 and event.modifiers() & Qt.KeyboardModifier.ShiftModifier):
+            item = self.item(self.currentRow(), 0)
+            if item and not self.isRowHidden(item.row()):
+                self.customContextMenuRequested.emit(self.visualItemRect(item).center())
+        else:
+            super().keyPressEvent(event)
 
 
 class SyncPanel(QFrame):
-    def __init__(self, parent=None):
+    def __init__(self, parent=None, *, compact=False):
         super().__init__(parent)
-        self.setObjectName('syncPanel')
+        self.compact = compact
+        self.tone = 'neutral'
+        self.setObjectName('compactSync' if compact else 'syncPanel')
         outer = QVBoxLayout(self)
-        outer.setContentsMargins(18, 17, 18, 15)
-        outer.setSpacing(10)
+        outer.setContentsMargins(0, 6, 0, 6) if compact else outer.setContentsMargins(18, 17, 18, 15)
+        outer.setSpacing(5 if compact else 10)
         row = QHBoxLayout()
-        row.setSpacing(14)
-        self.mark = StatusMark()
+        row.setSpacing(8 if compact else 14)
+        self.mark = StatusMark(compact=compact)
         row.addWidget(self.mark, alignment=Qt.AlignmentFlag.AlignTop)
         text = QVBoxLayout()
         text.setSpacing(4)
-        self.title = QLabel()
-        self.title.setObjectName('statusTitle')
-        self.title.setWordWrap(True)
+        self.title = ElidedLabel() if compact else QLabel()
+        self.title.setObjectName('compactStatusTitle' if compact else 'statusTitle')
+        self.title.setWordWrap(not compact)
         self.detail = QLabel()
         self.detail.setObjectName('subtitle')
         self.detail.setWordWrap(True)
@@ -201,10 +310,22 @@ class SyncPanel(QFrame):
         self.detail.setTextFormat(Qt.TextFormat.PlainText)
         self.detail.setAccessibleName(t('Synchronization status'))
         text.addWidget(self.title)
-        text.addWidget(self.detail)
+        if not compact:
+            text.addWidget(self.detail)
         row.addLayout(text, 1)
         self.recovery_layout = row
+        self.disclosure = QPushButton(t('Details'))
+        self.disclosure.setObjectName('compactControl')
+        self.disclosure.setCheckable(True)
+        self.disclosure.setAccessibleName(t('Show synchronization details'))
+        self.disclosure.setToolTip(t('Show synchronization details'))
+        self.disclosure.setVisible(compact)
+        self.disclosure.toggled.connect(self.set_expanded)
+        if compact:
+            row.addWidget(self.disclosure)
         outer.addLayout(row)
+        if compact:
+            outer.addWidget(self.detail)
         self.progress = QProgressBar()
         self.progress.setAccessibleName(t('Synchronization progress'))
         self.progress.setRange(0, 0)
@@ -217,13 +338,40 @@ class SyncPanel(QFrame):
         self.meta.setWordWrap(True)
         self.meta.setTextFormat(Qt.TextFormat.PlainText)
         outer.addWidget(self.meta)
+        self.schedule = ElidedLabel()
+        self.schedule.setObjectName('statusMeta')
+        self.schedule.setVisible(compact)
+        outer.addWidget(self.schedule)
+        self.report_host = QScrollArea()
+        self.report_host.setWidgetResizable(True)
+        self.report_host.setFrameShape(QFrame.Shape.NoFrame)
+        self.report_host.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
+        self.report_host.setMinimumHeight(100)
+        self.report_host.setMaximumHeight(200)
+        self.report_body = QWidget()
+        self.report_layout = QVBoxLayout(self.report_body)
+        self.report_layout.setContentsMargins(0, 0, 0, 0)
+        self.report_host.setWidget(self.report_body)
+        self.report_host.hide()
+        outer.addWidget(self.report_host)
+        self.set_expanded(False)
+
+    def set_expanded(self, expanded):
+        self.detail.setVisible(not self.compact or expanded or self.tone == 'error')
+        self.meta.setVisible(not self.compact or expanded)
+        self.report_host.setVisible(self.compact and expanded)
+        self.disclosure.setText(t('Hide details') if expanded else t('Details'))
+        self.disclosure.setAccessibleName(t('Hide synchronization details') if expanded else t('Show synchronization details'))
+        self.update_minimum_height()
 
     def set_state(self, title, detail, tone, *, busy=False):
         self.title.setText(title)
         self.detail.setText(detail)
         self.detail.setAccessibleName(detail)
+        self.tone = tone
         self.mark.set_tone(tone)
         self.progress.setVisible(busy)
+        self.set_expanded(self.disclosure.isChecked())
         self.update_minimum_height()
 
     def resizeEvent(self, event):
@@ -231,6 +379,9 @@ class SyncPanel(QFrame):
         self.update_minimum_height()
 
     def update_minimum_height(self):
+        if self.compact:
+            self.setMinimumHeight(0)
+            return
         title_height = max(self.title.fontMetrics().height() + 2, self.title.heightForWidth(max(120, self.title.width())))
         detail_height = max(self.detail.fontMetrics().height() + 2, self.detail.heightForWidth(max(120, self.detail.width())))
         meta_height = max(self.meta.fontMetrics().height() + 2, self.meta.heightForWidth(max(120, self.width() - 36)))

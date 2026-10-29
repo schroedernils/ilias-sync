@@ -278,7 +278,9 @@ DE.update({'Change time':'Zeit ändern','Remove time':'Zeit entfernen'})
 
 DE.update({
     'All materials': 'Alle Materialien', 'Library navigation': 'Bibliotheksnavigation',
+    'Choose sync courses…': 'Sync-Kurse auswählen …', 'Show course': 'Kurs anzeigen',
     'All course materials': 'Alle Kursmaterialien', 'Across {count} universities': 'Aus {count} Hochschulen',
+    'From one university': 'Aus einer Hochschule',
     'Search in this course…': 'Diesen Kurs durchsuchen …', 'Search this university…': 'Diese Hochschule durchsuchen …',
     'Search all universities…': 'Alle Hochschulen durchsuchen …',
     'University actions': 'Hochschule verwalten', 'University report': 'Bericht der Hochschule',
@@ -301,6 +303,7 @@ DE.update({
 
 DE.update({
     'Renew sign-in': 'Anmeldung erneuern', 'Save and check': 'Speichern und prüfen',
+    'Current university password': 'Aktuelles Hochschulpasswort',
     'Sign-in confirmed': 'Anmeldung bestätigt', 'Check successful again': 'Prüfung wieder erfolgreich',
     'New check not confirmed': 'Erneute Prüfung nicht bestätigt',
     'Check again': 'Erneut prüfen', 'Check storage location': 'Speicherort prüfen',
