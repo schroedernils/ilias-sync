@@ -110,14 +110,14 @@ async def test_pipeline_consumes_ready_pages_without_waiting_for_detached_pages(
 async def test_prefetch_runs_during_membership_discovery_and_does_not_publish_removed_course(source, monkeypatch):
     from ilias_sync.engine import synchronize
     root_read = asyncio.Event()
-    dashboard_read = asyncio.Event()
+    membership_read = asyncio.Event()
     removed = False
     original_files = None
 
     class DelayedResponse(Response):
         async def read(self):
-            if 'Dashboard' in str(self.url):
-                dashboard_read.set()
+            if 'ilmembershipoverviewgui' in str(self.url).lower():
+                membership_read.set()
                 async with asyncio.timeout(2):
                     await root_read.wait()
             else:
@@ -128,6 +128,8 @@ async def test_prefetch_runs_during_membership_discovery_and_does_not_publish_re
     class PipelinedSession(FixtureSession):
         def get(self, url, **kwargs):
             if 'Dashboard' in url:
+                return Response(url, page('<a href="/ilias/ilias.php?baseClass=ilmembershipoverviewgui&amp;cmd=show">Courses</a>'))
+            if 'ilmembershipoverviewgui' in url.lower():
                 return DelayedResponse(url, page('' if removed else '<a href="/go/crs/123">Algorithms</a>'))
             if '/go/crs/123' in url:
                 return DelayedResponse(url, page(file_html()))
@@ -140,10 +142,10 @@ async def test_prefetch_runs_during_membership_discovery_and_does_not_publish_re
     monkeypatch.setattr('aiohttp.ClientSession', PipelinedSession)
     repeated = await synchronize(source)
     assert repeated['counts'] == {'unchanged': 1}
-    assert dashboard_read.is_set() and root_read.is_set()
+    assert membership_read.is_set() and root_read.is_set()
     removed = True
     root_read.clear()
-    dashboard_read.clear()
+    membership_read.clear()
     from PFERD.crawl import CrawlError
     with pytest.raises(CrawlError, match='No courses found'):
         await synchronize(source)
@@ -228,6 +230,43 @@ async def test_cached_pages_do_not_mask_expired_login(source, monkeypatch):
         await synchronize(source)
     # Last successful index remains intact for the next authenticated attempt.
     assert read_json(data_dir() / 'sources' / source.id / 'page-index.json', {})['plans']
+
+
+async def test_warm_prefetch_waits_for_expired_session_login_before_private_requests(source, monkeypatch):
+    from ilias_sync.engine import synchronize, make_crawler
+    # Retain a real warm index so the next run has speculative work available.
+    monkeypatch.setattr('aiohttp.ClientSession', FixtureSession)
+    await synchronize(source)
+    before_auth = []
+    auth_calls = []
+
+    class ExpiredSession(FixtureSession):
+        def __init__(self, *args, **kwargs):
+            self.authenticated = False
+
+        def get(self, url, **kwargs):
+            if not self.authenticated:
+                if 'Dashboard' not in url:
+                    before_auth.append(url)
+                return Response(url, b'<div class="il-maincontrols-metabar"><a href="login.php">Login</a></div>')
+            return super().get(url, **kwargs)
+
+    def build(*args, **kwargs):
+        crawler = make_crawler(*args, **kwargs)
+        async def authenticate():
+            auth_calls.append(True)
+            await asyncio.sleep(0)
+            crawler.session.authenticated = True
+        crawler._authenticate = authenticate
+        return crawler
+
+    monkeypatch.setattr('ilias_sync.engine.make_crawler', build)
+    monkeypatch.setattr('aiohttp.ClientSession', ExpiredSession)
+    result = await synchronize(source)
+    assert auth_calls == [True]
+    assert before_auth == []
+    assert result['counts'] == {'unchanged': 1}
+    assert result['enumeration_complete'] is True
 
 
 async def test_stable_redirects_are_revalidated_and_fall_back_when_routes_expire(source, tmp_path):

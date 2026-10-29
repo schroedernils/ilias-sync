@@ -357,9 +357,12 @@ def make_crawler(source: Source, emit=lambda event: None, *, discover=False):
             return BeautifulSoup(data.body, 'lxml')
 
         async def _run(self):
+            # Establish one authenticated session before speculative requests.
+            # Expired-session redirects can otherwise rotate cookies while the
+            # login POST completes, invalidating the newly accepted sign-in.
+            dashboard = await self._get_page(source.url + "/ilias.php?baseClass=ilDashboardGUI&cmd=show&view=2")
             if not discover:
                 self.page_index.start_prefetch()
-            dashboard = await self._get_page(source.url + "/ilias.php?baseClass=ilDashboardGUI&cmd=show&view=2")
             found = {r['id']: r for r in memberships(dashboard.soup, source.url)}
             pending = membership_navigation(dashboard.soup, source.url)
             visited = set()
