@@ -135,3 +135,18 @@ VoiceOver, native Windows/Linux or additional external participant test is claim
 The user's current settings (including their daily schedule) remained byte-identical, and SHA-256 comparisons of all
 **66 existing archive files** found no missing or modified files after installation and native cancellation. Private
 snapshots and the comparison receipt are excluded from Git. No push, merge or release was performed.
+
+## Authentication recovery event correction — 29 October 2026
+
+The live failure was recorded correctly as `Sign in again`/`login_required`, but a translated transient worker message
+overrode it with generic Needs attention/Check again. Worker errors now retain typed recovery fields and raw semantic
+messages until presentation. A completed current attempt replaces the transient error; an older success cannot replace
+a busy/start failure. Regressions exercise DE/EN, legacy and structured events, unrecognized authentication details,
+refresh, process completion, and the actual sign-in action. **237 tests passed in 14.03 seconds**, Ruff and whitespace
+checks passed, and all 87 synthetic review states rendered with bounded controls.
+
+Installed build **`483a4dc9cb40-0c5aad99c2a2`** passed packaged/installed offline self-tests and strict ad-hoc signature
+verification. Native inspection showed the real expired-session result with the larger filled red alert mark, framed
+error area and **Anmeldung erneuern** action. The action opened the focused secure-password dialog with **Speichern
+und prüfen**. No credential was entered or live sign-in attempted. Current settings and all 66 archive file hashes were
+unchanged; the preceding app is retained privately under `.local/auth-action-fix-20261029/`.

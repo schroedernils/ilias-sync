@@ -2,6 +2,11 @@
 
 ## Unreleased
 
+Keep structured authentication and recovery facts through worker messages, localization and completion. Do not replace
+an expired-sign-in action with a generic retry after a failed sync. Prefer the current persisted attempt over transient
+worker text while retaining busy/start failures that have no new recorded outcome. Make critical failures more visible
+with a larger filled alert mark, stronger title and a bordered error surface.
+
 Make the local material library primary: All materials → university → course navigation, source-aware global search,
 compact file rows with type marks, adaptive sortable date/course columns, keyboard context menus and a hideable sidebar.
 Keep course browsing separate from sync-course selection and move university configuration into its contextual menu.
