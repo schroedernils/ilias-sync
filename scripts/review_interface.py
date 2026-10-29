@@ -159,6 +159,55 @@ def main():
             window.filter_files()
             capture(window, 'inline-filters-' + mode)
             window.close()
+        # Shared-library and recovery scenarios use synthetic accounts only.
+        second = Source('Hochschule der Medien', 'https://second.example.edu', str(Path(temporary) / 'HdM'), client_id='fixture')
+        settings.save_source(second)
+        second_state = data_dir() / 'sources' / second.id
+        write_json(second_state / 'courses.json', [{'id': 'crs-1', 'name': 'Medieninformatik [Übung]', 'url': second.url + '/go/crs/1'}])
+        many = {f'file:{i}': {'path': f'Medieninformatik/Woche {i // 4 + 1}/Material {i:02}.{ext}',
+                'course_id': 'crs-1', 'course_name': 'Medieninformatik [Übung]',
+                'logical': f'crs-1/Woche {i // 4 + 1}/Material {i:02}.{ext}', 'target_stat': [1024 * (i + 1)]}
+                for i, ext in enumerate(['pdf', 'zip', 'png', 'java', 'xlsx', 'mp4', 'docx', 'txt'] * 5)}
+        write_json(second_state / 'manifest.json', {'files': many})
+        write_json(second_state / 'status.json', {'state': 'Up to date', 'scope': source_scope(second),
+            'finished': time.time(), 'result': {'counts': {'unchanged': 40}}})
+        settings.value['language'] = 'de'
+        settings.save()
+        for mode in ('light', 'dark'):
+            app.theme.set_mode(mode)
+            window = MainWindow()
+            window.sources.select_scope()
+            for width, height in [(820, 560), (980, 700), (1280, 800)]:
+                window.resize(width, height)
+                capture(window, f'global-{width}-{mode}')
+            window.resize(980, 700)
+            window.sources.select_scope(second.id, 'crs-1')
+            capture(window, 'course-' + mode)
+            window.filter_files()
+            capture(window, 'course-filters-' + mode)
+            window.filter_panel.hide()
+            for name, failure in [
+                ('signin', {'state': 'Needs attention', 'message': 'Sign-in expired or was rejected by ILIAS.'}),
+                ('network', {'state': 'Needs attention', 'failure_kind': 'network'}),
+                ('server', {'state': 'Needs attention', 'server_deferred': True, 'server_retry_at': time.time() + 1800}),
+            ]:
+                write_json(second_state / 'status.json', failure)
+                window.refresh()
+                capture(window, 'recovery-' + name + '-' + mode)
+                window.report()
+                capture(window, 'recovery-' + name + '-expanded-' + mode)
+                window.resize(820, 560)
+                capture(window, 'recovery-' + name + '-compact-' + mode)
+                window.resize(980, 700)
+                window.details_button.setChecked(False)
+            window.sources.select_scope()
+            capture(window, 'global-attention-' + mode)
+            window.report()
+            capture(window, 'global-attention-expanded-' + mode)
+            window.close()
+            recovery = SourceDialog(settings, second, signin_recovery=True)
+            capture(recovery, 'renew-signin-' + mode)
+            recovery.close()
         app.theme.set_mode('light')
         from PySide6.QtGui import QFont
         enlarged_font = QFont(app.font())

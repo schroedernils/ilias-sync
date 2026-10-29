@@ -2,6 +2,17 @@
 
 ## Unreleased
 
+Make the local material library primary: All materials → university → course navigation, source-aware global search,
+compact file rows with type marks, adaptive sortable date/course columns, keyboard context menus and a hideable sidebar.
+Keep course browsing separate from sync-course selection and move university configuration into its contextual menu.
+Replace the large sync card and duplicate report entries with compact status and expandable inline reports.
+Allow library browsing while background work runs; identify the active university and retain per-university results.
+
+Guide error recovery through a specific action, correction, renewed check and verified outcome. Add focused sign-in
+renewal, Save and check, network/storage/folder guidance, explicit server-pause/remote-access steps and missing-file
+restoration verification. Recognize exact legacy expired-session messages, avoid guessing unknown causes, preserve
+warnings after successful sign-in and reject stale success as repair evidence.
+
 Add task-oriented bilingual help with readable paragraphs and compact topic navigation. Keep check evidence on publication-stage cancellation/errors; distinguish server cooldown from calendar execution and avoid counting server deferral as another failure. Prefer the report exclusions tab when it is the relevant detail. Add an isolated synthetic change-review/read-check comparison without connecting it to production or asserting offline residency.
 
 Bind preview packages and attempt history to a source build identity. Preserve attempted/planned course roots and failed-subtree evidence even before files are listed. Add a shared per-host HTTP budget across pages, streamed downloads, authentication and redirects, persisted Retry-After and bounded safe-method retries; keep POSTs non-replayed. Record actual sent-request counts and verify lower-concurrency coverage with a local HTTPS server.

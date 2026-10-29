@@ -1,5 +1,40 @@
 # Interface and content
 
+## Material-first library and recovery — 29 October 2026
+
+The current workspace starts with materials. The sidebar offers All materials and two levels of navigation:
+university → course. Selecting a course filters the local library only; it never changes synchronization targets.
+The university's (…) menu holds **Choose sync courses**, folder mapping, open folder and profile editing.
+File opening remains directly available through double-click, Return, Cmd+O and the context menu. Cmd+F focuses
+the scoped search. A View command and toolbar button hide/reveal the sidebar.
+
+Rows use compact filename/context lines, extension-specific document marks and numeric size/date sorting.
+Global results lead with university and course; course results lead with the local subfolder. Wide layouts expose
+course/date columns, while compact layouts retain full metadata in accessible text and tooltips. Identical course
+IDs and object IDs on different installations remain distinct, including custom destination roots. File classification
+does not read or hydrate documents. No content or credentials are moved by browsing.
+
+The former large status card and duplicated report buttons are replaced by one bottom status area. Healthy/idle
+states remain compact; errors retain their explanation and a specific recovery action. Details expand inline, with
+a scrollable report/guide at compact sizes. Attempt history, affected files, exclusions and technical evidence keep
+their existing meanings. Successful synchronization with changes and a successful unchanged check use different
+wording. Aggregates never promote one university's success to the entire library. A running university stays named
+in the status even when the person browses another university; browsing remains enabled during work.
+
+Recovery has an explicit completion loop: explain impact → specific correction → save and check → new verified
+outcome or continued guidance. Expired sign-in opens a focused dialog with the affected university and the relevant
+password/session controls. Cancel preserves the saved profile. Save and check starts a manual university check;
+only a newly completed result for the correct configuration can confirm recovery. Warnings remain warnings even
+after successful sign-in. File restoration additionally checks that the selected recorded file actually exists.
+Network/storage causes are shown only when established by exception type/errno. Unknown causes stay unknown.
+Server cooldowns and unavailable remote content explain why repeated immediate retries cannot repair access.
+
+The hierarchy and scoped, continuously filtering search follow Apple's guidance for
+[sidebars](https://developer.apple.com/design/human-interface-guidelines/sidebars) and
+[search fields](https://developer.apple.com/design/human-interface-guidelines/search-fields).
+This remains a Qt desktop application with native macOS interactions, rather than an AppKit/SwiftUI rewrite.
+The sections below document earlier iterations and their retained behavioral constraints.
+
 The default language is German; Settings offers an immediate switch to English. Server-provided course names and filenames keep their original wording. The interface uses system typography, a quiet neutral palette, a single blue action accent, visible keyboard focus and standard desktop controls.
 
 The main view answers: which ILIAS, where are my files, what happened, what can I do next? Marketing headings, repeated privacy claims, the permanent version footer and empty activity console were removed. Detailed activity is expandable. The login form only shows fields needed by the selected method. Errors explain the next action; unavailable and skipped content remains visible in the result. A lack of content is not represented as a successful full archive.
