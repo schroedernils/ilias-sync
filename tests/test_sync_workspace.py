@@ -110,3 +110,11 @@ def test_notification_permission_feedback_survives_a_library_refresh(window):
     assert 'macOS' in feedback
     window.refresh()
     assert window.notification_permission_note.text() == feedback
+
+
+@pytest.mark.parametrize('authorization, expected', [(-1, 'nicht verfügbar'), (1, 'abgelehnt'), (0, 'erlaube')])
+def test_notification_test_explains_native_permission_state(window, authorization, expected):
+    with patch('ilias_sync.notifications.permission', return_value=authorization), patch('ilias_sync.notifications.native_notify') as notify:
+        window.test_notification()
+    assert expected in window.notification_permission_note.text()
+    notify.assert_not_called()

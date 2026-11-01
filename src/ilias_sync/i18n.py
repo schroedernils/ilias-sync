@@ -367,6 +367,10 @@ DE.update({
 DE.update({
     'Overview': 'Übersicht', 'Notifications': 'Benachrichtigungen', 'Workspace view': 'Ansicht',
     'Test notification': 'Testmitteilung',
+    'macOS notification access is unavailable. In-app notices remain available.':
+        'Der Zugriff auf macOS-Mitteilungen ist nicht verfügbar. Die Meldungen in der App bleiben verfügbar.',
+    'macOS has denied notifications. Enable IliasSync in System Settings → Notifications.':
+        'macOS hat Mitteilungen abgelehnt. Aktiviere IliasSync in Systemeinstellungen → Mitteilungen.',
     'Enable notifications above and allow IliasSync in macOS first.': 'Aktiviere oben die Mitteilungen und erlaube sie für IliasSync in macOS.',
     'Notifications for new sync problems are enabled.': 'Mitteilungen bei neuen Sync-Problemen sind aktiviert.',
     'Test notification handed to macOS.': 'Testmitteilung an macOS übergeben.',

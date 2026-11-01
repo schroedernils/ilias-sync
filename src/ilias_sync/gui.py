@@ -1891,7 +1891,16 @@ class MainWindow(QMainWindow):
 
     def test_notification(self):
         from .notifications import native_notify, permission, preferences
-        if not preferences().get('enabled') or permission() != 2:
+        authorization = permission()
+        if authorization == -1:
+            self.notification_feedback = t('macOS notification access is unavailable. In-app notices remain available.')
+            self.notification_permission_note.setText(self.notification_feedback)
+            return
+        if authorization == 1:
+            self.notification_feedback = t('macOS has denied notifications. Enable IliasSync in System Settings → Notifications.')
+            self.notification_permission_note.setText(self.notification_feedback)
+            return
+        if not preferences().get('enabled') or authorization != 2:
             self.notification_feedback = t('Enable notifications above and allow IliasSync in macOS first.')
             self.notification_permission_note.setText(self.notification_feedback)
             return
