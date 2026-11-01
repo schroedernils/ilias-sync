@@ -54,6 +54,15 @@ QWidget#inlineReport QTabWidget::pane {{ padding-top: 5px; }}
 QWidget#inlineReport QTabBar::tab {{ padding: 5px 9px; }}
 QWidget#inlineReport QComboBox {{ padding: 5px 26px 5px 8px; }}
 QWidget#libraryEmpty {{ background: {c['surface']}; }}
+QWidget#weekDay {{ border-bottom: 1px solid {c['border']}; }}
+QWidget#weekDay QLabel, QWidget#weekDay QWidget {{ border: none; }}
+QLabel#weekDayName {{ font-weight: 600; padding-top: 6px; }}
+QTimeEdit#weekTimeEdit {{ padding: 5px 6px; border: 1px solid {c['input_border']}; border-radius: 6px; }}
+QTimeEdit#weekTimeEdit:focus {{ border: 2px solid {c['accent']}; padding: 4px 5px; }}
+QPushButton#weekAdd {{ padding: 0; min-height: 0; font-size: 19px; color: {c['accent']}; }}
+QPushButton#weekRemove {{ padding: 0; min-height: 0; background: transparent; border-color: transparent; color: {c['muted']}; font-size: 16px; }}
+QPushButton#weekRemove:hover {{ background: {c['hover']}; color: {c['error']}; }}
+QPushButton#weekAdd:focus, QPushButton#weekRemove:focus {{ border: 2px solid {c['accent']}; }}
 QProgressBar {{ background: {c['inset']}; border: none; border-radius: 1px; }}
 QProgressBar::chunk {{ background: {c['accent']}; border-radius: 1px; }}
 QLabel#sectionTitle {{ font-size: 15px; font-weight: 600; }}

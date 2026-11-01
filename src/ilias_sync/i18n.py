@@ -117,6 +117,19 @@ DE = {
 
 
 DE.update({
+    'Weekly schedule': 'Wochenplan', 'Weekly sync schedule': 'Sync-Wochenplan', 'Your week': 'Deine Woche',
+    'Monday': 'Montag', 'Tuesday': 'Dienstag', 'Wednesday': 'Mittwoch', 'Thursday': 'Donnerstag',
+    'Friday': 'Freitag', 'Saturday': 'Samstag', 'Sunday': 'Sonntag', 'No sync': 'Kein Sync',
+    'Add times with +. Days without times stay free.': 'Mit + eine Uhrzeit ergänzen. Ohne Uhrzeit bleibt der Tag frei.',
+    'Add time on {day}': 'Uhrzeit am {day} hinzufügen', 'Sync time on {day}': 'Sync-Uhrzeit am {day}',
+    'Remove time on {day}': 'Uhrzeit am {day} entfernen', 'Copy times…': 'Zeiten kopieren …',
+    'Apply to Monday–Friday': 'Für Montag bis Freitag übernehmen', 'Apply to all days': 'Für alle Tage übernehmen',
+    'Choose valid weekdays and times (HH:MM).': 'Wähle gültige Wochentage und Uhrzeiten (HH:MM).',
+    'Add a time to at least one weekday.': 'Füge an mindestens einem Tag eine Uhrzeit hinzu.',
+    'Choose one schedule mode.': 'Wähle eine Art der Zeitplanung.',
+    'Automatic sync: weekly schedule': 'Automatische Synchronisierung nach Wochenplan',
+    'Your plan applies when you save.': 'Erst Speichern übernimmt deinen Plan.',
+    'Local time · your Mac must be awake, signed in and online.': 'Lokale Uhrzeit · dein Mac muss wach, angemeldet und online sein.',
     '1 file unavailable': '1 Datei nicht verfügbar', '1 local edit preserved': '1 lokale Änderung geschützt',
     '1 file': '1 Datei',
     'The last sync did not finish': 'Die letzte Synchronisierung wurde unterbrochen',

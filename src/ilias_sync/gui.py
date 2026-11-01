@@ -9,14 +9,14 @@ from dataclasses import replace
 from pathlib import Path
 from uuid import uuid4
 
-from PySide6.QtCore import QFileSystemWatcher, QProcess, Qt, QTimer, QUrl, QTime
+from PySide6.QtCore import QFileSystemWatcher, QProcess, Qt, QTimer, QUrl
 from PySide6.QtGui import QAction, QColor, QDesktopServices, QPainter, QFontDatabase, QPalette, QKeySequence, QShortcut
 from PySide6.QtWidgets import (
     QApplication, QCheckBox, QComboBox, QDialog, QDialogButtonBox, QFileDialog, QFormLayout,
     QHBoxLayout, QHeaderView, QLabel, QLineEdit, QListWidget, QListWidgetItem, QMainWindow, QMenu,
     QMessageBox, QPushButton, QScrollArea, QSplitter, QTableWidget, QTableWidgetItem,
     QTextEdit, QTextBrowser, QTabWidget, QVBoxLayout, QWidget, QSizePolicy, QFrame, QStackedWidget, QTreeWidget, QTreeWidgetItem,
-    QTimeEdit, QTabBar,
+    QTabBar,
 )
 
 from . import __version__
@@ -1177,49 +1177,28 @@ class SettingsDialog(QDialog):
         form.addRow(self.enabled)
         self.schedule_mode = Dropdown()
         self.schedule_mode.addItem(t('At intervals'), 'interval')
-        self.schedule_mode.addItem(t('At fixed times'), 'times')
-        self.schedule_mode.setCurrentIndex(max(0, self.schedule_mode.findData(settings.value.get('schedule_mode', 'interval'))))
+        self.schedule_mode.addItem(t('Weekly schedule'), 'weekly')
+        mode = settings.value.get('schedule_mode', 'interval')
+        self.schedule_mode.setCurrentIndex(1 if mode in {'times', 'weekly'} else 0)
         form.addRow(t('Schedule'), self.schedule_mode)
         self.hours = Dropdown()
         for n in (1, 3, 6, 12, 24):
             self.hours.addItem(t('Every hour') if n == 1 else t('Every {n} hours', n=n), n)
         self.hours.setCurrentIndex(self.hours.findData(settings.value['interval_hours']))
         form.addRow(t('Interval'), self.hours)
-        self.times_panel = QWidget()
-        times = QVBoxLayout(self.times_panel)
-        times.setContentsMargins(0, 0, 0, 0)
-        times.setSpacing(7)
-        self.times_empty = label('Add a time for your daily sync.', 'subtitle')
-        times.addWidget(self.times_empty)
-        self.times_list = QListWidget()
-        self.times_list.setAccessibleName(t('Daily sync times'))
-        self.times_list.addItems(settings.value.get('sync_times', []))
-        self.times_list.setStyleSheet('QListWidget::item { padding: 5px 9px; margin: 0; }')
-        times.addWidget(self.times_list)
-        row = QHBoxLayout()
-        self.time_edit = QTimeEdit(QTime(9, 0))
-        self.time_edit.setDisplayFormat('HH:mm')
-        self.time_edit.setAccessibleName(t('Sync time'))
-        row.addWidget(self.time_edit)
-        self.add_time_button = button('Add time', self.add_time)
-        row.addWidget(self.add_time_button)
-        times.addLayout(row)
-        time_edit_actions = QHBoxLayout()
-        self.update_time_button = button('Change time', self.edit_time)
-        self.update_time_button.setAccessibleName(t('Update selected time'))
-        self.remove_time_button = button('Remove time', self.remove_time)
-        self.remove_time_button.setAccessibleName(t('Remove selected time'))
-        time_edit_actions.addWidget(self.update_time_button)
-        time_edit_actions.addWidget(self.remove_time_button)
-        times.addLayout(time_edit_actions)
-        form.addRow(t('Times'), self.times_panel)
+        from .policy import weekly_draft
+        from .schedule_widgets import WeeklySchedule
+        self.week_plan = WeeklySchedule(weekly_draft(settings.value))
+        form.addRow(self.week_plan)
         self.battery = QCheckBox(t('Pause on battery power'))
         self.battery.setChecked(settings.value['battery_saver'])
         form.addRow(self.battery)
         self.schedule_preview = label('', 'subtitle')
-        form.addRow(self.schedule_preview)
-        form.addRow(label('Schedules use the computer’s local time, including daylight saving changes. The OS decides when missed runs can resume; the computer must be awake, signed in and online.', 'subtitle'))
+        timing_note = label('Local time · your Mac must be awake, signed in and online.', 'statusMeta')
+        timing_note.setToolTip(t('Schedules use the computer’s local time, including daylight saving changes. The OS decides when missed runs can resume; the computer must be awake, signed in and online.'))
+        form.addRow(timing_note)
         self.tabs.addTab(schedule, t('Schedule'))
+        outer.addWidget(self.schedule_preview)
         self.error = label('', 'error')
         self.error.hide()
         outer.addWidget(self.error)
@@ -1231,15 +1210,15 @@ class SettingsDialog(QDialog):
         self.buttons.accepted.connect(self.save)
         self.buttons.rejected.connect(self.reject)
         footer.addWidget(self.buttons)
-        outer.addWidget(label('Changes apply when you save. Appearance is previewed until then.', 'subtitle'))
+        self.draft_note = label('Changes apply when you save. Appearance is previewed until then.', 'subtitle')
+        outer.addWidget(self.draft_note)
         outer.addLayout(footer)
         self.appearance.currentIndexChanged.connect(self.preview_theme)
         self.tabs.currentChanged.connect(self.update_schedule_fields)
         self.enabled.toggled.connect(self.update_schedule_fields)
         self.schedule_mode.currentIndexChanged.connect(self.update_schedule_fields)
         self.hours.currentIndexChanged.connect(self.update_schedule_fields)
-        self.times_list.currentRowChanged.connect(self.select_time)
-        self.time_edit.timeChanged.connect(self.update_time_controls)
+        self.week_plan.changed.connect(self.update_schedule_fields)
         for widget, name in [(self.language, 'Language'), (self.appearance, 'Theme'), (self.hours, 'Interval'), (self.schedule_mode, 'Schedule')]:
             widget.setAccessibleName(t(name))
         self.update_schedule_fields()
@@ -1256,68 +1235,30 @@ class SettingsDialog(QDialog):
         scroll.setWidget(body)
         return scroll, form
 
-    def values(self):
-        return sorted({self.times_list.item(i).text() for i in range(self.times_list.count())})
-
-    def add_time(self):
-        value = self.time_edit.time().toString('HH:mm')
-        values = sorted(set(self.values()) | {value})
-        self.times_list.clear()
-        self.times_list.addItems(values)
-        self.times_list.setCurrentRow(values.index(value))
-        self.update_schedule_fields()
-
-    def select_time(self, row):
-        if row >= 0:
-            self.time_edit.setTime(QTime.fromString(self.times_list.item(row).text(), 'HH:mm'))
-        self.update_time_controls()
-
-    def edit_time(self):
-        row = self.times_list.currentRow()
-        if row < 0:
-            return
-        value = self.time_edit.time()
-        self.times_list.blockSignals(True)
-        self.times_list.takeItem(row)
-        self.times_list.blockSignals(False)
-        self.time_edit.setTime(value)
-        self.add_time()
-
-    def remove_time(self):
-        if self.times_list.currentRow() >= 0:
-            self.times_list.takeItem(self.times_list.currentRow())
-        self.update_schedule_fields()
-
-    def update_time_controls(self, *_):
-        value = self.time_edit.time().toString('HH:mm')
-        selected = self.times_list.currentRow() >= 0
-        self.add_time_button.setEnabled(value not in self.values())
-        self.add_time_button.setToolTip(t('This time is already scheduled') if value in self.values() else t('Add a daily sync time'))
-        self.update_time_button.setEnabled(selected and value not in self.values())
-        self.remove_time_button.setEnabled(selected)
-
     def update_schedule_fields(self, *_):
         from .presentation import schedule_expectation
-        fixed = self.schedule_mode.currentData() == 'times'
+        weekly = self.schedule_mode.currentData() == 'weekly'
         enabled = self.enabled.isChecked()
         self.schedule_mode.setEnabled(enabled)
         self.hours.setEnabled(enabled)
         self.battery.setEnabled(enabled)
-        self.times_panel.setEnabled(enabled)
-        for widget, visible in [(self.hours, not fixed), (self.times_panel, fixed)]:
-            widget.setVisible(visible)
-            form = widget.parentWidget().layout()
-            if form.labelForField(widget):
-                form.labelForField(widget).setVisible(visible)
-        count = self.times_list.count()
-        self.times_empty.setVisible(not count)
-        self.times_list.setVisible(bool(count))
-        self.times_list.setFixedHeight(min(110, 12 + count * 31))
-        self.update_time_controls()
+        self.week_plan.setEnabled(enabled)
+        self.week_plan.setVisible(weekly)
+        self.hours.setVisible(not weekly)
+        self.hours.parentWidget().layout().labelForField(self.hours).setVisible(not weekly)
+        values = self.week_plan.values()
         draft = {**self.settings.value, 'scheduled': enabled, 'schedule_mode': self.schedule_mode.currentData(),
-                 'sync_times': self.values(), 'interval_hours': self.hours.currentData()}
-        self.schedule_preview.setText(schedule_expectation(draft, {}) if not enabled or not fixed or count else t('Add at least one valid time (HH:MM).'))
-        self.resize(self.width(), 350 if self.tabs.currentIndex() == 0 else 590 if fixed else 460)
+                 'weekly_times': values, 'interval_hours': self.hours.currentData()}
+        self.schedule_preview.setText(t('Add a time to at least one weekday.') if enabled and weekly and not any(values.values())
+                                      else schedule_expectation(draft, {}))
+        self.schedule_preview.setVisible(self.tabs.currentIndex() == 1)
+        self.draft_note.setText(t('Your plan applies when you save.') if self.tabs.currentIndex() == 1 else
+                               t('Changes apply when you save. Appearance is previewed until then.'))
+        layout_mode = (self.tabs.currentIndex(), weekly)
+        if getattr(self, '_schedule_layout', None) != layout_mode:
+            self._schedule_layout = layout_mode
+            self.resize(max(self.width(), 620) if weekly else self.width(),
+                        350 if self.tabs.currentIndex() == 0 else 730 if weekly else 460)
 
     def preview_theme(self):
         app = QApplication.instance()
@@ -1331,23 +1272,22 @@ class SettingsDialog(QDialog):
         super().reject()
 
     def save(self):
-        from .policy import normalize_times
+        from .policy import normalize_weekly
         from .settings_service import apply_settings, ScheduleRestoreError, SettingsStorageError
-        times = self.values()
+        week = self.week_plan.values()
         mode = self.schedule_mode.currentData()
         try:
-            if self.enabled.isChecked() and mode == 'times':
-                times = normalize_times(times)
+            week = normalize_weekly(week, require_times=self.enabled.isChecked() and mode == 'weekly')
             candidate = {**self.settings.value, 'interval_hours': self.hours.currentData(), 'battery_saver': self.battery.isChecked(),
                          'language': self.language.currentData(), 'appearance': self.appearance.currentData(),
-                         'schedule_mode': mode, 'sync_times': times, 'scheduled': self.enabled.isChecked()}
+                         'schedule_mode': mode, 'weekly_times': week, 'scheduled': self.enabled.isChecked()}
             apply_settings(self.settings, candidate, install=install, uninstall=uninstall)
             self.accept()
         except ValueError as exc:
             self.error.setText(message(str(exc)))
             self.error.show()
             self.tabs.setCurrentIndex(1)
-            self.time_edit.setFocus()
+            self.week_plan.rows[0]['add'].setFocus()
         except ScheduleRestoreError as exc:
             self.error.setText(message(str(exc)))
             self.error.show()
@@ -2765,6 +2705,8 @@ class MainWindow(QMainWindow):
     def schedule_text(self):
         if not self.settings.value["scheduled"]:
             return t("Automatic sync: off")
+        if self.settings.value.get('schedule_mode') == 'weekly':
+            return t('Automatic sync: weekly schedule')
         if self.settings.value.get('schedule_mode') == 'times':
             return t('Automatic sync: daily at {times}', times=', '.join(self.settings.value.get('sync_times', [])))
         n = self.settings.value["interval_hours"]

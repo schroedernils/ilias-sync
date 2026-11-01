@@ -332,29 +332,29 @@ def test_folder_mapping_saves_custom_names_and_id_opt_in(app, source):
     dialog.close()
 
 
-def test_settings_expose_multiple_daily_times_and_validate_empty_list(app):
-    from PySide6.QtCore import QTime
+def test_settings_expose_weekly_times_and_validate_empty_plan(app):
     from ilias_sync.gui import SettingsDialog
     from ilias_sync.storage import Settings
     settings = Settings()
     dialog = SettingsDialog(settings)
     dialog.enabled.setChecked(True)
-    dialog.schedule_mode.setCurrentIndex(dialog.schedule_mode.findData('times'))
+    dialog.schedule_mode.setCurrentIndex(dialog.schedule_mode.findData('weekly'))
     dialog.tabs.setCurrentIndex(1)
     dialog.show()
     app.processEvents()
-    assert dialog.times_panel.isVisible() and not dialog.hours.isVisible()
+    assert dialog.week_plan.isVisible() and not dialog.hours.isVisible()
     dialog.save()
     assert dialog.error.isVisible()
-    for hour, minute in [(18, 30), (8, 0), (8, 0)]:
-        dialog.time_edit.setTime(QTime(hour, minute))
-        dialog.add_time()
-    assert [dialog.times_list.item(i).text() for i in range(dialog.times_list.count())] == ['08:00', '18:30']
+    for value in ['18:30', '08:00', '08:00']:
+        dialog.week_plan.add_time(0, value)
+    dialog.week_plan.add_time(4, '12:00')
+    expected = dialog.week_plan.values()
+    assert expected['0'] == ['08:00', '18:30'] and expected['6'] == []
     with patch('ilias_sync.gui.install') as install:
         dialog.save()
-    install.assert_called_once_with(6, times=['08:00', '18:30'])
-    assert Settings().value['sync_times'] == ['08:00', '18:30']
-    assert Settings().value['schedule_mode'] == 'times'
+    install.assert_called_once_with(6, weekly=expected)
+    assert Settings().value['weekly_times'] == expected
+    assert Settings().value['schedule_mode'] == 'weekly'
     dialog.close()
 
 

@@ -86,19 +86,16 @@ def test_schedule_draft_edit_remove_cancel_and_atomic_rollback(app):
     dialog = SettingsDialog(settings)
     dialog.enabled.setChecked(True)
     dialog.schedule_mode.setCurrentIndex(1)
-    assert not dialog.remove_time_button.isEnabled()
     for value in ('08:00', '18:30'):
-        dialog.time_edit.setTime(QTime.fromString(value, 'HH:mm'))
-        dialog.add_time()
-    dialog.times_list.setCurrentRow(0)
-    dialog.time_edit.setTime(QTime(9, 0))
-    dialog.edit_time()
-    assert dialog.values() == ['09:00', '18:30']
-    dialog.remove_time()
-    assert dialog.values() == ['18:30']
+        dialog.week_plan.add_time(0, value)
+    first = dialog.week_plan.rows[0]['slots'][0]
+    first['edit'].setTime(QTime(9, 0))
+    assert dialog.week_plan.values()['0'] == ['09:00', '18:30']
+    dialog.week_plan.remove_time(0, first)
+    assert dialog.week_plan.values()['0'] == ['18:30']
     dialog.tabs.setCurrentIndex(0)
     dialog.tabs.setCurrentIndex(1)
-    assert dialog.values() == ['18:30']
+    assert dialog.week_plan.values()['0'] == ['18:30']
     dialog.reject()
     assert settings.value == previous
     assert not settings.path.exists()
