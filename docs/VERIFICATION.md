@@ -1,5 +1,31 @@
 # Verification boundaries
 
+## Unified workspace and notifications — 1 November 2026
+
+- Final complete suite: **253 tests passed in 31.63 seconds**. Ruff and whitespace checks passed.
+- Synthetic Qt review: **101 states** with control bounds verified, including 820×560, 980×700 and
+  1280×800, both palettes, overview/materials/notifications/details and running/paused/error states.
+- Installed build **`f42bfaca53be-8be63d20774c`** passed packaged and installed offline self-tests and
+  strict ad-hoc signature verification. Previous app bundles are retained privately under
+  `.local/unified-workspace-20261101/`.
+- Native macOS inspection confirmed three recent materials, **View all (59)**, scoped full browsing,
+  persistent bottom Sync now, last-sync absolute/relative time, and notification/detail navigation.
+  A real unavailable-download notice was dismissed and restored; the sync outcome continued to show
+  two unavailable downloads throughout. No teaching materials were downloaded or changed by this UI check.
+- Native inspection exposed and fixed a macOS directory-watch loop caused by touching the notice lock
+  during idempotent refreshes. Replayed attempts now return before acquiring a write lock, and permission
+  feedback survives refresh. Regression tests cover both conditions.
+- macOS notification permission for IliasSync was initially off/denied. The app preference and the
+  app-specific macOS permission were enabled for the requested feature. The installed **Test notification**
+  action then reported **Test notification handed to macOS** (native authorization and request accepted).
+  This is submission evidence, not visual proof of a delivered desktop banner. Real new-error alert delivery
+  during a later scheduled sync was not exercised; deterministic tests cover new/repeated/recovered issues,
+  dismissal, cancellation, generic lock-screen content and notification failures.
+- No live ILIAS synchronization, credentials entry, scheduler change, push, merge or release was performed
+  for this UI redesign. The existing two unavailable-download notes remain visible.
+
+## Evidence gates
+
 This preview has separate evidence gates:
 
 1. Unit tests: archives, conflict handling, interruption/retry, path traversal, platform filenames, policy/backoff, keyring allowlist, session-import filtering, scheduler command generation.
