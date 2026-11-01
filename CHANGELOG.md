@@ -1,5 +1,12 @@
 # Changelog
 
+## Unreleased — unified sync workspace
+
+- Start with three recent materials and View all; keep complete search/filter browsing in Materials.
+- Consolidate sync, icon pause/resume and red stop into one persistent bottom section with absolute/relative times.
+- Add local, deduplicated notices, dismissal/restoration in Details and opt-in native macOS alerts for new problems.
+- Preserve all failure evidence and guided recovery when a notice is hidden.
+
 ## Unreleased
 
 Establish the authenticated dashboard before launching warm page prefetch. Parallel expired-session redirects could

@@ -8,6 +8,7 @@ def info_sections():
     de = i18n.LANGUAGE == "de"
     sections = [
         ("Material finden" if de else "Find materials",
+         "Die Übersicht zeigt bis zu drei zuletzt aktualisierte Dateien. Alle ansehen öffnet die vollständige Materialliste. "
          "Wähle links Alle Materialien, eine Hochschule oder einen Kurs. Die Navigation verändert deine Sync-Auswahl nicht. Suche nach Dateinamen, Kursen oder Hochschulen; "
          "Cmd+F auf dem Mac oder Strg+F öffnet die Suche. Wähle eine Datei und drücke Enter oder klicke doppelt, "
          "um sie in deiner Standard-App zu öffnen.\n\n"
@@ -16,6 +17,7 @@ def info_sections():
          "Noch keine Dateien? Öffne das Menü Hochschule verwalten (…) und wähle Sync-Kurse auswählen. Starte danach Jetzt synchronisieren. Fehlt ein Kurs in der Auswahl, "
          "kannst du dort seinen ILIAS-Kurs- oder Ordnerlink ergänzen."
          if de else
+         "Overview shows up to three recently updated files. View all opens the complete material list. "
          "Select All materials, a university or a course on the left. Browsing never changes your sync selection. Search by filename, course or university; Cmd+F on Mac or Ctrl+F "
          "focuses search. Select a file and press Enter or double-click to open it in your default app.\n\n"
          "No match? Clear search and reset active filters. The filter beside File narrows the list by course, "
@@ -42,21 +44,28 @@ def info_sections():
          "Die letzte Prüfung beschreibt den damaligen Lauf und die dafür ausgewählten Kurse und Speicherziele. "
          "Nach einer Änderung dieser Auswahl starte erneut Jetzt synchronisieren. Ein abgeschlossenes Ergebnis "
          "bestätigt keinen späteren Cloud-Upload und keine dauerhafte Verfügbarkeit jeder Datei.\n\n"
-         "Bei Hinweisen oder einem unvollständigen Lauf klappe Details unten im Fenster auf. Der Bericht öffnet sich direkt dort. Unter Aktion erforderlich siehst du, "
+         "Jetzt synchronisieren bleibt unten im Sync-Bereich erreichbar. Während eines Laufs kannst du dort pausieren, fortsetzen oder über den roten Button beenden. "
+         "Bei Hinweisen oder einem unvollständigen Lauf öffne den Tab Details. Unter Aktion erforderlich siehst du, "
          "welche Datei oder welcher Kurs nicht geprüft oder gespeichert werden konnte. Ausgeschlossene Inhalte "
          "wie Foren und Tests stehen separat; das sind keine fehlgeschlagenen Dateidownloads.\n\n"
          "Oben im Bericht kannst du frühere Versuche auswählen. Die Zahlen gehören jeweils zu diesem Versuch, "
          "nicht zur gesamten Ablage. Beginne mit dem Ergebnis und den betroffenen Materialien; "
-         "der technische Verlauf ist nur bei Bedarf nötig."
+         "der technische Verlauf ist nur bei Bedarf nötig.\n\n"
+         "Unter Benachrichtigungen kannst du neue Probleme ansehen und macOS-Mitteilungen aktivieren. Wiederholte Meldungen werden gebündelt. "
+         "Meldung ausblenden verwirft nur die Meldung; Fehlerstatus und Bericht bleiben bestehen. Unter Details kannst du sie wieder anzeigen. "
+         "Nach einer Behebung wird dasselbe Problem bei erneutem Auftreten wieder gemeldet."
          if de else
          "The last check describes that run and its selected courses and destinations. After changing that "
          "selection, use Sync now again. A completed result does not confirm a later cloud upload or "
          "permanent availability of every file.\n\n"
-         "For notes or an incomplete run, expand Details at the bottom of the window. The report opens inline there. Needs attention shows which file or "
+         "Sync now stays in the bottom sync section. During a run, pause, resume or use the red stop button there. "
+         "For notes or an incomplete run, open the Details tab. Needs attention shows which file or "
          "course could not be checked or saved. Excluded content such as forums and tests is listed separately; "
          "these are not failed file downloads.\n\n"
          "Select earlier attempts at the top of the report. Counts belong to that attempt, not your whole archive. "
-         "Start with the outcome and affected materials; technical activity is there if you need it."),
+         "Start with the outcome and affected materials; technical activity is there if you need it.\n\n"
+         "Notifications lists new problems and lets you enable macOS notifications. Repeated notices are grouped. Dismiss notice hides only "
+         "the notice; the error status and report remain. Show it again in Details. After recovery, a recurring problem is reported again."),
         ("Anmeldung" if de else "Sign-in",
          "Wähle Anmeldung erneuern direkt an der Fehlermeldung. Die App öffnet die Anmeldung der betroffenen Hochschule. "
          "Gib dein aktuelles Passwort ein oder importiere eine neue Sitzung. Im normalen Bearbeiten behält ein leeres Passwortfeld "

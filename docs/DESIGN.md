@@ -1,5 +1,26 @@
 # Interface and content
 
+## Unified sync workspace — 1 November 2026
+
+The default **Overview** shows up to three recently added/updated materials, their course context, an honest
+problem count and **View all**. Older entries without tracked change times can fill empty slots; they display
+no invented date. **Materials** retains scoped search, filters, newest-first defaults, keyboard actions and the
+complete local library. **Notifications** and **Details** use the same content area rather than stacking panels.
+
+One fixed bottom sync section contains **Sync now**, blue pause/resume and red stop buttons, current status,
+last synchronization/attempt with absolute and relative time, and the next eligible automatic check. During an
+active run, Sync now remains visible and disabled; dedicated pause and stop remain operable. Sign-in/storage
+correction routes through the existing guided recovery. Stopping does not disable the schedule.
+
+Notices are local, per-university, stable across repeated attempts and independent of sync evidence. Dismissal
+hides a notice from the notification list, while Details offers **Show again**. It never marks a failed attempt
+successful, deletes history, changes course selection or suppresses recovery. A completed recovery resolves the
+notice; recurrence reopens it. Cancelled/in-progress attempts cannot resolve notices. System alerts are opt-in,
+use generic lock-screen text, and are submitted by the headless worker only for new problems after macOS grants
+permission. They use Apple's [UserNotifications authorization flow](https://developer.apple.com/documentation/usernotifications/asking-permission-to-use-notifications).
+
+The following sections describe earlier iterations; the unified workspace above supersedes their panel placement.
+
 ## Material-first library and recovery — 29 October 2026
 
 The current workspace starts with materials. The sidebar offers All materials and two levels of navigation:

@@ -2423,7 +2423,7 @@ class MainWindow(QMainWindow):
             steps.setAccessibleName(t('Steps to recover'))
             guide_layout.addWidget(steps)
             actions = QHBoxLayout()
-            if source_id != getattr(self, 'recovery_source', None) or self.recovery_button.isHidden():
+            if plan.action != 'retry' and (source_id != getattr(self, 'recovery_source', None) or self.recovery_button.isHidden()):
                 action = button(plan.button, lambda: self.run_recovery(source_id, plan))
                 action.setEnabled(not (self.process or self.run_info))
                 actions.addWidget(action)

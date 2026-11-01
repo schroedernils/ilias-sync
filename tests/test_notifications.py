@@ -81,3 +81,13 @@ def test_relative_times_are_nonnegative_and_change_at_minute_boundaries():
     assert relative_time(100, 99) == 'gerade eben'
     assert relative_time(100, 160) == 'vor 1 Min.'
     assert relative_time(100, 3700) == 'vor 1 Std.'
+
+
+def test_notification_failure_never_changes_a_successful_recorded_sync(source):
+    from ilias_sync.storage import record_attempt
+    root = state(source)
+    status = {'state': 'Up to date', 'finished': 100, 'result': {'counts': {'added': 2}}}
+    with patch('ilias_sync.notifications.observe_attempt', side_effect=RuntimeError('notification unavailable')):
+        record_attempt(root, status, {})
+    assert read_json(root / 'status.json', {})['state'] == 'Up to date'
+    assert read_json(root / 'history.json', [])[0]['last_success'] == 100
