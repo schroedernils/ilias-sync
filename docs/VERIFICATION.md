@@ -1,5 +1,24 @@
 # Verification boundaries
 
+## Weekday schedule editor — 1 November 2026
+
+- Complete suite: **262 tests passed in 38.98 seconds**; focused editor tests and Ruff/whitespace checks
+  also passed after the final native time-field style adjustment. **103 synthetic states** rendered with
+  bounded controls, including populated/empty weekly schedules, 520×640, dark/light and enlarged text.
+- Calendar tests cover separate weekday times, free days, exact minute boundaries, next-week rollover,
+  nonexistent spring-forward times, server cooldown and sign-in waiting. Native configuration tests verify
+  launchd Monday/Sunday numbering, weekly Windows XML and systemd weekday expressions without daily fallback.
+  The previous daily settings/job are restored if installing a new weekly job fails.
+- Installed macOS build **`efc6b1a12ae0-2ccb90b86858`** passed packaged/installed offline self-tests and
+  strict ad-hoc signature verification. Native inspection showed Monday through Sunday with the real
+  existing 11:00/14:00/17:00 daily times copied into the draft, accessible day-specific add/remove controls,
+  Copy times and a permanently visible next-run preview and Save/Cancel footer. Native adding/removing of
+  a test time worked, then Cancel discarded the draft. The editor remains open for the user.
+- SHA-256 checks confirmed the real settings file and launchd plist were unchanged after installation and
+  draft testing. Private copies and prior app bundles are retained in `.local/weekly-plan-20261101/`.
+- No new actual weekly times were chosen for the user, no real scheduler policy was changed, and no timed
+  weekly OS execution was claimed. Windows/Linux execution and spoken screen-reader output were not tested.
+
 ## Unified workspace and notifications — 1 November 2026
 
 - Final complete suite: **253 tests passed in 31.63 seconds**. Ruff and whitespace checks passed.
