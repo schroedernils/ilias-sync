@@ -37,7 +37,9 @@ def test_repeated_dismissed_problem_stays_dismissed_but_recurrence_after_recover
 def test_cancelled_and_in_progress_attempts_never_resolve_notices_and_replaying_is_idempotent(source):
     root = state(source)
     observe_attempt(root, attempt(10))
-    assert observe_attempt(root, attempt(10)) == []
+    with patch('ilias_sync.notifications.FileLock') as lock:
+        assert observe_attempt(root, attempt(10)) == []
+        lock.assert_not_called()
     observe_attempt(root, attempt(20, state='Stopped'))
     observe_attempt(root, attempt(30, state='Checking courses'))
     assert notices(source.id)[0]['occurrences'] == 1

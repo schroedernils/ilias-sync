@@ -1830,7 +1830,8 @@ class MainWindow(QMainWindow):
         setting.toggled.connect(self.configure_notifications)
         self.notices_layout.addWidget(setting)
         self.notices_layout.addWidget(button('Test notification', self.test_notification), alignment=Qt.AlignmentFlag.AlignLeft)
-        self.notification_permission_note = label('Hidden notices stay in Details. Repeated problems do not trigger another notification.', 'subtitle')
+        self.notification_permission_note = label(getattr(self, 'notification_feedback', '') or
+            t('Hidden notices stay in Details. Repeated problems do not trigger another notification.'), 'subtitle')
         self.notices_layout.addWidget(self.notification_permission_note)
         for identity, row in rows:
             if not row.get('dismissed'):
@@ -1882,16 +1883,21 @@ class MainWindow(QMainWindow):
         set_enabled(enabled)
         if enabled:
             result = permission(request=True)
-            self.notification_permission_note.setText(t('Allow notifications in macOS when prompted. If denied, enable IliasSync in System Settings → Notifications.')
+            self.notification_feedback = (t('Allow notifications in macOS when prompted. If denied, enable IliasSync in System Settings → Notifications.')
                 if result != -1 else t('System notifications are available in the installed macOS app. Notices here always work.'))
+        else:
+            self.notification_feedback = ''
+        self.render_notices()
 
     def test_notification(self):
         from .notifications import native_notify, permission, preferences
         if not preferences().get('enabled') or permission() != 2:
-            self.notification_permission_note.setText(t('Enable notifications above and allow IliasSync in macOS first.'))
+            self.notification_feedback = t('Enable notifications above and allow IliasSync in macOS first.')
+            self.notification_permission_note.setText(self.notification_feedback)
             return
         accepted = native_notify('IliasSync', t('Notifications for new sync problems are enabled.'), 'ilias-sync-test')
-        self.notification_permission_note.setText(t('Test notification handed to macOS.') if accepted else t('macOS could not accept the test notification. Check System Settings → Notifications.'))
+        self.notification_feedback = t('Test notification handed to macOS.') if accepted else t('macOS could not accept the test notification. Check System Settings → Notifications.')
+        self.notification_permission_note.setText(self.notification_feedback)
 
     def request_sync(self):
         if self.process or self.run_info:

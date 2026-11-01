@@ -100,3 +100,13 @@ def test_dismissed_notice_remains_in_details_and_error_does_not_become_success(w
     from PySide6.QtWidgets import QPushButton
     assert any(item.text() == 'Wieder anzeigen' for item in window.sync_panel.report_host.findChildren(QPushButton))
     assert read_json(root / 'status.json', {}) == failure
+
+
+def test_notification_permission_feedback_survives_a_library_refresh(window):
+    window.workspace_tabs.setCurrentIndex(2)
+    with patch('ilias_sync.notifications.permission', return_value=0):
+        window.configure_notifications(True)
+    feedback = window.notification_permission_note.text()
+    assert 'macOS' in feedback
+    window.refresh()
+    assert window.notification_permission_note.text() == feedback

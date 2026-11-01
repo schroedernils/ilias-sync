@@ -39,9 +39,13 @@ def observe_attempt(state, status, *, deliver=False):
     if not status.get('finished') or status.get('state') in {'Stopped', 'Checking courses', 'Running'}:
         return []
     path = state / 'notices.json'
+    attempt = [status.get('started'), status['finished'], status.get('scope')]
+    # A read-only refresh must not touch the lock file: macOS directory watches
+    # can report that write and otherwise create a self-sustaining refresh loop.
+    if read_json(path, {}).get('attempt') == attempt:
+        return []
     with FileLock(str(path) + '.lock', timeout=2):
         value = read_json(path, {'notices': [], 'attempt': None})
-        attempt = [status.get('started'), status['finished'], status.get('scope')]
         if value.get('attempt') == attempt:
             return []
         previous = {row['id']: row for row in value['notices']}

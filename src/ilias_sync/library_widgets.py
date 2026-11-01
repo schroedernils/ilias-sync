@@ -374,7 +374,7 @@ class SyncPanel(QFrame):
         self.set_expanded(False)
 
     def set_expanded(self, expanded):
-        self.detail.setVisible(not self.compact or expanded or self.tone == 'error')
+        self.detail.setVisible(not self.compact or (expanded and not self.external_report) or self.tone == 'error')
         self.meta.setVisible(True)
         if not self.external_report:
             self.report_host.setVisible(self.compact and expanded)
