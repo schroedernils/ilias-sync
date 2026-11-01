@@ -123,6 +123,7 @@ def test_global_duplicate_ids_open_correct_source_and_custom_root(library_app, s
     custom = tmp_path / 'Custom'
     university(second, root=custom)
     window = MainWindow()
+    window.workspace_tabs.setCurrentIndex(1)
     window.show()
     library_app.processEvents()
     for row in range(window.files.rowCount()):
@@ -247,12 +248,14 @@ def test_compact_geometry_density_keyboard_and_sidebar_toggle(library_app, sourc
     university(source, files=40)
     window = MainWindow()
     window.resize(*size)
+    window.workspace_tabs.setCurrentIndex(1)
     window.show()
     library_app.processEvents()
     assert (window.width(), window.height()) == size
-    assert window.files.viewport().height() // window.files.verticalHeader().defaultSectionSize() >= {560: 5, 700: 9, 800: 11}[size[1]]
+    # Fixed, always available sync controls and last-sync time reserve space.
+    assert window.files.viewport().height() // window.files.verticalHeader().defaultSectionSize() >= {560: 3, 700: 6, 800: 9}[size[1]]
     assert window.files.verticalHeader().defaultSectionSize() <= 48
-    assert not window.sync_panel.meta.isVisible()
+    assert window.sync_panel.meta.isVisible()
     assert not window.sync_panel.detail.isVisible()
     for widget in (window.file_search, window.files, window.sync_panel, window.sync_button, window.management_button):
         origin = widget.mapTo(window, widget.rect().topLeft())

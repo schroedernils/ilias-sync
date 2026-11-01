@@ -364,6 +364,48 @@ DE.update({
 })
 
 
+DE.update({
+    'Overview': 'Übersicht', 'Notifications': 'Benachrichtigungen', 'Workspace view': 'Ansicht',
+    'Test notification': 'Testmitteilung',
+    'Enable notifications above and allow IliasSync in macOS first.': 'Aktiviere oben die Mitteilungen und erlaube sie für IliasSync in macOS.',
+    'Notifications for new sync problems are enabled.': 'Mitteilungen bei neuen Sync-Problemen sind aktiviert.',
+    'Test notification handed to macOS.': 'Testmitteilung an macOS übergeben.',
+    'macOS could not accept the test notification. Check System Settings → Notifications.':
+        'macOS konnte die Testmitteilung nicht annehmen. Prüfe Systemeinstellungen → Mitteilungen.',
+    'Recently updated': 'Zuletzt aktualisiert', 'Three recent materials': 'Drei aktuelle Materialien',
+    'View all materials': 'Alle ansehen', 'View all materials ({count})': 'Alle ansehen ({count})',
+    'No materials yet': 'Noch keine Materialien',
+    'Start a sync to download your course materials.': 'Synchronisiere jetzt, um deine Kursmaterialien herunterzuladen.',
+    'Last synchronization: {time} ({age})': 'Letzte Synchronisation: {time} ({age})',
+    'Last complete synchronization: {time} ({age})': 'Letzte vollständige Synchronisation: {time} ({age})',
+    'Action required — see Details': 'Aktion erforderlich – siehe Details',
+    'Synchronization': 'Synchronisierung',
+    'Last attempt: {time} ({age})': 'Letzter Versuch: {time} ({age})',
+    'Not yet synchronized': 'Noch nicht synchronisiert',
+    'just now': 'gerade eben', '{count} min ago': 'vor {count} Min.', '{count} h ago': 'vor {count} Std.',
+    '{count} days ago': 'vor {count} Tagen',
+    '{errors} errors · {notes} notes': '{errors} Fehler · {notes} Hinweise',
+    '{count} hidden': '{count} ausgeblendet', 'No current problems': 'Keine aktuellen Probleme',
+    'Notify me about new sync problems on this Mac': 'Bei neuen Sync-Problemen auf diesem Mac benachrichtigen',
+    'Hidden notices stay in Details. Repeated problems do not trigger another notification.':
+        'Ausgeblendete Meldungen bleiben in Details. Wiederholte Probleme lösen keine neue Mitteilung aus.',
+    'New sync problems appear here. Your existing materials remain available.':
+        'Neue Sync-Probleme erscheinen hier. Deine vorhandenen Materialien bleiben verfügbar.',
+    'Download unavailable': 'Download nicht verfügbar', 'Connection unavailable': 'Verbindung nicht verfügbar',
+    'Sync errors': 'Sync-Fehler', 'Sync notes': 'Sync-Hinweise', 'Check incomplete': 'Prüfung unvollständig',
+    'Show again': 'Wieder anzeigen', 'Dismiss notice': 'Meldung ausblenden',
+    'Hides this notice only. The sync result and recovery steps are kept.':
+        'Blendet nur diese Meldung aus. Das Sync-Ergebnis und die Schritte zur Behebung bleiben erhalten.',
+    '{count} attempts': '{count} Versuche', 'View details': 'Details ansehen', 'Current notices': 'Aktuelle Meldungen',
+    'Dismissal hides a notice; it does not fix the problem or remove the report.':
+        'Ausblenden verbirgt die Meldung. Das Problem und der Bericht bleiben bestehen.',
+    'Allow notifications in macOS when prompted. If denied, enable IliasSync in System Settings → Notifications.':
+        'Erlaube die Mitteilungen in macOS. Falls abgelehnt: IliasSync in Systemeinstellungen → Mitteilungen aktivieren.',
+    'System notifications are available in the installed macOS app. Notices here always work.':
+        'Systemmitteilungen sind in der installierten macOS-App verfügbar. Meldungen hier funktionieren immer.',
+})
+
+
 def set_language(language):
     global LANGUAGE
     LANGUAGE = language if language in {"de", "en"} else "de"

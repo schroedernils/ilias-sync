@@ -189,17 +189,18 @@ def test_controls_switch_to_pause_and_stop_for_background_run(app, source):
     window = MainWindow()
     window.show()
     window.check_active_run()
-    assert window.sync_button.text() in ('Pausieren', 'Fortsetzen')
-    assert window.sync_button.accessibleName() == 'Pausieren'
+    assert window.sync_button.text() == 'Jetzt synchronisieren'
+    assert not window.sync_button.isEnabled()
+    assert window.pause_button.accessibleName() == 'Pausieren'
     assert window.stop_button.accessibleName() == 'Beenden'
-    assert window.stop_button.text() == 'Diesen Sync beenden'
+    assert window.stop_button.text() == ''
+    assert window.stop_button.objectName() == 'stopControl'
     assert window.stop_button.isVisible()
     window.sync_or_pause()
     assert read_json(data_dir() / 'run-command.json', {})['action'] == 'pause'
     write_json(data_dir() / 'active-run.json', {**row,'state':'paused'})
     window.check_active_run()
-    assert window.sync_button.text() in ('Pausieren', 'Fortsetzen')
-    assert window.sync_button.accessibleName() == 'Fortsetzen'
+    assert window.pause_button.accessibleName() == 'Fortsetzen'
     window.stop_sync()
     assert read_json(data_dir() / 'run-command.json', {})['action'] == 'stop'
     write_json(data_dir() / 'active-run.json', {**row,'state':'stopped'})
@@ -273,6 +274,7 @@ def test_file_headers_sort_numerically_and_filters_survive_refresh(app, source):
     }
     write_json(data_dir() / 'sources' / source.id / 'manifest.json', {'files': entries})
     window = MainWindow()
+    window.workspace_tabs.setCurrentIndex(1)
     window.show()
     app.processEvents()
     header = window.files_header

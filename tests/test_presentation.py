@@ -91,6 +91,7 @@ def test_material_views_search_recency_and_open_selected_file(app, source):
     from ilias_sync.gui import MainWindow
     prepare_library(source)
     window = MainWindow()
+    window.workspace_tabs.setCurrentIndex(1)
     window.show()
     app.processEvents()
     assert window.apply_file_filters() == 3
@@ -154,9 +155,9 @@ def test_login_and_retry_have_specific_actions_and_keep_library_available(app, s
     assert window.apply_file_filters() == 3
     write_json(status_path, {'state': 'Needs attention'})
     window.refresh()
-    assert window.sync_button.text() == 'Erneut versuchen'
+    assert window.sync_button.text() == 'Jetzt synchronisieren'
     window.refresh_controls()
-    assert window.sync_button.text() == 'Erneut versuchen'
+    assert window.sync_button.text() == 'Jetzt synchronisieren'
     with patch.object(window, 'start') as start:
         window.sync_button.click()
         start.assert_called_once_with('sync')

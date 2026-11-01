@@ -27,6 +27,9 @@ QStackedWidget {{ background: transparent; border: none; }}
 QTabWidget::pane {{ border: none; padding-top: 14px; background: {c['window']}; }}
 QTabBar::tab {{ background: {c['inset']}; color: {c['muted']}; padding: 8px 20px; border-radius: 6px; margin-right: 6px; }}
 QTabBar::tab:selected {{ background: {c['selection']}; color: {c['selected_text']}; }}
+QTabBar#workspaceTabs::tab {{ padding: 7px 10px; margin-right: 4px; }}
+QFrame#noticeRow {{ background: {c['surface']}; border: 1px solid {c['border']}; border-radius: 7px; }}
+QFrame#noticeRow QLabel {{ border: none; background: transparent; }}
 QTextBrowser {{ border: none; background: {c['window']}; padding: 0; }}
 QTextBrowser:focus {{ border: none; padding: 0; }}
 QLabel {{ background: transparent; }}

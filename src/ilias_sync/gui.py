@@ -26,7 +26,7 @@ from .theme import LIGHT, Theme, stylesheet
 from .i18n import message, set_language, t
 from .scheduler import command, install, uninstall
 from .security import import_session, store_password
-from .storage import Settings, Source, data_dir, read_json, write_json
+from .storage import Settings, Source, data_dir, read_json, write_json, source_scope
 from .library_widgets import MaterialDelegate, MaterialTable, SyncPanel, ElidedLabel, LibraryNavigation
 from .library import load_library, course_key, source_summary, library_summary
 from .recovery import recovery_plan
@@ -61,8 +61,9 @@ def save_buttons():
 
 
 class RunButton(QPushButton):
-    def __init__(self, text, callback, primary=False):
+    def __init__(self, text, callback, primary=False, *, icon_only=False):
         super().__init__(t(text))
+        self.icon_only = icon_only
         self.action = None
         self.clicked.connect(callback)
         if primary:
@@ -73,7 +74,7 @@ class RunButton(QPushButton):
         name = t({'pause':'Pause', 'resume':'Resume', 'stop':'Stop'}.get(action, 'Sync now'))
         self.setAccessibleName(name)
         self.setToolTip(name)
-        self.setText(t('Stop this sync') if action == 'stop' else name)
+        self.setText('' if self.icon_only else t('Stop this sync') if action == 'stop' else name)
         height = max(42 if self.objectName() == 'syncAction' else 36, self.fontMetrics().height() + 18)
         if action:
             self.setMinimumSize(70, height)
@@ -82,6 +83,8 @@ class RunButton(QPushButton):
             self.setMinimumSize(0, height)
             self.setMaximumSize(16777215, height)
         self.update()
+        if self.icon_only:
+            self.setFixedSize(42, 42)
 
     def paintEvent(self, event):
         super().paintEvent(event)
@@ -1495,15 +1498,16 @@ class MainWindow(QMainWindow):
         source_meta.addWidget(self.destination, 1)
         title_group.addLayout(source_meta)
         source_heading.addLayout(title_group, 1)
-        self.sync_button = RunButton('Sync now', self.sync_or_pause)
+        self.sync_button = RunButton('Sync now', self.request_sync)
         self.sync_button.setObjectName('syncAction')
-        self.stop_button = RunButton('Stop', self.stop_sync)
-        self.stop_button.setObjectName('secondaryRun')
+        self.pause_button = RunButton('Pause', self.sync_or_pause, icon_only=True)
+        self.pause_button.setObjectName('primary')
+        self.pause_button.hide()
+        self.stop_button = RunButton('Stop', self.stop_sync, icon_only=True)
+        self.stop_button.setObjectName('stopControl')
         self.stop_button.setToolTip(t('Stops this run. Completed files and the schedule are kept.'))
         self.stop_button.set_action('stop')
         self.stop_button.hide()
-        source_heading.addWidget(self.sync_button, alignment=Qt.AlignmentFlag.AlignTop)
-        source_heading.addWidget(self.stop_button, alignment=Qt.AlignmentFlag.AlignTop)
         self.management_button = IconButton('University actions', 'more', self.management_menu)
         source_heading.addWidget(self.management_button, alignment=Qt.AlignmentFlag.AlignTop)
         content.addLayout(source_heading)
@@ -1519,6 +1523,7 @@ class MainWindow(QMainWindow):
         self.recovery_button.setObjectName('primary')
         self.sync_panel.disclosure.toggled.connect(self.toggle_report)
         self.details_button = self.sync_panel.disclosure
+        self.details_button.hide()
         library = QVBoxLayout()
         library.setSpacing(9)
         heading = QHBoxLayout()
@@ -1585,6 +1590,76 @@ class MainWindow(QMainWindow):
         self.library_footer = QWidget()
         self.library_footer.setLayout(footer)
         content.addWidget(self.library_footer)
+        # One workspace: overview first, full library and reports on demand.
+        self.workspace_tabs = QTabBar()
+        self.workspace_tabs.setObjectName('workspaceTabs')
+        self.workspace_tabs.setAccessibleName(t('Workspace view'))
+        self.workspace_tabs.setExpanding(False)
+        for name in ('Overview', 'Materials', 'Notifications', 'Details'):
+            self.workspace_tabs.addTab(t(name))
+        content.insertWidget(3, self.workspace_tabs)
+        self.workspace = QStackedWidget()
+        content.addWidget(self.workspace, 1)
+        self.overview = QWidget()
+        overview = QVBoxLayout(self.overview)
+        overview.setContentsMargins(0, 14, 0, 0)
+        overview.setSpacing(12)
+        self.recent_title = label('Recently updated', 'sectionTitle')
+        overview.addWidget(self.recent_title)
+        self.recent_files = MaterialTable()
+        self.recent_files.setAccessibleName(t('Three recent materials'))
+        self.recent_files.setColumnCount(2)
+        self.recent_files.setHorizontalHeaderLabels([t('File'), t('Changed')])
+        self.recent_files.setItemDelegate(MaterialDelegate(self.recent_files))
+        self.recent_files.library_scope = 'global'
+        self.recent_files.horizontalHeader().hide()
+        self.recent_files.horizontalHeader().setSectionResizeMode(0, QHeaderView.ResizeMode.Stretch)
+        self.recent_files.horizontalHeader().setSectionResizeMode(1, QHeaderView.ResizeMode.ResizeToContents)
+        self.recent_files.verticalHeader().hide()
+        self.recent_files.verticalHeader().setDefaultSectionSize(58)
+        self.recent_files.setShowGrid(False)
+        self.recent_files.setEditTriggers(QTableWidget.EditTrigger.NoEditTriggers)
+        self.recent_files.setSelectionBehavior(QTableWidget.SelectionBehavior.SelectRows)
+        self.recent_files.setSelectionMode(QTableWidget.SelectionMode.SingleSelection)
+        self.recent_files.setMaximumHeight(180)
+        self.recent_files.setMinimumHeight(120)
+        self.recent_files.itemDoubleClicked.connect(lambda *_: self.open_recent())
+        self.recent_files.setContextMenuPolicy(Qt.ContextMenuPolicy.CustomContextMenu)
+        self.recent_files.customContextMenuRequested.connect(self.recent_menu)
+        overview.addWidget(self.recent_files)
+        self.all_files_button = button('View all materials', lambda: self.workspace_tabs.setCurrentIndex(1))
+        overview.addWidget(self.all_files_button, alignment=Qt.AlignmentFlag.AlignLeft)
+        self.overview_notes = label('', 'subtitle')
+        overview.addWidget(self.overview_notes)
+        overview.addStretch()
+        self.workspace.addWidget(self.overview)
+        self.materials_page = QWidget()
+        materials = QVBoxLayout(self.materials_page)
+        materials.setContentsMargins(0, 8, 0, 0)
+        for widget in (self.library_widget, self.files, self.library_footer):
+            content.removeWidget(widget)
+            materials.addWidget(widget, 1 if widget is self.files else 0)
+        self.workspace.addWidget(self.materials_page)
+        self.notices_page = QScrollArea()
+        self.notices_page.setWidgetResizable(True)
+        self.notices_body = QWidget()
+        self.notices_layout = QVBoxLayout(self.notices_body)
+        self.notices_layout.setContentsMargins(0, 12, 0, 0)
+        self.notices_page.setWidget(self.notices_body)
+        self.workspace.addWidget(self.notices_page)
+        self.sync_panel.layout().removeWidget(self.sync_panel.report_host)
+        self.sync_panel.external_report = True
+        self.sync_panel.report_host.setMaximumHeight(16777215)
+        self.workspace.addWidget(self.sync_panel.report_host)
+        self.workspace_tabs.currentChanged.connect(self.change_workspace)
+        controls = QHBoxLayout()
+        controls.setSpacing(8)
+        controls.addWidget(label('Synchronization', 'eyebrow'))
+        controls.addStretch()
+        controls.addWidget(self.sync_button)
+        controls.addWidget(self.pause_button)
+        controls.addWidget(self.stop_button)
+        self.sync_panel.layout().insertLayout(0, controls)
         content.addWidget(self.sync_panel)
         self.activity = QTextEdit(self)
         self.activity.setReadOnly(True)
@@ -1598,7 +1673,8 @@ class MainWindow(QMainWindow):
         self.setCentralWidget(container)
         self.shortcuts = []
         for key, callback, target in [('Return', self.open_file, self.files),
-                                      (QKeySequence.StandardKey.Refresh, self.sync_or_pause, self),
+                                      ('Return', self.open_recent, self.recent_files),
+                                      (QKeySequence.StandardKey.Refresh, self.request_sync, self),
                                       ('Ctrl+Shift+S', self.toggle_sidebar, self),
                                       (QKeySequence.StandardKey.Preferences, self.background, self)]:
             shortcut = QShortcut(QKeySequence(key), target)
@@ -1608,7 +1684,7 @@ class MainWindow(QMainWindow):
         about = QAction(t("About IliasSync"), self)
         about.triggered.connect(self.about)
         file_menu = self.menuBar().addMenu(t('File'))
-        file_menu.addAction(t('Open file'), self.open_file, QKeySequence(QKeySequence.StandardKey.Open))
+        file_menu.addAction(t('Open file'), self.open_current_file, QKeySequence(QKeySequence.StandardKey.Open))
         file_menu.addAction(t('Open containing folder'), self.reveal_file)
         file_menu.addSeparator()
         file_menu.addAction(t('Add ILIAS'), self.add)
@@ -1634,10 +1710,205 @@ class MainWindow(QMainWindow):
         self.library_watch.directoryChanged.connect(lambda *_: self.library_refresh.start())
         self.watch_library()
         self.check_active_run()
+        self.age_timer = QTimer(self)
+        self.age_timer.setInterval(60000)
+        self.age_timer.timeout.connect(self.update_sync_age)
+        self.age_timer.start()
 
     def selected(self):
         identity = self.sources.scope()[0]
         return next((source for source in self.settings.sources() if source.id == identity), None)
+
+    def change_workspace(self, index):
+        self.workspace.setCurrentIndex(index)
+        self.details_button.blockSignals(True)
+        self.details_button.setChecked(index == 3)
+        self.details_button.blockSignals(False)
+        if index == 3:
+            self.build_report()
+        elif index == 2:
+            self.render_notices()
+        elif index == 1:
+            self.adapt_columns()
+
+    def update_sync_age(self):
+        from .notifications import relative_time
+        rows = []
+        source = self.selected()
+        relevant = [self.libraries[source.id]] if source else list(self.libraries.values())
+        for library in relevant:
+            status = library['status']
+            stamp = status.get('finished')
+            current_scope = status.get('scope') == source_scope(library['source'])
+            successful = current_scope and status.get('state') in {'Up to date', 'Completed with warnings'} and bool(status.get('result'))
+            title = 'Last synchronization: {time} ({age})' if successful else 'Last attempt: {time} ({age})'
+            text = t(title, time=local_time(stamp), age=relative_time(stamp)) if stamp else t('Not yet synchronized')
+            if current_scope and not successful and status.get('last_success'):
+                previous = status['last_success']
+                text += '\n' + t('Last complete synchronization: {time} ({age})', time=local_time(previous), age=relative_time(previous))
+            rows.append((library['source'].name + ': ' if len(relevant) > 1 else '') + text)
+        self.sync_panel.meta.setText('\n'.join(rows))
+
+    def render_overview(self, entries):
+        from .notifications import observe_attempt
+        materials = [entry for entry in entries if not is_course_info(entry)]
+        recent = sorted((entry for entry in materials if entry.get('changed_at')), key=lambda entry: entry['changed_at'], reverse=True)[:3]
+        self.recent_title.setText(t('Recently updated') if recent else t('Your materials'))
+        # Older archives have no timestamp. Fill unused slots without inventing
+        # a date or promoting those files above recorded changes.
+        if len(recent) < 3:
+            recent += [entry for entry in materials if not entry.get('changed_at')][:3 - len(recent)]
+        self.recent_files.library_scope = self.files.library_scope
+        self.recent_files.setRowCount(len(recent))
+        for row, entry in enumerate(recent):
+            item = QTableWidgetItem(Path(entry['path']).name)
+            item.setData(Qt.ItemDataRole.UserRole + 1, entry)
+            item.setData(Qt.ItemDataRole.AccessibleTextRole, Path(entry['path']).name + ' · ' + file_context(entry))
+            item.setToolTip(entry['_source_name'] + '\n' + entry['path'])
+            self.recent_files.setItem(row, 0, item)
+            self.recent_files.setItem(row, 1, QTableWidgetItem(local_time(entry.get('changed_at')) if entry.get('changed_at') else '—'))
+        self.recent_files.set_empty('' if recent else t('No materials yet'),
+                                    '' if recent else t('Start a sync to download your course materials.'))
+        self.all_files_button.setText(t('View all materials ({count})', count=len(materials)))
+        for library in self.libraries.values():
+            observe_attempt(data_dir() / 'sources' / library['source'].id, library['status'])
+        self.render_notices()
+
+    def open_recent(self):
+        item = self.recent_files.item(self.recent_files.currentRow(), 0)
+        if not item:
+            return
+        entry = item.data(Qt.ItemDataRole.UserRole + 1)
+        # Resolve by identity, never by a possibly duplicated display name.
+        self.library_view.setCurrentIndex(self.library_view.findData('materials'))
+        self.clear_file_filters()
+        for row in range(self.files.rowCount()):
+            candidate = self.files.item(row, 0).data(Qt.ItemDataRole.UserRole + 1)
+            if (candidate['_source_id'], candidate['_identity']) == (entry['_source_id'], entry['_identity']):
+                self.files.selectRow(row)
+                self.open_file()
+                return
+
+    def open_current_file(self):
+        if self.workspace.currentIndex() == 0:
+            self.open_recent()
+        elif self.workspace.currentIndex() == 1:
+            self.open_file()
+
+    def recent_menu(self, point):
+        item = self.recent_files.itemAt(point)
+        if item:
+            self.recent_files.selectRow(item.row())
+            menu = QMenu(self)
+            menu.addAction(t('Open file'), self.open_recent)
+            menu.addAction(t('View all materials'), lambda: self.workspace_tabs.setCurrentIndex(1))
+            menu.exec(self.recent_files.viewport().mapToGlobal(point))
+
+    def render_notices(self):
+        from .notifications import notices, preferences
+        source = self.selected()
+        rows = [(identity, row) for identity in self.libraries if not source or identity == source.id
+                for row in notices(identity) if not row.get('resolved')]
+        active = sum(row['count'] for _, row in rows)
+        hidden = sum(row['count'] for _, row in rows if row.get('dismissed'))
+        errors = sum(row['count'] for _, row in rows if row['severity'] == 'error')
+        summary = t('{errors} errors · {notes} notes', errors=errors, notes=active - errors) if active else t('No current problems')
+        if not rows and any(source_summary(library).tone == 'error' for identity, library in self.libraries.items()
+                            if not source or identity == source.id):
+            summary = t('Action required — see Details')
+        if hidden:
+            summary += ' · ' + t('{count} hidden', count=hidden)
+        self.overview_notes.setText(summary)
+        self.workspace_tabs.setTabText(2, t('Notifications') + (f' ({active - hidden})' if active > hidden else ''))
+        while self.notices_layout.count():
+            widget = self.notices_layout.takeAt(0).widget()
+            if widget:
+                widget.deleteLater()
+        self.notices_layout.addWidget(label(summary, 'sectionTitle'))
+        setting = QCheckBox(t('Notify me about new sync problems on this Mac'))
+        setting.setChecked(preferences().get('enabled', False))
+        setting.toggled.connect(self.configure_notifications)
+        self.notices_layout.addWidget(setting)
+        self.notices_layout.addWidget(button('Test notification', self.test_notification), alignment=Qt.AlignmentFlag.AlignLeft)
+        self.notification_permission_note = label('Hidden notices stay in Details. Repeated problems do not trigger another notification.', 'subtitle')
+        self.notices_layout.addWidget(self.notification_permission_note)
+        for identity, row in rows:
+            if not row.get('dismissed'):
+                self.notices_layout.addWidget(self.notice_widget(identity, row))
+        if not rows:
+            self.notices_layout.addWidget(label('New sync problems appear here. Your existing materials remain available.', 'subtitle'))
+        self.notices_layout.addStretch()
+
+    def notice_widget(self, identity, row, *, details=False):
+        from .notifications import relative_time
+        widget = QFrame()
+        widget.setObjectName('noticeRow')
+        layout = QVBoxLayout(widget)
+        layout.setContentsMargins(12, 10, 12, 10)
+        line = QHBoxLayout()
+        titles = {'signin': 'Sign-in required', 'unavailable': 'Download unavailable', 'network': 'Connection unavailable',
+                  'errors': 'Sync errors', 'warnings': 'Sync notes', 'incomplete': 'Check incomplete'}
+        title = t(titles.get(row['kind'], 'Check incomplete'))
+        line.addWidget(label(title, 'sectionTitle'), 1)
+        action = button('Show again' if row.get('dismissed') else 'Dismiss notice',
+                        lambda: self.dismiss_notice(identity, row['id'], not row.get('dismissed')))
+        action.setObjectName('compactControl')
+        action.setToolTip(t('Hides this notice only. The sync result and recovery steps are kept.'))
+        line.addWidget(action)
+        layout.addLayout(line)
+        text = self.libraries[identity]['source'].name + ' · ' + relative_time(row['last_seen'])
+        if row['occurrences'] > 1:
+            text += ' · ' + t('{count} attempts', count=row['occurrences'])
+        layout.addWidget(label(text, 'subtitle'))
+        if row['path']:
+            layout.addWidget(label(row['path'], 'subtitle'))
+        if not details:
+            layout.addWidget(button('View details', lambda: self.open_notice_details(identity)), alignment=Qt.AlignmentFlag.AlignLeft)
+        return widget
+
+    def dismiss_notice(self, identity, notice_id, dismissed):
+        from .notifications import dismiss
+        dismiss(identity, notice_id, dismissed)
+        self.render_notices()
+        if self.workspace_tabs.currentIndex() == 3:
+            self.build_report(identity)
+
+    def open_notice_details(self, identity):
+        self.workspace_tabs.setCurrentIndex(3)
+        self.build_report(identity)
+
+    def configure_notifications(self, enabled):
+        from .notifications import set_enabled, permission
+        set_enabled(enabled)
+        if enabled:
+            result = permission(request=True)
+            self.notification_permission_note.setText(t('Allow notifications in macOS when prompted. If denied, enable IliasSync in System Settings → Notifications.')
+                if result != -1 else t('System notifications are available in the installed macOS app. Notices here always work.'))
+
+    def test_notification(self):
+        from .notifications import native_notify, permission, preferences
+        if not preferences().get('enabled') or permission() != 2:
+            self.notification_permission_note.setText(t('Enable notifications above and allow IliasSync in macOS first.'))
+            return
+        accepted = native_notify('IliasSync', t('Notifications for new sync problems are enabled.'), 'ilias-sync-test')
+        self.notification_permission_note.setText(t('Test notification handed to macOS.') if accepted else t('macOS could not accept the test notification. Check System Settings → Notifications.'))
+
+    def request_sync(self):
+        if self.process or self.run_info:
+            return
+        if active_run():
+            self.check_active_run()
+            return
+        plan = getattr(self, 'recovery_plan', None)
+        if plan and plan.action in {'signin', 'folders', 'storage'}:
+            self.recover()
+        else:
+            if self.selected():
+                self.start('sync')
+            else:
+                self.sync_queue = [source for source in self.settings.sources() if source.enabled]
+                if self.sync_queue:
+                    self.start('sync', self.sync_queue.pop(0))
 
     def navigate(self):
         if not hasattr(self, 'files'):
@@ -1707,6 +1978,8 @@ class MainWindow(QMainWindow):
         self.management_button.setVisible(has_sources)
         for widget in (self.sync_panel, self.files, self.library_widget, self.library_footer, self.sync_button):
             widget.setVisible(has_sources)
+        self.workspace_tabs.setVisible(has_sources)
+        self.workspace.setVisible(has_sources)
         if not has_sources:
             self.sources.blockSignals(True)
             self.sources.clear()
@@ -1789,6 +2062,7 @@ class MainWindow(QMainWindow):
                     self.files.selectRow(row)
                     break
         self.update_file_actions()
+        self.render_overview(entries)
         self.render_status()
         self.refresh_controls()
         if busy:
@@ -1811,8 +2085,6 @@ class MainWindow(QMainWindow):
         unavailable = (status.get('result') or {}).get('unavailable', 0)
         if unavailable and summary.tone == 'warning':
             title += ' · ' + t('{count} files unavailable', count=unavailable)
-        if source and status.get('finished'):
-            title += ' · ' + local_time(status['finished'])
         repair_id = source.id if source else getattr(self, 'last_repair_source', None)
         repair = self.repair_checks.get(repair_id)
         if repair and repair_id in self.libraries and repair.get('phase') != 'checking':
@@ -1864,6 +2136,7 @@ class MainWindow(QMainWindow):
             next_check = t('Automatic checks follow each university’s schedule')
         self.sync_panel.schedule.setText(next_check)
         self.sync_panel.schedule.setToolTip('\n'.join(schedules) + '\n' + self.schedule_text())
+        self.update_sync_age()
         if self.sync_panel.disclosure.isChecked():
             self.build_report()
 
@@ -1875,7 +2148,7 @@ class MainWindow(QMainWindow):
         self.files.setColumnHidden(2, self.files.viewport().width() < 650 and
                                    self.library_view.currentData() != 'recent' and
                                    self.files_header.sortIndicatorSection() != 2)
-        if hasattr(self, 'sync_panel'):
+        if hasattr(self, 'sync_panel') and not self.sync_panel.external_report:
             self.sync_panel.report_host.setMaximumHeight(max(100, min(260, self.height() - 500)))
 
     def resizeEvent(self, event):
@@ -1896,6 +2169,7 @@ class MainWindow(QMainWindow):
 
     def focus_search(self):
         if self.libraries:
+            self.workspace_tabs.setCurrentIndex(1)
             self.file_search.setFocus()
             self.file_search.selectAll()
 
@@ -2032,7 +2306,7 @@ class MainWindow(QMainWindow):
             title += ' · ' + library['source'].name
         self.sync_panel.set_state(title, text, 'running' if state == 'running' else 'neutral', busy=state != 'paused')
         self.recovery_button.hide()
-        self.sync_panel.meta.setText(t('Your existing files stay available during the sync.'))
+        self.update_sync_age()
         self.sync_panel.schedule.setText(text)
 
     def show_local_error(self, text, *, kind=None, source_id=None, entry=None, error_status=None):
@@ -2104,8 +2378,7 @@ class MainWindow(QMainWindow):
         self.sync_panel.disclosure.setChecked(True)
 
     def toggle_report(self, expanded):
-        if expanded:
-            self.build_report()
+        self.workspace_tabs.setCurrentIndex(3 if expanded else 0)
 
     def build_report(self, identity=None):
         previous = identity or (self.report_source.currentData() if hasattr(self, 'report_source') else None)
@@ -2127,6 +2400,14 @@ class MainWindow(QMainWindow):
         source_id = self.report_source.currentData()
         if not source_id:
             return
+        from .notifications import notices
+        recorded_notices = notices(source_id)
+        if recorded_notices:
+            host.addWidget(label('Current notices', 'sectionTitle'))
+            host.addWidget(label('Dismissal hides a notice; it does not fix the problem or remove the report.', 'subtitle'))
+            for row in recorded_notices:
+                if not row.get('resolved'):
+                    host.addWidget(self.notice_widget(source_id, row, details=True))
         status = self.libraries[source_id]['status']
         if self.ui_error and (self.ui_error_source or (self.selected().id if self.selected() else None)) == source_id:
             status = self.ui_error_status or {'state': 'Needs attention', 'message': self.ui_error, 'failure_kind': self.ui_error_kind}
@@ -2257,7 +2538,7 @@ class MainWindow(QMainWindow):
         self.process.finished.connect(self.finished)
         self.process.errorOccurred.connect(self.worker_error)
         self.process.start()
-        self.sync_button.set_action("pause")
+        self.pause_button.set_action("pause")
         self.stop_button.show()
         self.progress_timer.start()
         self.timeout.start((120 if action == "discover" else 5500) * 1000)
@@ -2323,14 +2604,13 @@ class MainWindow(QMainWindow):
     def refresh_controls(self):
         busy = self.process is not None or self.run_info is not None
         self.sources.setEnabled(True)
-        has_recovery = hasattr(self, 'recovery_plan') and self.recovery_plan and self.recovery_plan.action != 'browser' and self.sync_panel.tone == 'error'
-        self.sync_button.setVisible(bool(self.libraries) and (busy or not has_recovery))
-        self.sync_button.setEnabled(bool(self.selected() or any(source.enabled for source in self.settings.sources())) or busy)
-        self.sync_button.set_action("resume" if self.run_info and self.run_info["state"] == "paused" else "pause" if busy else None)
-        if not busy and getattr(self, 'recovery', '') == 'retry':
-            self.sync_button.setText(t('Try again'))
-            self.sync_button.setAccessibleName(t('Try again'))
-        elif not busy and not self.selected() and self.libraries:
+        self.sync_button.setVisible(bool(self.libraries))
+        self.sync_button.setEnabled(not busy and bool(self.selected() or any(source.enabled for source in self.settings.sources())))
+        self.sync_button.set_action()
+        self.pause_button.set_action("resume" if self.run_info and self.run_info["state"] == "paused" else "pause")
+        self.pause_button.setVisible(busy)
+        self.pause_button.setEnabled(busy and not (self.run_info and self.run_info['state'] == 'stopping'))
+        if not self.selected() and self.libraries:
             self.sync_button.setText(t('Sync all'))
             self.sync_button.setAccessibleName(t('Sync all'))
         if not busy:
@@ -2339,6 +2619,8 @@ class MainWindow(QMainWindow):
         self.add_button.setEnabled(not busy)
         self.settings_button.setEnabled(not busy)
         self.recovery_button.setEnabled(not busy)
+        if getattr(self, 'recovery_plan', None) and self.recovery_plan.action == 'retry':
+            self.recovery_button.hide()
         self.stop_button.setVisible(busy)
         self.stop_button.setEnabled(busy and not (self.run_info and self.run_info["state"] == "stopping"))
 

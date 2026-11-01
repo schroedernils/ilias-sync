@@ -305,6 +305,7 @@ class SyncPanel(QFrame):
     def __init__(self, parent=None, *, compact=False):
         super().__init__(parent)
         self.compact = compact
+        self.external_report = False
         self.tone = 'neutral'
         self.setObjectName('compactSync' if compact else 'syncPanel')
         outer = QVBoxLayout(self)
@@ -374,8 +375,9 @@ class SyncPanel(QFrame):
 
     def set_expanded(self, expanded):
         self.detail.setVisible(not self.compact or expanded or self.tone == 'error')
-        self.meta.setVisible(not self.compact or expanded)
-        self.report_host.setVisible(self.compact and expanded)
+        self.meta.setVisible(True)
+        if not self.external_report:
+            self.report_host.setVisible(self.compact and expanded)
         self.disclosure.setText(t('Hide details') if expanded else t('Details'))
         self.disclosure.setAccessibleName(t('Hide synchronization details') if expanded else t('Show synchronization details'))
         self.update_minimum_height()
