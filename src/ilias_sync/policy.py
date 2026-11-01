@@ -11,16 +11,40 @@ def normalize_times(values):
     return sorted(set(values))
 
 
+def normalize_weekly(values, *, require_times=True):
+    """Monday=0 through Sunday=6; empty days are intentionally unscheduled."""
+    if not isinstance(values, dict) or any(key not in {str(day) for day in range(7)} for key in values):
+        raise ValueError('Choose valid weekdays and times (HH:MM).')
+    week = {}
+    for day in range(7):
+        times = values.get(str(day), [])
+        if not isinstance(times, list):
+            raise ValueError('Choose valid weekdays and times (HH:MM).')
+        week[str(day)] = normalize_times(times) if times else []
+    if require_times and not any(week.values()):
+        raise ValueError('Add a time to at least one weekday.')
+    return week
+
+
+def weekly_draft(settings):
+    """Read-only legacy conversion; saving is the only migration boundary."""
+    if settings.get('schedule_mode') == 'times':
+        return {str(day): list(settings.get('sync_times', [])) for day in range(7)}
+    return normalize_weekly(settings.get('weekly_times', {}), require_times=False)
+
+
 def next_scheduled_run(settings, failures=0, *, clock=None):
-    if settings.get('schedule_mode', 'interval') != 'times' or not settings.get('sync_times'):
+    mode = settings.get('schedule_mode', 'interval')
+    if mode not in {'times', 'weekly'}:
         return next_run(settings['interval_hours'], failures, clock=clock)
-    times = normalize_times(settings.get('sync_times', []))
+    week = normalize_weekly(settings.get('weekly_times', {})) if mode == 'weekly' else None
+    times = normalize_times(settings.get('sync_times', [])) if mode == 'times' else []
     now = time.time() if clock is None else clock
     today = datetime.fromtimestamp(now)
     candidates = []
-    for days in range(3):
+    for days in range(15 if week else 3):
         date = today.date() + timedelta(days=days)
-        for value in times:
+        for value in week[str(date.weekday())] if week else times:
             hour, minute = map(int, value.split(':'))
             # mktime can silently turn a missing spring-forward hour into a
             # different wall-clock time. Only preview actual matching local times.

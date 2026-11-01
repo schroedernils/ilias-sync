@@ -19,10 +19,13 @@ def apply_settings(settings, candidate, *, install, uninstall):
         raise SettingsStorageError('Existing settings could not be read. Check access to the application data folder and try again.') from None
     def schedule(value):
         if value['scheduled']:
-            install(value['interval_hours'], times=value.get('sync_times', []) if value.get('schedule_mode') == 'times' else None)
+            if value.get('schedule_mode') == 'weekly':
+                install(value['interval_hours'], weekly=value.get('weekly_times', {}))
+            else:
+                install(value['interval_hours'], times=value.get('sync_times', []) if value.get('schedule_mode') == 'times' else None)
         else:
             uninstall()
-    keys = ('scheduled', 'interval_hours', 'schedule_mode', 'sync_times')
+    keys = ('scheduled', 'interval_hours', 'schedule_mode', 'sync_times', 'weekly_times')
     changed = any(candidate.get(key) != previous.get(key) for key in keys)
     changed = changed and (candidate['scheduled'] or previous['scheduled'])
     # Persist first so a RunAtLoad worker sees the new policy. Roll back both

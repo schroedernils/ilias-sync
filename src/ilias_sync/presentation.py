@@ -73,7 +73,7 @@ def schedule_expectation(settings, status, *, clock=None):
     facts = status.get('result') or status.get('evidence') or {}
     retry_at = max(facts.get('http', {}).get('retry_at', 0), status.get('server_retry_at', 0))
     waiting_for_server = retry_at > now
-    if settings.get('schedule_mode') == 'times':
+    if settings.get('schedule_mode') in {'times', 'weekly'}:
         stamp = next_scheduled_run(settings, clock=max(now, retry_at - 0.001))
     else:
         stamp = max(status.get('next_run') or 0, retry_at)

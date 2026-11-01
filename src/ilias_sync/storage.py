@@ -215,6 +215,7 @@ class Settings:
             raise ValueError("This configuration was created by an incompatible app version.")
         self.value.setdefault('schedule_mode', 'interval')
         self.value.setdefault('sync_times', [])
+        self.value.setdefault('weekly_times', {})
 
     def sources(self):
         return [Source(**s) for s in self.value["sources"]]

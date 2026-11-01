@@ -20,23 +20,31 @@ def command(*args):
     return [sys.executable, "-m", "ilias_sync", *args]
 
 
-def install(hours: int, *, times=None):
+def install(hours: int, *, times=None, weekly=None):
+    if times is not None and weekly is not None:
+        raise ValueError('Choose one schedule mode.')
     if times is not None:
         from .policy import normalize_times
         times = normalize_times(times)
+    if weekly is not None:
+        from .policy import normalize_weekly
+        weekly = normalize_weekly(weekly)
     if hours not in (1, 3, 6, 12, 24):
         raise ValueError("Choose 1, 3, 6, 12 or 24 hours.")
-    cmd = command("--sync", *(['--scheduled-time'] if times else []))
+    calendar = bool(times or weekly)
+    cmd = command("--sync", *(['--scheduled-time'] if calendar else []))
     if sys.platform == "darwin":
         target = Path.home() / "Library/LaunchAgents" / (LABEL + ".plist")
         data = {"Label": LABEL, "ProgramArguments": cmd, "StartInterval": hours * 3600,
                 "RunAtLoad": True, "ProcessType": "Background", "LowPriorityIO": True, "Nice": 10,
                 "ThrottleInterval": 300}
-        if times:
+        if calendar:
             data.pop('StartInterval')
             data['RunAtLoad'] = False
             data['ThrottleInterval'] = 10
-            data['StartCalendarInterval'] = [{'Hour': int(value[:2]), 'Minute': int(value[3:])} for value in times]
+            data['StartCalendarInterval'] = ([{'Weekday': (int(day) + 1) % 7, 'Hour': int(value[:2]), 'Minute': int(value[3:])}
+                for day, values in weekly.items() for value in values] if weekly else
+                [{'Hour': int(value[:2]), 'Minute': int(value[3:])} for value in times])
         domain = f"gui/{os.getuid()}"
         previous = target.read_bytes() if target.exists() else None
         subprocess.run(["launchctl", "bootout", domain + "/" + LABEL], capture_output=True)
@@ -52,8 +60,8 @@ def install(hours: int, *, times=None):
             raise
         return str(target)
     if sys.platform == "win32":
-        if times:
-            xml = windows_calendar_xml(cmd, times)
+        if calendar:
+            xml = windows_calendar_xml(cmd, times, weekly=weekly)
             with tempfile.TemporaryDirectory(prefix='iliassync-schedule-') as temporary:
                 path = Path(temporary) / 'schedule.xml'
                 path.write_bytes(xml)
@@ -69,8 +77,11 @@ def install(hours: int, *, times=None):
     escaped = " ".join('"' + c.replace('\\', '\\\\').replace('"', '\\"').replace('%', '%%') + '"' for c in cmd)
     atomic_write(unit / (LABEL + ".service"),
                  f"[Unit]\nDescription=IliasSync downloads\n[Service]\nType=oneshot\nExecStart={escaped}\nNice=10\n".encode())
-    triggers = (''.join(f'OnCalendar=*-*-* {value}:00\n' for value in times) + 'AccuracySec=1s\nRandomizedDelaySec=0\n'
-                if times else f'OnBootSec=2min\nOnUnitActiveSec={hours}h\nRandomizedDelaySec=5min\n')
+    calendars = ([f'{("Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun")[int(day)]} *-*-* {value}:00'
+                  for day, values in weekly.items() for value in values] if weekly else
+                 [f'*-*-* {value}:00' for value in times or []])
+    triggers = (''.join(f'OnCalendar={value}\n' for value in calendars) + 'AccuracySec=1s\nRandomizedDelaySec=0\n'
+                if calendar else f'OnBootSec=2min\nOnUnitActiveSec={hours}h\nRandomizedDelaySec=5min\n')
     atomic_write(unit / (LABEL + ".timer"),
                  f"[Unit]\nDescription=IliasSync schedule\n[Timer]\n{triggers}[Install]\nWantedBy=timers.target\n".encode())
     subprocess.run(["systemctl", "--user", "daemon-reload"], check=True, capture_output=True)
@@ -78,13 +89,20 @@ def install(hours: int, *, times=None):
     return str(unit / (LABEL + ".timer"))
 
 
-def windows_calendar_xml(cmd, times):
+def windows_calendar_xml(cmd, times=None, *, weekly=None):
     task = ET.Element('Task', {'xmlns': 'http://schemas.microsoft.com/windows/2004/02/mit/task', 'version': '1.2'})
     triggers = ET.SubElement(task, 'Triggers')
-    for value in times:
+    entries = [(day, value) for day, values in weekly.items() for value in values] if weekly else [(None, value) for value in times]
+    for day, value in entries:
         trigger = ET.SubElement(triggers, 'CalendarTrigger')
         ET.SubElement(trigger, 'StartBoundary').text = f'{date.today().isoformat()}T{value}:00'
-        ET.SubElement(ET.SubElement(trigger, 'ScheduleByDay'), 'DaysInterval').text = '1'
+        if day is None:
+            ET.SubElement(ET.SubElement(trigger, 'ScheduleByDay'), 'DaysInterval').text = '1'
+        else:
+            schedule = ET.SubElement(trigger, 'ScheduleByWeek')
+            ET.SubElement(schedule, 'WeeksInterval').text = '1'
+            ET.SubElement(ET.SubElement(schedule, 'DaysOfWeek'),
+                          ('Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday')[int(day)])
     principal = ET.SubElement(ET.SubElement(task, 'Principals'), 'Principal', {'id': 'CurrentUser'})
     user = getpass.getuser()
     domain = os.environ.get('USERDOMAIN', '')
