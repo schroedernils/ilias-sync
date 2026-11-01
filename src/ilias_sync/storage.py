@@ -52,6 +52,12 @@ def record_attempt(state: Path, status, previous):
     write_json(state / 'status.json', status)
     history = read_json(state / 'history.json', [])
     write_json(state / 'history.json', [status, *history][:20])
+    # Notification bookkeeping cannot turn a completed sync into a failure.
+    try:
+        from .notifications import observe_attempt
+        observe_attempt(state, status, deliver=True)
+    except Exception:
+        pass
 
 
 def source_scope(source):
