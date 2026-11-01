@@ -59,6 +59,7 @@ QWidget#weekDay QLabel, QWidget#weekDay QWidget {{ border: none; }}
 QLabel#weekDayName {{ font-weight: 600; padding-top: 6px; }}
 QTimeEdit#weekTimeEdit {{ padding: 5px 6px; border: 1px solid {c['input_border']}; border-radius: 6px; }}
 QTimeEdit#weekTimeEdit:focus {{ border: 2px solid {c['accent']}; padding: 4px 5px; }}
+QTimeEdit#weekTimeEdit QLineEdit {{ padding: 0; border: none; background: transparent; min-height: 0; }}
 QPushButton#weekAdd {{ padding: 0; min-height: 0; font-size: 19px; color: {c['accent']}; }}
 QPushButton#weekRemove {{ padding: 0; min-height: 0; background: transparent; border-color: transparent; color: {c['muted']}; font-size: 16px; }}
 QPushButton#weekRemove:hover {{ background: {c['hover']}; color: {c['error']}; }}
