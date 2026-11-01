@@ -126,7 +126,9 @@ def info_sections():
          "Back up the download folders and application data together."),
         ("Zeitplan" if de else "Schedule",
          "Unter Einstellungen → Zeitplan aktivierst du automatische Läufe und wählst ein Intervall oder "
-         "feste tägliche Uhrzeiten. Standard sind sechs Stunden und Aufschieben im Akkubetrieb. "
+         "einen Wochenplan. Im Wochenplan ergänzt + eine Uhrzeit direkt am Wochentag. Du kannst die Uhrzeit direkt bearbeiten und mit × entfernen. "
+         "Tage ohne Uhrzeit bleiben frei. Zeiten kopieren übernimmt die Zeiten eines Tages für Montag bis Freitag oder alle Tage. "
+         "Bisherige tägliche Zeiten erscheinen für alle sieben Tage. Standard sind sechs Stunden und Aufschieben im Akkubetrieb. "
          "Erst Speichern übernimmt deine Änderungen; Abbrechen verwirft sie.\n\n"
          "Pausieren unterbricht den laufenden Sync; Fortsetzen setzt ihn fort. Diesen Sync beenden beendet "
          "nur diesen Lauf. Fertig gespeicherte Dateien und der Zeitplan bleiben erhalten. "
@@ -135,7 +137,9 @@ def info_sections():
          "Uhrzeit ist geplant, keine Ausführungsgarantie. Zwischen den Läufen bleibt kein Sync-Prozess aktiv. "
          "Nach einer abgelaufenen Anmeldung ist zuerst eine neue Anmeldung nötig."
          if de else
-         "In Settings → Schedule, enable automatic runs and choose an interval or fixed daily times. "
+         "In Settings → Schedule, enable automatic runs and choose an interval or a weekly schedule. Use + beside a weekday to add a time, "
+         "edit it directly, and remove it with ×. Days without times remain free. Copy times applies a day's times to Monday–Friday or all days. "
+         "Existing daily times appear on all seven days. "
          "Defaults are six hours and deferral on battery. Save applies changes; Cancel discards them.\n\n"
          "Pause suspends the running sync; Resume continues it. Stop this sync ends only that run. "
          "Completed files and the schedule are kept. To stop future runs, turn off Automatic sync and save.\n\n"

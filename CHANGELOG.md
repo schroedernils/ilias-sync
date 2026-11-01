@@ -1,5 +1,11 @@
 # Changelog
 
+## Unreleased — weekly schedule
+
+- Set separate sync times for every weekday in a direct seven-row editor; copy times to weekdays or the whole week.
+- Preserve existing daily times until Save, show free days explicitly, and keep the next planned check visible.
+- Support weekly native macOS, Windows and Linux triggers with calendar preview and scheduler rollback.
+
 ## Unreleased — unified sync workspace
 
 - Start with three recent materials and View all; keep complete search/filter browsing in Materials.

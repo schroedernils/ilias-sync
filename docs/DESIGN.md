@@ -1,5 +1,23 @@
 # Interface and content
 
+## Direct weekly schedule — November 2026
+
+Settings → Schedule offers intervals or a weekly plan. Seven rows run Monday through Sunday, each with
+directly editable 24-hour time fields, a remove action and an add button. An empty day explicitly says **No sync**.
+**Copy times** progressively exposes applying one day's times to Monday–Friday or all seven days. Extra times wrap
+inside their day; the settings body scrolls while the next planned run and Save/Cancel remain outside the scroll area.
+Editing never resets a user-resized window. Every time/add/remove control has its weekday in its accessible name.
+
+Legacy daily times populate all days in the draft; opening or cancelling settings changes neither stored policy nor
+the OS job. Save atomically adopts the weekly plan and updates the native schedule, with the previous job and
+configuration restored on installation failure. Empty enabled plans are rejected. Weekday numbering is normalized
+Monday=0 internally, then translated to each native scheduler. Calendar preview skips nonexistent DST wall times.
+The worker remains one-shot; no polling process is introduced.
+
+Native calendar references: [Apple launchd](https://github.com/apple-oss-distributions/launchd/blob/main/man/launchd.plist.5),
+[Windows weekly triggers](https://learn.microsoft.com/en-us/windows/win32/taskschd/weekly-trigger-example--xml-),
+[systemd calendar expressions](https://www.freedesktop.org/software/systemd/man/255/systemd.time.html).
+
 ## Unified sync workspace — 1 November 2026
 
 The default **Overview** shows up to three recently added/updated materials, their course context, an honest
