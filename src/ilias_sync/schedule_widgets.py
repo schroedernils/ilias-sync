@@ -64,6 +64,7 @@ class WeeklySchedule(QWidget):
             line.addWidget(add, alignment=Qt.AlignmentFlag.AlignTop)
             self.rows[day] = {'widget': row, 'grid': grid, 'slots': [], 'empty': empty, 'add': add}
             layout.addWidget(row)
+            self.reflow(day)
         normalized = normalize_weekly(values, require_times=False)
         for day, times in normalized.items():
             for value in times:
@@ -90,6 +91,7 @@ class WeeklySchedule(QWidget):
         edit.setDisplayFormat('HH:mm')
         edit.setButtonSymbols(QAbstractSpinBox.ButtonSymbols.NoButtons)
         edit.setFixedWidth(65)
+        edit.setFixedHeight(max(30, self.fontMetrics().height() + 12))
         edit.setAccessibleName(t('Sync time on {day}', day=t(WEEKDAYS[day])))
         edit.timeChanged.connect(self.edited)
         line.addWidget(edit)
@@ -121,6 +123,8 @@ class WeeklySchedule(QWidget):
     def reflow(self, day):
         row = self.rows[day]
         row['empty'].setVisible(not row['slots'])
+        lines = max(1, (len(row['slots']) + 2) // 3)
+        row['widget'].setFixedHeight(14 + lines * max(30, self.fontMetrics().height() + 12) + (lines - 1) * 5)
         for index, slot in enumerate(row['slots']):
             row['grid'].addWidget(slot['widget'], index // 3, index % 3, alignment=Qt.AlignmentFlag.AlignLeft)
         row['grid'].setColumnStretch(3, 1)
