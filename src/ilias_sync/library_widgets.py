@@ -86,19 +86,22 @@ class MaterialDelegate(QStyledItemDelegate):
         text_rect = option.rect.adjusted(46, 3, -10, -3)
         font = QFont(option.font)
         font.setWeight(QFont.Weight.Medium)
+        context_font = QFont(font)
+        context_font.setPixelSize(max(11, round(option.fontMetrics.height() * 0.78)))
+        context_font.setWeight(QFont.Weight.Normal)
+        context = material_context(entry, getattr(option.widget, 'library_scope', 'source'))
+        line_height = QFontMetrics(font).height() + 1
+        context_height = QFontMetrics(context_font).height() + 2 if context else 0
+        top = text_rect.top() + max(0, (text_rect.height() - line_height - context_height) // 2)
         painter.setFont(font)
         painter.setPen(color)
         title = PurePosixPath(entry['path']).name
-        line_height = painter.fontMetrics().height() + 1
-        painter.drawText(QRect(text_rect.left(), text_rect.top(), text_rect.width(), line_height),
+        painter.drawText(QRect(text_rect.left(), top, text_rect.width(), line_height),
                          Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignVCenter,
                          painter.fontMetrics().elidedText(title, Qt.TextElideMode.ElideMiddle, text_rect.width()))
-        font.setPixelSize(max(11, round(option.fontMetrics.height() * 0.78)))
-        font.setWeight(QFont.Weight.Normal)
-        painter.setFont(font)
+        painter.setFont(context_font)
         painter.setPen(muted)
-        context = material_context(entry, getattr(option.widget, 'library_scope', 'source'))
-        painter.drawText(QRect(text_rect.left(), text_rect.top() + line_height, text_rect.width(), painter.fontMetrics().height() + 2),
+        painter.drawText(QRect(text_rect.left(), top + line_height, text_rect.width(), context_height),
                          Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignVCenter,
                          painter.fontMetrics().elidedText(context, Qt.TextElideMode.ElideRight, text_rect.width()))
         painter.restore()
