@@ -32,7 +32,7 @@ def test_windows_ico_preserves_original_png_entries(tmp_path):
         width, height, _, _, _, depth, length, offset = struct.unpack_from("<BBBBHHII", data, 6 + index * 16)
         assert width == height == size % 256
         assert depth == 32
-        assert data[offset:offset + length] == (icons / f"PNG/Default/IliasSync-Default-{size}.png").read_bytes()
+        assert data[offset:offset + length] == (icons / f"PNG/Dark/IliasSync-Dark-{size}.png").read_bytes()
 
 
 def test_linux_launcher_only_writes_to_selected_user_data(tmp_path):

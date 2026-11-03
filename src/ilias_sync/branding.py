@@ -4,9 +4,9 @@ from functools import lru_cache
 import sys
 
 from PySide6.QtCore import QEvent, QRectF, QSize, Qt
-from PySide6.QtGui import QIcon, QPalette, QPainter, QPixmap
+from PySide6.QtGui import QIcon, QPainter, QPixmap
 from PySide6.QtSvg import QSvgRenderer
-from PySide6.QtWidgets import QApplication, QLabel
+from PySide6.QtWidgets import QLabel
 
 ICONS = Path(__file__).resolve().parent / "assets" / "icons"
 
@@ -34,28 +34,28 @@ def app_icon():
     # Keep the OS identity independent of the in-app appearance preference.
     # In particular, don't replace macOS's Dock icon when a settings pane changes.
     if sys.platform == "darwin":
-        return QIcon(str(ICONS / "macOS/IliasSync.icns"))
+        return QIcon(str(ICONS / "macOS/IliasSync-Dark.icns"))
     icon = QIcon()
     for size in (16, 32, 64, 128, 256, 512, 1024):
-        icon.addFile(str(ICONS / f"PNG/Default/IliasSync-Default-{size}.png"))
+        icon.addFile(str(ICONS / f"PNG/Dark/IliasSync-Dark-{size}.png"))
     return icon
 
 
 class BrandMark(QLabel):
     """Small, non-interactive identity mark; adjacent text provides its name."""
 
-    def __init__(self, parent=None):
+    def __init__(self, parent=None, size=28):
         super().__init__(parent)
-        self.setFixedSize(44, 44)
+        self.mark_size = size
+        self.setFixedSize(size, size)
         self.setAlignment(Qt.AlignmentFlag.AlignCenter)
         self.update_icon()
 
     def update_icon(self):
-        dark = QApplication.palette().color(QPalette.ColorRole.Window).lightness() < 128
-        name = "IliasSync-Dark.iconset" if dark else "IliasSync.iconset"
+        name = "IliasSync-Dark.iconset"
         # The supplied raster retains the alpha mask with every Qt SVG backend.
         path = ICONS / "macOS" / name / "icon_128x128.png"
-        self.setPixmap(QIcon(str(path)).pixmap(QSize(44, 44), self.devicePixelRatioF()))
+        self.setPixmap(QIcon(str(path)).pixmap(QSize(self.mark_size, self.mark_size), self.devicePixelRatioF()))
 
     def changeEvent(self, event):
         super().changeEvent(event)

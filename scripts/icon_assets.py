@@ -4,7 +4,7 @@ import struct
 
 
 def windows_icon(icons: Path, output: Path):
-    entries = [(n, (icons / f"PNG/Default/IliasSync-Default-{n}.png").read_bytes())
+    entries = [(n, (icons / f"PNG/Dark/IliasSync-Dark-{n}.png").read_bytes())
                for n in (16, 32, 64, 128, 256)]
     offset = 6 + 16 * len(entries)
     directory = []

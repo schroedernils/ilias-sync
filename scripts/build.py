@@ -50,9 +50,9 @@ def main():
     build_info.write_text(json.dumps(metadata(ROOT, __version__), indent=2))
     notice_dir = notices()
     icons = ROOT / "src/ilias_sync/assets/icons"
-    native_icon = (icons / "macOS/IliasSync.icns" if sys.platform == "darwin"
+    native_icon = (icons / "macOS/IliasSync-Dark.icns" if sys.platform == "darwin"
                    else windows_icon(icons, ROOT / "build/IliasSync.ico") if sys.platform == "win32"
-                   else icons / "PNG/Default/IliasSync-Default-256.png")
+                   else icons / "PNG/Dark/IliasSync-Dark-256.png")
     subprocess.run([sys.executable, "-m", "PyInstaller", "--noconfirm", "--clean", "--onedir", "--windowed",
                     "--name", "IliasSync", "--icon", str(native_icon), "--paths", "src",
                     "--collect-data", "ilias_sync", "--collect-all", "PFERD",
@@ -95,7 +95,7 @@ def main():
         if sys.platform.startswith("linux"):
             shutil.copy2(ROOT / "scripts/install-desktop.sh", dist / "IliasSync/install-desktop.sh")
             (dist / "IliasSync/install-desktop.sh").chmod(0o755)
-            shutil.copy2(icons / "PNG/Default/IliasSync-Default-256.png", dist / "IliasSync/IliasSync.png")
+            shutil.copy2(icons / "PNG/Dark/IliasSync-Dark-256.png", dist / "IliasSync/IliasSync.png")
         fmt = "zip" if sys.platform == "win32" else "gztar"
         package = Path(shutil.make_archive(str(dist / prefix), fmt, root_dir=dist, base_dir="IliasSync"))
     digest = hashlib.sha256(package.read_bytes()).hexdigest()
