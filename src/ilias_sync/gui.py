@@ -16,10 +16,11 @@ from PySide6.QtWidgets import (
     QHBoxLayout, QHeaderView, QLabel, QLineEdit, QListWidget, QListWidgetItem, QMainWindow, QMenu,
     QMessageBox, QPushButton, QScrollArea, QSplitter, QTableWidget, QTableWidgetItem,
     QTextEdit, QTextBrowser, QTabWidget, QVBoxLayout, QWidget, QSizePolicy, QFrame, QStackedWidget, QTreeWidget, QTreeWidgetItem,
-    QTabBar,
+    QTabBar, QStyle, QStyleOption,
 )
 
 from . import __version__
+from .help_widgets import HelpTopicList
 from .scrolling import TranslucentScrollArea
 from .branding import BrandMark, app_icon, paint_action
 from .control import active_run, send_command
@@ -1147,6 +1148,18 @@ class FolderMappingDialog(QDialog):
             self.error.show()
 
 
+def paint_window_background(widget):
+    painter = QPainter(widget)
+    # Clear moved/invalidated regions before repainting translucent surfaces.
+    painter.setCompositionMode(QPainter.CompositionMode.CompositionMode_Source)
+    painter.fillRect(widget.rect(), Qt.GlobalColor.transparent)
+    painter.setCompositionMode(QPainter.CompositionMode.CompositionMode_SourceOver)
+    option = QStyleOption()
+    option.initFrom(widget)
+    widget.style().drawPrimitive(QStyle.PrimitiveElement.PE_Widget, option, painter, widget)
+    painter.end()
+
+
 class SettingsDialog(QDialog):
     def __init__(self, settings, parent=None):
         super().__init__(parent)
@@ -1317,18 +1330,19 @@ class HelpDialog(QDialog):
         from .info import info_sections, info_links, topic_html
         self.topics_data = info_sections()
         split = QSplitter()
-        self.topics = QListWidget()
+        self.topics = HelpTopicList()
         self.topics.setAccessibleName(t('Help topics'))
         self.topics.setWordWrap(True)
         self.topics.setResizeMode(QListWidget.ResizeMode.Adjust)
         self.topics.setTextElideMode(Qt.TextElideMode.ElideNone)
         self.topics.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
-        self.topics.setStyleSheet('QListWidget::item { padding: 6px 4px; margin: 2px 0; }')
         self.topics.setMinimumWidth(150)
         self.topics.setMaximumWidth(210)
         self.topics.addItems([title for title, _ in self.topics_data] + [t('Info')])
         split.addWidget(self.topics)
         self.info = QTextBrowser()
+        self.info.setObjectName('helpContent')
+        self.info.viewport().setAutoFillBackground(False)
         self.info.setOpenExternalLinks(True)
         self.info.setAccessibleName(t('About & usage'))
         split.addWidget(self.info)
@@ -1344,6 +1358,10 @@ class HelpDialog(QDialog):
         self.topics.currentRowChanged.connect(show_topic)
         self.topics.setCurrentRow(0)
         layout.addWidget(button('Close', self.accept), alignment=Qt.AlignmentFlag.AlignRight)
+
+    def paintEvent(self, event):
+        paint_window_background(self)
+        super().paintEvent(event)
 
 
 class MainWindow(QMainWindow):

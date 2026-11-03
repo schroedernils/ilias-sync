@@ -112,6 +112,11 @@ QCheckBox::indicator:hover {{ border-color: {c['accent']}; }}
 QListWidget {{ background: {c['inset']}; border: 0; padding: 8px; border-radius: 8px; }}
 QListWidget::item {{ padding: 14px 12px; margin-bottom: 4px; border-radius: 6px; }}
 QListWidget::item:selected {{ background: {c['selection']}; color: {c['selected_text']}; }}
+QListWidget#helpTopics::item {{ padding: 6px 8px; margin: 2px 0; border: 1px solid transparent; border-radius: 8px; }}
+QListWidget#helpTopics::item:hover:!selected {{ background: {c['hover']}; }}
+QListWidget#helpTopics::item:selected, QListWidget#helpTopics::item:selected:hover, QListWidget#helpTopics::item:selected:!active {{ background: {c['selection']}; color: {c['text']}; font-weight: 600; }}
+QListWidget#helpTopics::item:focus {{ border-color: {c['accent']}; }}
+QTextBrowser#helpContent {{ background: transparent; border: none; padding: 8px 12px; }}
 QListWidget#sourceList {{ background: transparent; padding: 0; border-radius: 0; }}
 QListWidget#sourceList::item {{ padding: 0; margin: 0 0 5px 0; }}
 QTreeWidget, QTableWidget {{ background: {c['surface']}; alternate-background-color: {c['inset']}; border: 1px solid {c['border']}; border-radius: 7px; gridline-color: {c['inset']}; }}
