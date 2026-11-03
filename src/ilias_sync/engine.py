@@ -139,6 +139,8 @@ def make_crawler(source: Source, emit=lambda event: None, *, discover=False):
             self.membership_complete = False
             self.failed_checks = {}
             self.http = None
+            from .storage import excluded_files
+            self.excluded = excluded_files(source.id)
             self.page_index = PageIndex(data_dir() / 'sources' / source.id / 'page-index.json', source,
                                         self._fetch_page)
 
@@ -447,7 +449,10 @@ def make_crawler(source: Source, emit=lambda event: None, *, discover=False):
             # Cap depth and names for Windows; discarded hierarchy is still in the source link.
             if len(parts) > 5:
                 parts = parts[:3] + parts[-2:]
-            self.files[identity] = {"raw": raw, "path": "/".join(parts), "url": element.url,
+            path = "/".join(parts)
+            if path in self.excluded:
+                return None
+            self.files[identity] = {"raw": raw, "path": path, "url": element.url,
                                     "course_id": self.current['id'], "course_name": self.current['name'],
                                     "logical": '/'.join([self.current['id'], *parts[1:]])}
             return await super()._handle_file(element, raw, is_video)
@@ -525,9 +530,13 @@ async def synchronize(source: Source, emit=lambda event: None, *, discover=False
         material_counts = Counter()
         unavailable = []
         paths = set()
+        from .storage import excluded_files
+        excluded = excluded_files(source.id)
         emit({"event": "progress", "message": "Saving files…"})
         for identity, item in crawler.files.items():
             await checkpoint()
+            if item["path"] in excluded:
+                continue
             raw = state / "cache" / item["raw"]
             if not raw.is_file() or item["raw"] not in crawler.report.known_files:
                 unavailable.append(identity)

@@ -107,11 +107,19 @@ def test_material_views_search_recency_and_open_selected_file(app, source):
     assert window.apply_file_filters() == 1
     row = next(row for row in range(window.files.rowCount()) if not window.files.isRowHidden(row))
     window.files.selectRow(row)
-    with patch('ilias_sync.gui.QDesktopServices.openUrl', return_value=True) as opened:
+    window.files.clearSelection()
+    window.files.setCurrentCell(-1, -1)
+    assert window.file_open_button.isEnabled()
+    with patch('ilias_sync.gui.launch_local', return_value=True) as opened:
+        window.file_open_button.click()
+        opened.assert_called_once()
+        assert Path(opened.call_args.args[0]) == Path(source.destination) / 'Algorithms/Week 1/A.pdf'
+    with patch('ilias_sync.gui.launch_local', return_value=True) as opened:
+        window.files.selectRow(row)
         window.files.setFocus()
         QTest.keyClick(window.files, Qt.Key.Key_Return)
         opened.assert_called_once()
-        assert opened.call_args.args[0].toLocalFile() == str(Path(source.destination) / 'Algorithms/Week 1/A.pdf')
+        assert Path(opened.call_args.args[0]) == Path(source.destination) / 'Algorithms/Week 1/A.pdf'
     target = Path(source.destination) / 'Algorithms/Week 1/A.pdf'
     target.unlink()
     window.open_file()
@@ -208,3 +216,21 @@ def test_local_dates_remain_correct_across_midnight_language_and_timezone(monkey
         else:
             monkeypatch.setenv('TZ', previous)
         time.tzset()
+
+
+def test_sync_arrow_spins_the_way_it_points(app):
+    from ilias_sync.library_widgets import StatusMark
+    mark = StatusMark(compact=True)
+    # The head points counter-clockwise, so the loop runs that way too.
+    assert mark._spin.endValue() < mark._spin.startValue()
+
+
+def test_hiding_unavailable_paths_does_not_erase_incomplete_check_evidence():
+    from ilias_sync.presentation import filtered_result, sync_summary
+    result = {'partial': True, 'enumeration_complete': False, 'unavailable': 1,
+              'unavailable_items': ['Course/Lecture.pdf'], 'counts': {'unchanged': 2}}
+    filtered, remaining = filtered_result(result, {'Course/Lecture.pdf'})
+    assert not remaining and filtered['unavailable'] == 0
+    assert filtered['partial'] and not filtered['enumeration_complete']
+    assert result['unavailable'] == 1
+    assert sync_summary({'state':'Completed with warnings','result':filtered},None).tone == 'warning'

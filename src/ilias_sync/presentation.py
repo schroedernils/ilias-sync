@@ -61,14 +61,54 @@ def sync_summary(status, material_count):
     return SyncSummary(t('Materials synchronized') if changed else t('Last check completed'), detail, 'success', 'recent' if changed else '')
 
 
+def warning_facts(result):
+    """Concrete exceptions only. No surrounding explanation."""
+    result = result or {}
+    counts = result.get('material_counts', result.get('counts', {}))
+    facts = []
+    unavailable = result.get('unavailable', 0) or 0
+    if unavailable:
+        facts.append(t('1 file unavailable') if unavailable == 1 else t('{count} files unavailable', count=unavailable))
+    conflicts = counts.get('conflict', 0)
+    if conflicts:
+        facts.append(t('1 local edit preserved') if conflicts == 1 else t('{count} local edits preserved', count=conflicts))
+    if result.get('warnings'):
+        facts.append(t('{count} warnings', count=result['warnings']))
+    return facts
+
+
+def filtered_result(result, excluded):
+    """Drop paths the person has chosen to skip. Unnamed leftovers stay visible."""
+    result = dict(result or {})
+    items = list(result.get('unavailable_items') or [])
+    remaining = [path for path in items if path not in excluded]
+    unnamed = max(0, int(result.get('unavailable') or 0) - len(items))
+    details = [row for row in result.get('unavailable_details') or [] if row.get('path') not in excluded]
+    result['unavailable_items'] = remaining
+    result['unavailable_details'] = details
+    result['unavailable'] = len(remaining) + unnamed
+    return result, remaining
+
+
 def schedule_expectation(settings, status, *, clock=None):
-    import time
-    from .policy import next_scheduled_run
     if not settings.get('scheduled'):
         return t('Automatic sync is off')
     from .recovery import needs_signin
     if needs_signin(status):
         return t('Automatic sync waits for sign-in')
+    now, stamp, retry_at, waiting_for_server = _schedule_moment(settings, status, clock)
+    if waiting_for_server:
+        return t('Server pause until {time}.', time=local_time(retry_at, now=now)) + ' ' + t('Next planned check: {time}', time=local_time(stamp, now=now))
+    if status.get('deferred') == 'battery':
+        return t('Last automatic run deferred on battery. Next attempt follows the schedule.')
+    if not stamp or stamp <= now:
+        return t('Next check: when the operating system starts the scheduled run')
+    return t('Next planned check: {time}', time=local_time(stamp, now=now))
+
+
+def _schedule_moment(settings, status, clock):
+    import time
+    from .policy import next_scheduled_run
     now = time.time() if clock is None else clock
     facts = status.get('result') or status.get('evidence') or {}
     retry_at = max(facts.get('http', {}).get('retry_at', 0), status.get('server_retry_at', 0))
@@ -77,13 +117,48 @@ def schedule_expectation(settings, status, *, clock=None):
         stamp = next_scheduled_run(settings, clock=max(now, retry_at - 0.001))
     else:
         stamp = max(status.get('next_run') or 0, retry_at)
-    if waiting_for_server:
-        return t('Server pause until {time}.', time=local_time(retry_at, now=now)) + ' ' + t('Next planned check: {time}', time=local_time(stamp, now=now))
+    return now, stamp, retry_at, waiting_for_server
+
+
+def brief_stamp(stamp, *, now=None):
+    """A clock a person can read at a glance. Returns (text, today)."""
+    if not stamp:
+        return '', False
+    zone = (os.environ.get('TZ'), time.tzname, time.timezone, time.daylight)
+    value = _local_minute(int(stamp // 60), zone)
+    today = _local_minute(int((time.time() if now is None else now) // 60), zone)
+    clock = f'{value.tm_hour:02d}:{value.tm_min:02d}'
+    if value[:3] == today[:3]:
+        return clock, True
+    if value.tm_year == today.tm_year:
+        return f'{value.tm_mday:02d}.{value.tm_mon:02d}., {clock}', False
+    return f'{value.tm_mday:02d}.{value.tm_mon:02d}.{value.tm_year}, {clock}', False
+
+
+def brief_sync_time(stamp, *, now=None):
+    text, today = brief_stamp(stamp, now=now)
+    if not text:
+        return t('Not yet')
+    return text + (' · ' + t('today') if today else '')
+
+
+def schedule_brief(settings, status, *, clock=None):
+    from .recovery import needs_signin
+    if not settings.get('scheduled'):
+        return t('Sync off')
+    if needs_signin(status):
+        return t('Waiting for sign-in')
+    now, stamp, retry_at, waiting = _schedule_moment(settings, status, clock)
+    if waiting:
+        text, _today = brief_stamp(retry_at, now=now)
+        return t('Paused until {time}', time=text)
     if status.get('deferred') == 'battery':
-        return t('Last automatic run deferred on battery. Next attempt follows the schedule.')
+        return t('Deferred on battery')
     if not stamp or stamp <= now:
-        return t('Next check: when the operating system starts the scheduled run')
-    return t('Next planned check: {time}', time=local_time(stamp, now=now))
+        return t('Next system run')
+    text, today = brief_stamp(stamp, now=now)
+    shown = (t('today') + ', ' + text) if today else text
+    return t('Next {time}', time=shown)
 
 
 def progress_copy(raw):

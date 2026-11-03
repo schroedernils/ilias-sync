@@ -35,6 +35,18 @@ def read_json(path: Path, default):
     return json.loads(path.read_text(encoding="utf-8"))
 
 
+def excluded_files(source_id):
+    """Paths the person chose to skip. This never deletes a local copy."""
+    value = read_json(data_dir() / 'sources' / source_id / 'excluded.json', [])
+    return set(value if isinstance(value, list) else [])
+
+
+def exclude_files(source_id, paths):
+    current = excluded_files(source_id)
+    current.update(path for path in paths if path)
+    write_json(data_dir() / 'sources' / source_id / 'excluded.json', sorted(current))
+
+
 def record_attempt(state: Path, status, previous):
     """Keep attempt outcomes distinct from the last fully successful check."""
     from .build_info import build_info
