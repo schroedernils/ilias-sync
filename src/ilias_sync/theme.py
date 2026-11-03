@@ -127,7 +127,7 @@ QHeaderView::section {{ background: {c['inset']}; color: {c['text']}; padding: 1
 QMainWindow QHeaderView::section {{ padding: 6px 10px; }}
 QTextEdit#activity {{ font-size: 12px; color: {c['muted']}; }}
 QSplitter::handle {{ background: {c['border']}; width: 1px; }}
-QToolTip {{ background: {c['surface']}; color: {c['text']}; border: 1px solid {c['border']}; }}
+QToolTip {{ background: {c['surface']}; color: {c['text']}; border: 1px solid {c['border']}; border-radius: 9px; padding: 9px 11px; font-size: 12px; font-weight: 400; opacity: 250; }}
 """
 
 
