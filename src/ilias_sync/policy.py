@@ -51,7 +51,11 @@ def next_scheduled_run(settings, failures=0, *, clock=None):
             requested = datetime(date.year, date.month, date.day, hour, minute)
             valid = []
             for dst in (-1, 0, 1):
-                stamp = time.mktime((date.year, date.month, date.day, hour, minute, 0, -1, -1, dst))
+                try:
+                    stamp = time.mktime((date.year, date.month, date.day, hour, minute, 0, -1, -1, dst))
+                except (OverflowError, ValueError, OSError):
+                    # Some C runtimes reject forced DST in zones without it.
+                    continue
                 if datetime.fromtimestamp(stamp) == requested:
                     valid.append(stamp)
             if valid and min(valid) > now:

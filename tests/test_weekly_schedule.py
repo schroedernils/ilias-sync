@@ -48,6 +48,7 @@ def test_weekly_preview_respects_server_pause_and_login_wait():
     assert 'Anmeldung' in schedule_expectation(settings, {'login_required': True}, clock=now)
 
 
+@pytest.mark.skipif(not hasattr(time, 'tzset'), reason='Explicit POSIX timezone switching; Windows triggers are checked separately')
 def test_weekly_dst_missing_hour_skips_to_next_real_matching_week(monkeypatch):
     previous = os.environ.get('TZ')
     try:
@@ -67,6 +68,7 @@ def test_weekly_dst_missing_hour_skips_to_next_real_matching_week(monkeypatch):
 def test_mac_weekly_triggers_use_correct_weekdays_and_no_install_run(tmp_path, monkeypatch):
     import ilias_sync.scheduler as scheduler
     monkeypatch.setattr(scheduler.sys, 'platform', 'darwin')
+    monkeypatch.setattr(scheduler.os, 'getuid', lambda: 501, raising=False)
     monkeypatch.setattr(Path, 'home', lambda: tmp_path)
     with patch.object(scheduler.subprocess, 'run'):
         scheduler.install(6, weekly={'0': ['08:00', '18:30'], '6': ['12:15']})
@@ -111,3 +113,16 @@ def test_weekly_install_failure_restores_previous_daily_settings_and_job():
     assert installer.call_args_list[1].kwargs == {'times': ['10:00']}
 
 
+
+
+@pytest.mark.parametrize('error', [OverflowError, ValueError, OSError])
+def test_runtime_rejecting_forced_dst_keeps_normal_calendar_preview(monkeypatch, error):
+    mktime = time.mktime
+    def reject_forced_dst(value):
+        if value[-1] != -1:
+            raise error('forced DST unsupported in this timezone')
+        return mktime(value)
+    monkeypatch.setattr(time, 'mktime', reject_forced_dst)
+    settings = {'schedule_mode':'weekly', 'weekly_times':{'0':['09:00']}}
+    result = next_scheduled_run(settings, clock=datetime(2026,11,2,8).timestamp())
+    assert datetime.fromtimestamp(result) == datetime(2026,11,2,9)
