@@ -2,6 +2,7 @@
 // Qt 6.10 Cocoa bridge compatibility: native placeholders borrow their parent
 // interface ID. Native element teardown must not delete Qt-owned interfaces.
 // This mirrors qtbase/dev qcocoaaccessibilityelement.mm's ownership correction.
+#import <AppKit/AppKit.h>
 #import <Foundation/Foundation.h>
 #import <objc/message.h>
 #import <objc/runtime.h>
@@ -20,6 +21,21 @@ static void releaseNativeElement(id element, SEL selector)
     [columns release];
     struct objc_super superclass = {element, class_getSuperclass(elementClass)};
     reinterpret_cast<void (*)(struct objc_super *, SEL)>(objc_msgSendSuper)(&superclass, selector);
+}
+
+extern "C" int ilias_set_window_appearance(void *nativeView, int dark)
+{
+    @autoreleasepool {
+        if (!nativeView)
+            return 0;
+        NSWindow *window = ((NSView *)nativeView).window;
+        if (!window)
+            return 0;
+        NSAppearanceName name = dark ? NSAppearanceNameDarkAqua : NSAppearanceNameAqua;
+        if (![window.appearance.name isEqualToString:name])
+            window.appearance = [NSAppearance appearanceNamed:name];
+        return 1;
+    }
 }
 
 extern "C" int ilias_fix_qt_accessibility()
