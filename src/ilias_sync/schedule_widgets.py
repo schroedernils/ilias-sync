@@ -1,10 +1,12 @@
 """Direct weekly schedule editing; all changes remain a settings draft."""
 from PySide6.QtCore import Qt, QTime, Signal
 from PySide6.QtWidgets import (
-    QWidget, QVBoxLayout, QHBoxLayout, QGridLayout, QLabel, QPushButton, QTimeEdit, QAbstractSpinBox, QMenu, QSizePolicy,
+    QWidget, QVBoxLayout, QHBoxLayout, QGridLayout, QLabel, QPushButton, QTimeEdit, QAbstractSpinBox, QSizePolicy,
 )
 
 from .i18n import t
+from .hints import set_hint
+from .motion import FadeButton, MotionMenu, popup
 from .policy import normalize_weekly
 
 WEEKDAYS = ('Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday')
@@ -26,10 +28,10 @@ class WeeklySchedule(QWidget):
         title = QLabel(t('Your week'))
         title.setObjectName('sectionTitle')
         heading.addWidget(title, 1)
-        self.copy_button = QPushButton(t('Copy times…'))
-        self.copy_button.setObjectName('compactControl')
+        self.copy_button = FadeButton(t('Copy times'), self)
+        self.copy_button.setObjectName('toolbarControl')
+        self.copy_button.hide()
         self.copy_button.clicked.connect(self.copy_menu)
-        heading.addWidget(self.copy_button)
         layout.addLayout(heading)
         note = QLabel(t('Add times with +. Days without times stay free.'))
         note.setObjectName('subtitle')
@@ -59,7 +61,7 @@ class WeeklySchedule(QWidget):
             add.setObjectName('weekAdd')
             add.setFixedSize(30, 30)
             add.setAccessibleName(t('Add time on {day}', day=t(name)))
-            add.setToolTip(add.accessibleName())
+            set_hint(add, add.accessibleName())
             add.clicked.connect(lambda _, day=day: self.add_time(day))
             line.addWidget(add, alignment=Qt.AlignmentFlag.AlignTop)
             self.rows[day] = {'widget': row, 'grid': grid, 'slots': [], 'empty': empty, 'add': add}
@@ -99,7 +101,7 @@ class WeeklySchedule(QWidget):
         remove.setObjectName('weekRemove')
         remove.setFixedSize(25, 30)
         remove.setAccessibleName(t('Remove time on {day}', day=t(WEEKDAYS[day])))
-        remove.setToolTip(remove.accessibleName())
+        set_hint(remove, remove.accessibleName())
         line.addWidget(remove)
         slot = {'widget': widget, 'edit': edit, 'remove': remove}
         row['slots'].append(slot)
@@ -137,13 +139,18 @@ class WeeklySchedule(QWidget):
         self.copy_button.setEnabled(any(self.values().values()))
 
     def copy_menu(self):
-        menu = QMenu(self)
+        menu = MotionMenu(self)
         for day, times in self.values().items():
             if times:
                 submenu = menu.addMenu(t(WEEKDAYS[int(day)]) + ' · ' + ', '.join(times))
-                submenu.addAction(t('Apply to Monday–Friday'), lambda _, day=int(day): self.copy_day(day, range(5)))
-                submenu.addAction(t('Apply to all days'), lambda _, day=int(day): self.copy_day(day, range(7)))
-        menu.exec(self.copy_button.mapToGlobal(self.copy_button.rect().bottomLeft()))
+                submenu.addAction(t('Apply to Monday–Friday'), lambda _=False, day=int(day): self.copy_day(day, range(5)))
+                submenu.addAction(t('Apply to all days'), lambda _=False, day=int(day): self.copy_day(day, range(7)))
+                submenu.addSeparator()
+                target_menu = submenu.addMenu(t('Another day'))
+                for target, name in enumerate(WEEKDAYS):
+                    if target != int(day):
+                        target_menu.addAction(t(name), lambda _=False, day=int(day), target=target: self.copy_day(day, [target]))
+        popup(menu, self.copy_button)
 
     def copy_day(self, source, targets):
         times = self.values()[str(source)]

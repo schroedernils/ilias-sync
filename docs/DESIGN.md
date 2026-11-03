@@ -1,10 +1,13 @@
 # Interface and content
 
+The current visual rules live in [DESIGN-SYSTEM.md](DESIGN-SYSTEM.md). This file keeps the product decisions those rules have to preserve.
+
 ## Direct weekly schedule — November 2026
 
 Settings → Schedule offers intervals or a weekly plan. Seven rows run Monday through Sunday, each with
 directly editable 24-hour time fields, a remove action and an add button. An empty day explicitly says **No sync**.
-**Copy times** progressively exposes applying one day's times to Monday–Friday or all seven days. Extra times wrap
+**Copy times**, beside the battery option, progressively exposes applying one day's times to a single other weekday,
+Monday–Friday or all seven days. Extra times wrap
 inside their day; the settings body scrolls while the next planned run and Save/Cancel remain outside the scroll area.
 Editing never resets a user-resized window. Every time/add/remove control has its weekday in its accessible name.
 
@@ -74,7 +77,7 @@ The hierarchy and scoped, continuously filtering search follow Apple's guidance 
 This remains a Qt desktop application with native macOS interactions, rather than an AppKit/SwiftUI rewrite.
 The sections below document earlier iterations and their retained behavioral constraints.
 
-The default language is German; Settings offers an immediate switch to English. Server-provided course names and filenames keep their original wording. The interface uses system typography, a quiet neutral palette, a single blue action accent, visible keyboard focus and standard desktop controls.
+The default language is German; Settings offers an immediate switch to English. Server-provided course names and filenames keep their original wording. The interface uses the system typeface at 14px. Dark chrome is #141414 and the working pane is #181818, with #f0f0f0 text; light chrome is #f3f3f3 and the pane is #fcfcfc. The action blue is #599ce7. Hover fills fade in over 90ms, and a press darkens the control. The sync action morphs into pause and stop over about half a second. The window itself is slightly translucent. Keyboard focus stays visible.
 
 The main view answers: which ILIAS, where are my files, what happened, what can I do next? Marketing headings, repeated privacy claims, the permanent version footer and empty activity console were removed. Detailed activity is expandable. The login form only shows fields needed by the selected method. Errors explain the next action; unavailable and skipped content remains visible in the result. A lack of content is not represented as a successful full archive.
 
@@ -96,7 +99,7 @@ A local REA investigation identified the installed artifacts for ChatGPT, Google
 
 Setup now separates university address, sign-in and files into three steps. Settings groups language/theme and background policy. The start button becomes Pause/Resume plus Stop during work. Stop ends this batch; a configured schedule remains enabled for its next run. No reference branding or source code is shipped.
 
-The supplied IliasSync icon kit is the sole product identity. Native package icons and runtime window identity agree; UI marks use the supplied dark variant. Source editing lives in the sidebar on hover, right-click and F2. Folder actions sit beside the destination; settings is a gear. All retain translated accessible labels and tooltips. Lucide 0.468.0 supplies a consistent action-icon family under its bundled license. Native Clear/Tinted macOS appearances require a separate Icon Composer document; classic ICNS is the current fallback.
+The supplied IliasSync icon kit is the sole product identity. Native package icons and runtime window identity agree; UI marks use the supplied dark variant. Source editing lives in the sidebar on hover, right-click and F2. Folder actions sit beside the destination; settings is a gear. Actions retain translated accessible labels; hover help is limited to icons, meaningful consequences and clipped names rather than repeating visible text. Lucide 0.468.0 supplies a consistent action-icon family under its bundled license. Native Clear/Tinted macOS appearances require a separate Icon Composer document; classic ICNS is the current fallback.
 
 ## Materials and synchronization redesign (October 2026)
 

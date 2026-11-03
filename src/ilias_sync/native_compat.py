@@ -19,3 +19,18 @@ def protect_accessibility(application):
     if not _library.ilias_fix_qt_accessibility():
         raise RuntimeError('The Qt Cocoa accessibility compatibility layer could not be initialized.')
     return True
+
+
+def blur_window(view_id, tint='#181818'):
+    """Blur the desktop behind a Cocoa window. No-op when the layer is absent."""
+    if _library is None or not view_id:
+        return False
+    try:
+        from PySide6.QtGui import QColor
+        color = QColor(tint)
+        function = _library.ilias_blur_window
+        function.argtypes = [ctypes.c_void_p, ctypes.c_int, ctypes.c_int, ctypes.c_int]
+        function.restype = ctypes.c_int
+        return bool(function(ctypes.c_void_p(view_id), color.red(), color.green(), color.blue()))
+    except (OSError, AttributeError):
+        return False

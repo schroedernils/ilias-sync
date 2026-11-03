@@ -38,6 +38,76 @@ extern "C" int ilias_set_window_appearance(void *nativeView, int dark)
     }
 }
 
+static NSView *labeled(NSView *host, NSString *name)
+{
+    for (NSView *subview in host.subviews) {
+        if ([subview.identifier isEqualToString:name])
+            return subview;
+    }
+    return nil;
+}
+
+extern "C" int ilias_blur_window(void *nativeView, int red, int green, int blue)
+{
+    @autoreleasepool {
+        if (!nativeView)
+            return 0;
+        NSView *qtView = (NSView *)nativeView;
+        NSWindow *window = qtView.window;
+        if (!window)
+            return 0;
+        BOOL dark = (red * 0.2126 + green * 0.7152 + blue * 0.0722) < 140;
+        ilias_set_window_appearance(nativeView, dark);
+        window.opaque = NO;
+        window.backgroundColor = [NSColor clearColor];
+        window.titlebarAppearsTransparent = YES;
+        window.titleVisibility = NSWindowTitleHidden;
+        if (!(window.styleMask & NSWindowStyleMaskFullSizeContentView))
+            window.styleMask = window.styleMask | NSWindowStyleMaskFullSizeContentView;
+        // Keep Qt's view in place. A child of it paints over the interface, so the
+        // wash sits beside it, in the frame behind the content.
+        NSView *host = qtView.superview;
+        if (!host)
+            return 0;
+        NSRect area = [host convertRect:qtView.bounds fromView:qtView];
+        NSVisualEffectView *blur = (NSVisualEffectView *)labeled(host, @"ilias-blur");
+        if (!blur) {
+            blur = [[NSVisualEffectView alloc] initWithFrame:area];
+            blur.identifier = @"ilias-blur";
+            blur.autoresizingMask = NSViewWidthSizable | NSViewHeightSizable;
+            blur.blendingMode = NSVisualEffectBlendingModeBehindWindow;
+            blur.state = NSVisualEffectStateActive;
+            blur.wantsLayer = YES;
+            [host addSubview:blur positioned:NSWindowBelow relativeTo:qtView];
+            [blur release];
+        }
+        blur.frame = area;
+        blur.material = dark ? NSVisualEffectMaterialHUDWindow : NSVisualEffectMaterialMenu;
+        // The stock backdrop is a coarse sample. A wider radius turns it into a smooth wash.
+        @try {
+            [blur setValue:@(52) forKey:@"blurRadius"];
+        } @catch (NSException *exception) {
+        }
+        NSView *tint = labeled(host, @"ilias-tint");
+        if (!tint) {
+            tint = [[NSView alloc] initWithFrame:area];
+            tint.identifier = @"ilias-tint";
+            tint.autoresizingMask = NSViewWidthSizable | NSViewHeightSizable;
+            tint.wantsLayer = YES;
+            [host addSubview:tint positioned:NSWindowAbove relativeTo:blur];
+            [tint release];
+        }
+        tint.frame = area;
+        CGColorRef fill = CGColorCreateGenericRGB(red / 255.0, green / 255.0, blue / 255.0, dark ? 0.58 : 0.66);
+        tint.layer.backgroundColor = fill;
+        CGColorRelease(fill);
+        [host addSubview:qtView positioned:NSWindowAbove relativeTo:tint];
+        qtView.wantsLayer = YES;
+        qtView.layer.opaque = NO;
+        return 1;
+    }
+}
+
 extern "C" int ilias_fix_qt_accessibility()
 {
     static bool installed = false;

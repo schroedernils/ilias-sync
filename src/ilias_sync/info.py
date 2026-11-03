@@ -127,7 +127,7 @@ def info_sections():
         ("Zeitplan" if de else "Schedule",
          "Unter Einstellungen → Zeitplan aktivierst du automatische Läufe und wählst ein Intervall oder "
          "einen Wochenplan. Im Wochenplan ergänzt + eine Uhrzeit direkt am Wochentag. Du kannst die Uhrzeit direkt bearbeiten und mit × entfernen. "
-         "Tage ohne Uhrzeit bleiben frei. Zeiten kopieren übernimmt die Zeiten eines Tages für Montag bis Freitag oder alle Tage. "
+         "Tage ohne Uhrzeit bleiben frei. Zeiten kopieren neben der Akkuoption übernimmt die Zeiten für einen anderen Tag, Montag bis Freitag oder alle Tage. "
          "Bisherige tägliche Zeiten erscheinen für alle sieben Tage. Standard sind sechs Stunden und Aufschieben im Akkubetrieb. "
          "Erst Speichern übernimmt deine Änderungen; Abbrechen verwirft sie.\n\n"
          "Pausieren unterbricht den laufenden Sync; Fortsetzen setzt ihn fort. Diesen Sync beenden beendet "
@@ -138,7 +138,7 @@ def info_sections():
          "Nach einer abgelaufenen Anmeldung ist zuerst eine neue Anmeldung nötig."
          if de else
          "In Settings → Schedule, enable automatic runs and choose an interval or a weekly schedule. Use + beside a weekday to add a time, "
-         "edit it directly, and remove it with ×. Days without times remain free. Copy times applies a day's times to Monday–Friday or all days. "
+         "edit it directly, and remove it with ×. Days without times remain free. Copy times beside the battery option applies a day's times to another day, Monday–Friday or all days. "
          "Existing daily times appear on all seven days. "
          "Defaults are six hours and deferral on battery. Save applies changes; Cancel discards them.\n\n"
          "Pause suspends the running sync; Resume continues it. Stop this sync ends only that run. "

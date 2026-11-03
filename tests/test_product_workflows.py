@@ -409,7 +409,7 @@ def test_last_complete_claim_requires_current_scope_including_legacy_states(app,
     status['scope'] = source_scope(source)
     write_json(state/'status.json', status)
     window = MainWindow()
-    assert 'Letzte vollständige' in window.sync_panel.meta.text()
+    assert 'Letzte vollständige' in window.sync_panel.meta.accessibleName()
     window.close()
 
 

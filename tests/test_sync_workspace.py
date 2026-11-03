@@ -40,14 +40,14 @@ def test_overview_has_three_newest_files_and_all_materials_retains_full_library(
     assert window.workspace.currentIndex() == 0
     assert window.recent_files.rowCount() == 3
     assert [window.recent_files.item(i, 0).data(Qt.ItemDataRole.UserRole + 1)['changed_at'] for i in range(3)] == [105, 104, 103]
-    assert 'Letzte Synchronisation:' in window.sync_panel.meta.text()
-    assert 'vor ' in window.sync_panel.meta.text()
+    assert 'Letzte Synchronisation:' in window.sync_panel.meta.accessibleName()
+    assert 'vor ' in window.sync_panel.meta.accessibleName()
     window.all_files_button.click()
     assert window.workspace.currentIndex() == 1
     assert window.files.rowCount() == 6
     assert window.files.isVisible()
     assert window.sync_button.isVisible()
-    window.workspace_tabs.setCurrentIndex(3)
+    window.workspace_tabs.setCurrentIndex(2)
     assert window.sync_panel.report_host.isVisible()
     assert window.sync_button.isVisible()
 
@@ -58,20 +58,39 @@ def test_recent_open_uses_identity_after_filters_change_order(window):
     window.files.sortItems(0, Qt.SortOrder.AscendingOrder)
     window.file_search.setText('Lecture 0')
     window.recent_files.selectRow(0)
-    with patch('ilias_sync.gui.QDesktopServices.openUrl', return_value=True) as opened:
+    with patch('ilias_sync.gui.launch_local', return_value=True) as opened:
         window.recent_files.setFocus()
         QTest.keyClick(window.recent_files, Qt.Key.Key_Return)
-        assert Path(opened.call_args.args[0].toLocalFile()).read_bytes() == b'5'
+        assert Path(opened.call_args.args[0]).read_bytes() == b'5'
 
 
 def test_sync_actions_are_one_fixed_section_and_busy_start_never_pauses(window, source):
+    from PySide6.QtCore import QPoint
     assert window.sync_panel.isAncestorOf(window.sync_button)
     assert window.sync_panel.isAncestorOf(window.pause_button)
     assert window.sync_panel.isAncestorOf(window.stop_button)
+    origin = QPoint(0, 0)
+    title = window.sync_panel.title.mapTo(window, origin)
+    meta = window.sync_panel.meta.mapTo(window, origin)
+    cluster = window.sync_cluster.geometry()
+    pause = window.sync_cluster.pause.geometry()
+    stop = window.sync_cluster.stop.geometry()
     run = {'state': 'paused', 'source': source.id, 'token': 'fixture'}
     with patch('ilias_sync.gui.active_run', return_value=run), patch('ilias_sync.gui.send_command') as command:
         window.run_info = run
         window.refresh_controls()
+        assert window.sync_panel.title.mapTo(window, origin) == title
+        assert window.sync_panel.meta.mapTo(window, origin) == meta
+        assert window.sync_cluster.geometry() == cluster
+        assert window.pause_button.geometry() == pause
+        assert window.stop_button.geometry() == stop
+        motion = window.sync_cluster._motion
+        if motion is not None:
+            motion.setCurrentTime(motion.duration())
+        assert window.sync_panel.title.mapTo(window, origin) == title
+        assert window.sync_panel.meta.mapTo(window, origin) == meta
+        assert window.pause_button.geometry() == pause
+        assert window.stop_button.geometry() == stop
         assert not window.sync_button.isEnabled()
         assert window.pause_button.isVisible() and window.stop_button.isVisible()
         assert window.pause_button.accessibleName() == 'Fortsetzen'
@@ -96,25 +115,25 @@ def test_dismissed_notice_remains_in_details_and_error_does_not_become_success(w
     assert '1 ausgeblendet' in window.overview_notes.text()
     assert window.sync_panel.tone == 'error'
     assert window.sync_button.isVisible() and window.sync_button.isEnabled()
-    window.workspace_tabs.setCurrentIndex(3)
+    window.workspace_tabs.setCurrentIndex(2)
     from PySide6.QtWidgets import QPushButton
     assert any(item.text() == 'Wieder anzeigen' for item in window.sync_panel.report_host.findChildren(QPushButton))
     assert read_json(root / 'status.json', {}) == failure
 
 
 def test_notification_permission_feedback_survives_a_library_refresh(window):
-    window.workspace_tabs.setCurrentIndex(2)
     with patch('ilias_sync.notifications.permission', return_value=0):
         window.configure_notifications(True)
-    feedback = window.notification_permission_note.text()
+    feedback = window.notification_feedback
     assert 'macOS' in feedback
     window.refresh()
-    assert window.notification_permission_note.text() == feedback
+    assert window.notification_feedback == feedback
 
 
-@pytest.mark.parametrize('authorization, expected', [(-1, 'nicht verfügbar'), (1, 'abgelehnt'), (0, 'erlaube')])
-def test_notification_test_explains_native_permission_state(window, authorization, expected):
-    with patch('ilias_sync.notifications.permission', return_value=authorization), patch('ilias_sync.notifications.native_notify') as notify:
-        window.test_notification()
-    assert expected in window.notification_permission_note.text()
-    notify.assert_not_called()
+@pytest.mark.parametrize('authorization, expected', [(-1, 'nicht verfügbar'), (1, 'abgelehnt'), (0, 'Erlaube')])
+def test_notification_opt_in_explains_when_macos_does_not_allow_it(window, authorization, expected):
+    with patch('ilias_sync.notifications.permission', return_value=authorization):
+        window.configure_notifications(True)
+    assert expected in window.notification_feedback
+    from ilias_sync.notifications import preferences
+    assert preferences()['enabled'] is False

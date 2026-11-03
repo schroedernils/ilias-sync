@@ -215,9 +215,6 @@ def main():
                 window.details_button.setChecked(False)
             window.sources.select_scope()
             capture(window, 'global-attention-' + mode)
-            window.workspace_tabs.setCurrentIndex(2)
-            capture(window, 'notifications-' + mode)
-            window.workspace_tabs.setCurrentIndex(0)
             window.run_info = {'state': 'running', 'source': second.id, 'token': 'fixture'}
             window.refresh_controls()
             window.show_progress('Synthetic sync progress')

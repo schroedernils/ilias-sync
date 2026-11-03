@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import json
+import subprocess
 import sys
 import time
 from html import escape
@@ -9,30 +10,34 @@ from dataclasses import replace
 from pathlib import Path
 from uuid import uuid4
 
-from PySide6.QtCore import QFileSystemWatcher, QProcess, Qt, QTimer, QUrl
+from PySide6.QtCore import QEasingCurve, QFileSystemWatcher, QPoint, QProcess, Qt, QTimer, QUrl, QVariantAnimation
 from PySide6.QtGui import QAction, QColor, QDesktopServices, QPainter, QFontDatabase, QPalette, QKeySequence, QShortcut
 from PySide6.QtWidgets import (
     QApplication, QCheckBox, QComboBox, QDialog, QDialogButtonBox, QFileDialog, QFormLayout,
-    QHBoxLayout, QHeaderView, QLabel, QLineEdit, QListWidget, QListWidgetItem, QMainWindow, QMenu,
-    QMessageBox, QPushButton, QScrollArea, QSplitter, QTableWidget, QTableWidgetItem,
+    QHBoxLayout, QHeaderView, QLabel, QLineEdit, QListWidget, QListWidgetItem, QMainWindow,
+    QMessageBox, QScrollArea, QSplitter, QTableWidget, QTableWidgetItem,
     QTextEdit, QTextBrowser, QTabWidget, QVBoxLayout, QWidget, QSizePolicy, QFrame, QStackedWidget, QTreeWidget, QTreeWidgetItem,
     QTabBar, QStyle, QStyleOption,
 )
 
 from . import __version__
 from .help_widgets import HelpTopicList
+from .hints import hint_text, set_hint
+from .control_colors import pause_colors
 from .scrolling import TranslucentScrollArea
 from .branding import BrandMark, app_icon, paint_action
+from .motion import FadeButton, MotionMenu, PopupChipDelegate, Switch, SyncCluster, clip_round, popup
 from .control import active_run, send_command
-from .theme import LIGHT, Theme, stylesheet
+from .theme import DARK, LIGHT, Theme, popup_color, stylesheet
 from .i18n import message, set_language, t
 from .scheduler import command, install, uninstall
 from .security import import_session, store_password
-from .storage import Settings, Source, data_dir, read_json, write_json, source_scope
+from .storage import Settings, Source, data_dir, exclude_files, excluded_files, read_json, write_json, source_scope
 from .library_widgets import MaterialDelegate, MaterialTable, SyncPanel, ElidedLabel, LibraryNavigation
 from .library import load_library, course_key, source_summary, library_summary
 from .recovery import recovery_plan
-from .presentation import file_size, is_course_info, local_time, sync_summary, schedule_expectation, progress_copy, file_context
+from .presentation import (file_size, is_course_info, local_time, sync_summary, schedule_expectation, schedule_brief,
+                          brief_sync_time, filtered_result, warning_facts, progress_copy, file_context)
 
 STYLE = stylesheet(LIGHT)
 
@@ -47,22 +52,45 @@ def label(text, name=None):
     return item
 
 
+def launch_local(path) -> bool:
+    """Open a local file in its default app and bring that app forward."""
+    if sys.platform == 'darwin':
+        return subprocess.run(['/usr/bin/open', str(path)], check=False).returncode == 0
+    return QDesktopServices.openUrl(QUrl.fromLocalFile(str(path)))
+
+
 def button(text, callback, primary=False):
-    item = QPushButton(t(text).replace('&', '&&'))
+    item = FadeButton(t(text).replace('&', '&&'))
     item.clicked.connect(callback)
     if primary:
         item.setObjectName("primary")
     return item
 
 
+class SaveButtons(QDialogButtonBox):
+    """Save stays the bright commit control. Both buttons keep the standard roles."""
+
+    def __init__(self):
+        super().__init__()
+        self.save_button = FadeButton(t('Save'))
+        self.save_button.setObjectName('commit')
+        self.cancel_button = FadeButton(t('Cancel'))
+        self.addButton(self.save_button, QDialogButtonBox.ButtonRole.AcceptRole)
+        self.addButton(self.cancel_button, QDialogButtonBox.ButtonRole.RejectRole)
+
+    def button(self, which):
+        if which == QDialogButtonBox.StandardButton.Save:
+            return self.save_button
+        if which == QDialogButtonBox.StandardButton.Cancel:
+            return self.cancel_button
+        return super().button(which)
+
+
 def save_buttons():
-    buttons = QDialogButtonBox(QDialogButtonBox.StandardButton.Save | QDialogButtonBox.StandardButton.Cancel)
-    buttons.button(QDialogButtonBox.StandardButton.Save).setText(t("Save"))
-    buttons.button(QDialogButtonBox.StandardButton.Cancel).setText(t("Cancel"))
-    return buttons
+    return SaveButtons()
 
 
-class RunButton(QPushButton):
+class RunButton(FadeButton):
     def __init__(self, text, callback, primary=False, *, icon_only=False):
         super().__init__(t(text))
         self.icon_only = icon_only
@@ -75,18 +103,19 @@ class RunButton(QPushButton):
         self.action = action
         name = t({'pause':'Pause', 'resume':'Resume', 'stop':'Stop'}.get(action, 'Sync now'))
         self.setAccessibleName(name)
-        self.setToolTip(name)
-        self.setText('' if self.icon_only else t('Stop this sync') if action == 'stop' else name)
-        height = max(42 if self.objectName() == 'syncAction' else 36, self.fontMetrics().height() + 18)
-        if action:
-            self.setMinimumSize(70, height)
-            self.setMaximumSize(16777215, height)
+        if self.icon_only:
+            detail = {'stop': 'Stops this run. Completed files and the schedule are kept.',
+                      'pause': 'Pause this run; continue it later.', 'resume': 'Continue the paused sync.'}.get(action, '')
+            set_hint(self, name, t(detail) if detail else '')
         else:
-            self.setMinimumSize(0, height)
-            self.setMaximumSize(16777215, height)
+            self.setToolTip('')
+        self.setText('' if self.icon_only else t('Stop this sync') if action == 'stop' else name)
         self.update()
         if self.icon_only:
-            self.setFixedSize(42, 42)
+            return
+        height = max(36, self.fontMetrics().height() + 16)
+        self.setMinimumHeight(height)
+        self.setMaximumHeight(height)
 
     def paintEvent(self, event):
         super().paintEvent(event)
@@ -94,23 +123,29 @@ class RunButton(QPushButton):
             return
         painter = QPainter(self)
         painter.setRenderHint(QPainter.RenderHint.Antialiasing)
-        app = QApplication.instance()
-        dark = getattr(getattr(app, 'theme', None), 'dark', False)
-        color = QColor('#ffffff' if self.action == 'stop' or not dark else '#132b4c')
+        colors = DARK if self.palette().color(QPalette.ColorRole.Text).lightness() > 128 else LIGHT
+        if self.objectName() == 'stopControl':
+            color = QColor('#fff4f6')
+        elif self.objectName() == 'pauseControl':
+            color = QColor(pause_colors(colors is DARK).ink)
+        elif self.objectName() == 'primary':
+            color = QColor(colors['on_accent'])
+        else:
+            color = QColor('#ffffff')
         if not self.isEnabled():
             color.setAlpha(120)
         symbol = {'pause': 'pause', 'resume': 'play', 'stop': 'square'}[self.action]
-        paint_action(painter, self, symbol, color, 18)
+        paint_action(painter, self, symbol, color, 14)
 
 
 
-class IconButton(QPushButton):
+class IconButton(FadeButton):
     def __init__(self, name, symbol, callback):
         super().__init__('')
         self.symbol = symbol
         self.setObjectName('iconControl')
         self.setAccessibleName(t(name))
-        self.setToolTip(t(name))
+        set_hint(self, t(name))
         self.setFixedSize(34, 34)
         self.clicked.connect(callback)
 
@@ -335,7 +370,7 @@ class SyncReportDialog(QDialog):
             QTreeWidgetItem(self.exclusions, [names.get(kind.casefold(), kind), str(count)])
         if not self.exclusions.topLevelItemCount():
             QTreeWidgetItem(self.exclusions, [t('No excluded content recorded'), ''])
-        self.exclusions.setToolTip(t('Excluded types and groups are not failed file downloads.'))
+        self.exclusions.setAccessibleDescription(t('Excluded types and groups are not failed file downloads.'))
         self.sections.setTabText(0, t('Needs attention') if has_issues or summary.tone in {'error','warning'} else t('Files'))
         if self.sections.currentIndex() != 2:
             self.sections.setCurrentIndex(1 if not has_issues and result.get('skipped') else 0)
@@ -362,6 +397,29 @@ def QTextDocument_text(html):
 
 class Dropdown(QComboBox):
     """Keep a visible disclosure affordance with either native or custom palettes."""
+    def __init__(self, parent=None):
+        super().__init__(parent)
+        self.setItemDelegate(PopupChipDelegate(self.view()))
+
+    def showPopup(self):
+        super().showPopup()
+        popup = self.view().window()
+        popup.setAttribute(Qt.WidgetAttribute.WA_TranslucentBackground, True)
+        color = popup_color(QApplication.palette())
+        fill = f'rgba({color.red()}, {color.green()}, {color.blue()}, {color.alphaF():.2f})'
+        popup.setStyleSheet(f'background-color: {fill}; border-radius: 12px;')
+        self.view().setStyleSheet(f'background: {fill}; border-radius: 12px;')
+        clip_round(popup, 12)
+        popup.setWindowOpacity(0)
+        motion = QVariantAnimation(self)
+        motion.setDuration(140)
+        motion.setEasingCurve(QEasingCurve.Type.OutCubic)
+        motion.setStartValue(0.0)
+        motion.setEndValue(1.0)
+        motion.valueChanged.connect(popup.setWindowOpacity)
+        motion.start()
+        self._popup_motion = motion
+
     def paintEvent(self, event):
         super().paintEvent(event)
         painter = QPainter(self)
@@ -800,7 +858,7 @@ class CoursesDialog(QDialog):
                 item = QListWidgetItem(url)
                 item.setFlags(item.flags() | Qt.ItemFlag.ItemIsUserCheckable)
                 item.setCheckState(Qt.CheckState.Checked)
-                item.setToolTip(url)
+                item.setData(Qt.ItemDataRole.AccessibleDescriptionRole, url)
                 self.saved_links.addItem(item)
         self.saved_links.setMaximumHeight(95)
         self.saved_links.setVisible(bool(self.saved_links.count()))
@@ -998,8 +1056,7 @@ class FolderMappingDialog(QDialog):
             folder = folder_names.get(key[7:], '') if key.startswith('course/') else self.names.get(key, item.text(0))
             item.setText(1, Path(self.rules[key]).name if key in self.rules and not key.startswith('file/') else folder)
             item.setText(2, self.rules.get(key, t("Inherited")))
-            item.setToolTip(2, self.rules.get(key, self.source.destination))
-            item.setToolTip(0, item.text(0))
+            item.setData(2, Qt.ItemDataRole.AccessibleDescriptionRole, self.rules.get(key, self.source.destination))
             for i in range(item.childCount()):
                 visit(item.child(i))
         for i in range(self.tree.topLevelItemCount()):
@@ -1019,7 +1076,7 @@ class FolderMappingDialog(QDialog):
             self.effective_path.setText(t('The destination will be available after the next sync.'))
             return
         self.target.setText(str(path))
-        self.target.setToolTip(str(path))
+        self.target.setAccessibleDescription(str(path))
         self.effective_path.setText(str(path))
         custom = key in self.rules
         self.mapping_state.setText(t('Custom destination for this item') if custom else
@@ -1163,6 +1220,7 @@ def paint_window_background(widget):
 class SettingsDialog(QDialog):
     def __init__(self, settings, parent=None):
         super().__init__(parent)
+        self.setObjectName('settingsDialog')
         self.settings = settings
         self.setWindowTitle(t('Settings'))
         self.resize(590, 350)
@@ -1206,12 +1264,19 @@ class SettingsDialog(QDialog):
         form.addRow(self.week_plan)
         self.battery = QCheckBox(t('Pause on battery power'))
         self.battery.setChecked(settings.value['battery_saver'])
-        form.addRow(self.battery)
+        schedule_actions = QWidget()
+        actions = QHBoxLayout(schedule_actions)
+        actions.setContentsMargins(0, 0, 0, 0)
+        actions.setSpacing(12)
+        actions.addWidget(self.battery, 1)
+        actions.addWidget(self.week_plan.copy_button)
+        form.addRow(schedule_actions)
         self.schedule_preview = label('', 'subtitle')
         timing_note = label('Local time · your Mac must be awake, signed in and online.', 'statusMeta')
-        timing_note.setToolTip(t('Schedules use the computer’s local time, including daylight saving changes. The OS decides when missed runs can resume; the computer must be awake, signed in and online.'))
+        timing_note.setAccessibleDescription(t('Schedules use the computer’s local time, including daylight saving changes. The OS decides when missed runs can resume; the computer must be awake, signed in and online.'))
         form.addRow(timing_note)
         self.tabs.addTab(schedule, t('Schedule'))
+        self.tabs.addTab(self.notifications_page(), t('Notifications'))
         outer.addWidget(self.schedule_preview)
         self.error = label('', 'error')
         self.error.hide()
@@ -1220,7 +1285,6 @@ class SettingsDialog(QDialog):
         footer.addWidget(button('Help & about', lambda: HelpDialog(self).exec()))
         footer.addStretch()
         self.buttons = save_buttons()
-        self.buttons.button(QDialogButtonBox.StandardButton.Save).setObjectName('primary')
         self.buttons.accepted.connect(self.save)
         self.buttons.rejected.connect(self.reject)
         footer.addWidget(self.buttons)
@@ -1237,17 +1301,102 @@ class SettingsDialog(QDialog):
             widget.setAccessibleName(t(name))
         self.update_schedule_fields()
 
+    def paintEvent(self, event):
+        paint_window_background(self)
+        super().paintEvent(event)
+
+    def notifications_page(self):
+        scroll, layout = self.scroll_page()
+        card = QFrame()
+        card.setObjectName('textCard')
+        card.setSizePolicy(QSizePolicy.Policy.Preferred, QSizePolicy.Policy.Maximum)
+        row = QHBoxLayout(card)
+        row.setContentsMargins(16, 14, 16, 14)
+        row.setSpacing(16)
+        text = QVBoxLayout()
+        text.setSpacing(4)
+        heading = label('Notify me about new sync problems on this Mac', 'sectionTitle')
+        heading.setWordWrap(True)
+        detail = label('Hidden notices stay in Details. Repeated problems do not trigger another notification.', 'subtitle')
+        detail.setWordWrap(True)
+        text.addWidget(heading)
+        text.addWidget(detail)
+        row.addLayout(text, 1)
+        from .notifications import preferences
+        setting = Switch(t('Notify me about new sync problems on this Mac'))
+        setting.blockSignals(True)
+        setting.setChecked(preferences().get('enabled', False))
+        setting._knob = 1.0 if setting.isChecked() else 0.0
+        setting.blockSignals(False)
+        row.addWidget(setting, alignment=Qt.AlignmentFlag.AlignTop)
+        layout.addWidget(card)
+        self.permission_note = label('', 'subtitle')
+        self.permission_note.setWordWrap(True)
+        self.permission_card = QFrame()
+        self.permission_card.setObjectName('textCard')
+        self.permission_card.setSizePolicy(QSizePolicy.Policy.Preferred, QSizePolicy.Policy.Maximum)
+        note_layout = QVBoxLayout(self.permission_card)
+        note_layout.setContentsMargins(16, 14, 16, 14)
+        note_layout.addWidget(self.permission_note)
+        layout.addWidget(self.permission_card)
+        window = self.parent()
+        feedback = getattr(window, 'notification_feedback', '') if window else ''
+        self.permission_note.setText(feedback)
+        self.permission_card.setVisible(bool(feedback))
+        rows = [row for row in getattr(window, '_notice_rows', []) if not row[1].get('dismissed')] if window else []
+        if rows and hasattr(window, 'notice_widget'):
+            for identity, notice in rows:
+                layout.addWidget(window.notice_widget(identity, notice))
+        else:
+            empty = QFrame()
+            empty.setObjectName('textCard')
+            empty.setSizePolicy(QSizePolicy.Policy.Preferred, QSizePolicy.Policy.Maximum)
+            empty_layout = QVBoxLayout(empty)
+            empty_layout.setContentsMargins(16, 14, 16, 14)
+            message = label('New sync problems appear here. Your existing materials remain available.', 'subtitle')
+            message.setWordWrap(True)
+            empty_layout.addWidget(message)
+            layout.addWidget(empty)
+        layout.addStretch()
+
+        def toggle(enabled):
+            if not window or not hasattr(window, 'configure_notifications'):
+                return
+            window.configure_notifications(enabled)
+            text = getattr(window, 'notification_feedback', '')
+            self.permission_note.setText(text)
+            self.permission_card.setVisible(bool(text))
+
+        setting.toggled.connect(toggle)
+        return scroll
+
     def page(self):
-        scroll = TranslucentScrollArea()
-        scroll.setWidgetResizable(True)
-        body = QWidget()
-        body.setObjectName('dialogBody')
-        form = QFormLayout(body)
-        form.setContentsMargins(0, 12, 0, 4)
+        scroll, layout = self.scroll_page()
+        card = QFrame()
+        card.setObjectName('settingsCard')
+        card.setSizePolicy(QSizePolicy.Policy.Preferred, QSizePolicy.Policy.Maximum)
+        form = QFormLayout(card)
+        form.setContentsMargins(16, 16, 16, 16)
         form.setSpacing(12)
         form.setFieldGrowthPolicy(QFormLayout.FieldGrowthPolicy.AllNonFixedFieldsGrow)
-        scroll.setWidget(body)
+        layout.addWidget(card)
+        layout.addStretch()
         return scroll, form
+
+    def scroll_page(self):
+        scroll = TranslucentScrollArea()
+        scroll.setObjectName('settingsPage')
+        scroll.setWidgetResizable(True)
+        scroll.setFrameShape(QFrame.Shape.NoFrame)
+        scroll.viewport().setAutoFillBackground(False)
+        body = QWidget()
+        body.setObjectName('dialogBody')
+        layout = QVBoxLayout(body)
+        layout.setContentsMargins(0, 8, 0, 8)
+        layout.setSpacing(12)
+        scroll.setWidget(body)
+        body.setAutoFillBackground(False)
+        return scroll, layout
 
     def update_schedule_fields(self, *_):
         from .presentation import schedule_expectation
@@ -1261,18 +1410,38 @@ class SettingsDialog(QDialog):
         self.hours.setVisible(not weekly)
         self.hours.parentWidget().layout().labelForField(self.hours).setVisible(not weekly)
         values = self.week_plan.values()
+        self.week_plan.copy_button.setVisible(weekly)
+        self.week_plan.copy_button.setEnabled(enabled and any(values.values()))
         draft = {**self.settings.value, 'scheduled': enabled, 'schedule_mode': self.schedule_mode.currentData(),
                  'weekly_times': values, 'interval_hours': self.hours.currentData()}
         self.schedule_preview.setText(t('Add a time to at least one weekday.') if enabled and weekly and not any(values.values())
                                       else schedule_expectation(draft, {}))
-        self.schedule_preview.setVisible(self.tabs.currentIndex() == 1)
-        self.draft_note.setText(t('Your plan applies when you save.') if self.tabs.currentIndex() == 1 else
-                               t('Changes apply when you save. Appearance is previewed until then.'))
-        layout_mode = (self.tabs.currentIndex(), weekly)
+        index = self.tabs.currentIndex()
+        self.schedule_preview.setVisible(index == 1)
+        self.draft_note.setVisible(index == 0)
+        self.draft_note.setText(t('Changes apply when you save. Appearance is previewed until then.'))
+        layout_mode = (index, weekly)
         if getattr(self, '_schedule_layout', None) != layout_mode:
             self._schedule_layout = layout_mode
-            self.resize(max(self.width(), 620) if weekly else self.width(),
-                        350 if self.tabs.currentIndex() == 0 else 730 if weekly else 460)
+            for i in range(self.tabs.count()):
+                page = self.tabs.widget(i)
+                active = i == index
+                page.setMinimumHeight(0)
+                page.setMaximumHeight(16777215 if active else 0)
+                page.setSizePolicy(QSizePolicy.Policy.Preferred,
+                                   QSizePolicy.Policy.Preferred if active else QSizePolicy.Policy.Ignored)
+            self.tabs.updateGeometry()
+            if index == 2:
+                body = self.tabs.widget(2).widget()
+                height = min(520, max(360, body.sizeHint().height() + 196))
+                width = self.width()
+            elif index == 1:
+                height = 770 if weekly else 480
+                width = max(self.width(), 620) if weekly else self.width()
+            else:
+                height = 390
+                width = self.width()
+            self.resize(width, height)
 
     def preview_theme(self):
         app = QApplication.instance()
@@ -1367,6 +1536,7 @@ class HelpDialog(QDialog):
 class MainWindow(QMainWindow):
     def __init__(self):
         super().__init__()
+        self.setAttribute(Qt.WidgetAttribute.WA_TranslucentBackground, True)
         self.settings = Settings()
         self.view_state = read_json(data_dir() / 'view-state.json', {})
         set_language(self.settings.value.get("language", "de"))
@@ -1404,21 +1574,22 @@ class MainWindow(QMainWindow):
         split.setChildrenCollapsible(False)
         left = QFrame()
         left.setObjectName('sidebar')
-        left.setMinimumWidth(190)
-        left.setMaximumWidth(360)
+        left.setMinimumWidth(200)
+        left.setMaximumWidth(480)
+        left.setSizePolicy(QSizePolicy.Policy.Preferred, QSizePolicy.Policy.Expanding)
         self.sidebar = left
         sidebar = QVBoxLayout(left)
-        sidebar.setContentsMargins(12, 16, 12, 12)
-        sidebar.setSpacing(8)
+        sidebar.setContentsMargins(8, 38, 8, 12)
+        sidebar.setSpacing(2)
         brand = QHBoxLayout()
-        brand.setSpacing(9)
+        brand.setContentsMargins(10, 4, 10, 8)
+        brand.setSpacing(10)
         mark = BrandMark()
         brand.addWidget(mark)
         brand.addWidget(label('IliasSync', 'appTitle'), 1)
         sidebar.addLayout(brand)
-        sidebar.addSpacing(8)
-        sidebar.addWidget(label('Library', 'eyebrow'))
         self.sources = LibraryNavigation()
+        self.sources.setSizePolicy(QSizePolicy.Policy.Ignored, QSizePolicy.Policy.Expanding)
         self.sources.scopeChanged.connect(self.navigate)
         self.sources.manageRequested.connect(lambda identity: self.edit_source(identity))
         self.sources.setContextMenuPolicy(Qt.ContextMenuPolicy.CustomContextMenu)
@@ -1428,19 +1599,28 @@ class MainWindow(QMainWindow):
         self.add_button.setObjectName('sidebarAction')
         sidebar.addWidget(self.add_button)
         self.settings_button = button('Settings', self.background)
+        self.settings_button.setObjectName('sidebarAction')
         self.settings_button.setAccessibleName(t('Settings'))
         sidebar.addWidget(self.settings_button)
         split.addWidget(left)
         right = QWidget()
-        content = QVBoxLayout(right)
+        right.setMinimumWidth(500)
+        column = QVBoxLayout(right)
+        column.setContentsMargins(0, 0, 0, 0)
+        column.setSpacing(0)
+        body = QWidget()
+        content = QVBoxLayout(body)
         self.content_layout = content
-        content.setContentsMargins(20, 14, 20, 10)
+        content.setContentsMargins(22, 38, 22, 0)
         content.setSpacing(8)
-        self.welcome_brand = BrandMark()
-        content.addWidget(self.welcome_brand)
+        self.empty_lead = QWidget()
+        self.empty_lead.hide()
+        content.addWidget(self.empty_lead, 1)
+        self.welcome_brand = BrandMark(size=40)
+        content.addWidget(self.welcome_brand, alignment=Qt.AlignmentFlag.AlignHCenter)
         source_heading = QHBoxLayout()
         self.sidebar_button = IconButton('Hide sidebar', 'sidebar', self.toggle_sidebar)
-        source_heading.addWidget(self.sidebar_button, alignment=Qt.AlignmentFlag.AlignTop)
+        source_heading.addWidget(self.sidebar_button, alignment=Qt.AlignmentFlag.AlignVCenter)
         title_group = QVBoxLayout()
         title_group.setSpacing(2)
         self.source_title = ElidedLabel(t('Connect ILIAS'))
@@ -1457,24 +1637,35 @@ class MainWindow(QMainWindow):
         source_meta.addWidget(self.destination, 1)
         title_group.addLayout(source_meta)
         source_heading.addLayout(title_group, 1)
+        self.file_search = QLineEdit()
+        self.file_search.setObjectName('materialSearch')
+        self.file_search.setPlaceholderText(t('Search materials…'))
+        self.file_search.setAccessibleName(t('Search materials'))
+        self.file_search.setClearButtonEnabled(True)
+        self.file_search.setMinimumWidth(180)
+        self.file_search.setMaximumWidth(360)
+        self.file_search.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Fixed)
+        self.file_search.textChanged.connect(self.search_files)
+        source_heading.addWidget(self.file_search, 1, Qt.AlignmentFlag.AlignVCenter)
         self.sync_button = RunButton('Sync now', self.request_sync)
         self.sync_button.setObjectName('syncAction')
         self.pause_button = RunButton('Pause', self.sync_or_pause, icon_only=True)
-        self.pause_button.setObjectName('primary')
+        self.pause_button.setObjectName('pauseControl')
         self.pause_button.hide()
         self.stop_button = RunButton('Stop', self.stop_sync, icon_only=True)
         self.stop_button.setObjectName('stopControl')
-        self.stop_button.setToolTip(t('Stops this run. Completed files and the schedule are kept.'))
         self.stop_button.set_action('stop')
         self.stop_button.hide()
         self.management_button = IconButton('University actions', 'more', self.management_menu)
-        source_heading.addWidget(self.management_button, alignment=Qt.AlignmentFlag.AlignTop)
+        source_heading.addWidget(self.management_button, alignment=Qt.AlignmentFlag.AlignVCenter)
         content.addLayout(source_heading)
         self.onboard_button = button('Connect ILIAS', self.add, True)
-        content.addWidget(self.onboard_button, alignment=Qt.AlignmentFlag.AlignLeft)
+        content.addWidget(self.onboard_button, alignment=Qt.AlignmentFlag.AlignHCenter)
         self.empty_spacer = QWidget()
         content.addWidget(self.empty_spacer, 1)
         self.sync_panel = SyncPanel(compact=True)
+        self.sync_panel.exception_dismiss.clicked.connect(self.dismiss_unavailable)
+        self._unavailable_exclude = None
         self.status = self.sync_panel.detail
         self.recovery_button = button('View report', self.recover)
         self.sync_panel.recovery_layout.addWidget(self.recovery_button, alignment=Qt.AlignmentFlag.AlignTop)
@@ -1484,21 +1675,16 @@ class MainWindow(QMainWindow):
         self.details_button = self.sync_panel.disclosure
         self.details_button.hide()
         library = QVBoxLayout()
-        library.setSpacing(9)
+        library.setSpacing(4)
         heading = QHBoxLayout()
-        self.file_search = QLineEdit()
-        self.file_search.setObjectName('materialSearch')
-        self.file_search.setPlaceholderText(t('Search materials…'))
-        self.file_search.setAccessibleName(t('Search materials'))
-        self.file_search.setClearButtonEnabled(True)
-        self.file_search.textChanged.connect(self.search_files)
-        heading.addWidget(self.file_search, 1)
         self.library_view = Dropdown()
+        self.library_view.setObjectName('libraryView')
         self.library_view.setAccessibleName(t('Library view'))
         for title, value in [('Materials', 'materials'), ('Recent changes', 'recent'), ('Course information', 'info'), ('All files', 'all')]:
             self.library_view.addItem(t(title), value)
         self.library_view.currentIndexChanged.connect(self.change_library_view)
         heading.addWidget(self.library_view)
+        heading.addStretch()
         library.addLayout(heading)
         self.library_widget = QWidget()
         self.library_widget.setLayout(library)
@@ -1520,6 +1706,7 @@ class MainWindow(QMainWindow):
         self.files.setColumnWidth(3, 210)
         self.files.verticalHeader().hide()
         self.files.verticalHeader().setDefaultSectionSize(max(44, self.files.fontMetrics().height() * 2 + 10))
+        self.files.setFrameShape(QFrame.Shape.NoFrame)
         self.files.setShowGrid(False)
         self.files.setTabKeyNavigation(False)
         self.files.setEditTriggers(QTableWidget.EditTrigger.NoEditTriggers)
@@ -1530,7 +1717,9 @@ class MainWindow(QMainWindow):
         self.files.horizontalHeader().sortIndicatorChanged.connect(lambda *_: QTimer.singleShot(0, self.apply_file_filters))
         self.files.horizontalHeader().sortIndicatorChanged.connect(lambda *_: self.adapt_columns())
         self.files.itemDoubleClicked.connect(lambda *_: self.open_file())
+        self.files.itemEntered.connect(self._arm_open_row)
         self.files.itemSelectionChanged.connect(self.update_file_actions)
+        self._armed_open = None
         self.files.setContextMenuPolicy(Qt.ContextMenuPolicy.CustomContextMenu)
         self.files.customContextMenuRequested.connect(self.file_menu)
         content.addWidget(self.files, 1)
@@ -1554,9 +1743,10 @@ class MainWindow(QMainWindow):
         self.workspace_tabs.setObjectName('workspaceTabs')
         self.workspace_tabs.setAccessibleName(t('Workspace view'))
         self.workspace_tabs.setExpanding(False)
-        for name in ('Overview', 'Materials', 'Notifications', 'Details'):
+        self.workspace_tabs.setDrawBase(False)
+        for name in ('Overview', 'Materials', 'Details'):
             self.workspace_tabs.addTab(t(name))
-        content.insertWidget(3, self.workspace_tabs)
+        content.insertWidget(4, self.workspace_tabs)
         self.workspace = QStackedWidget()
         content.addWidget(self.workspace, 1)
         self.overview = QWidget()
@@ -1565,7 +1755,15 @@ class MainWindow(QMainWindow):
         overview.setSpacing(12)
         self.recent_title = label('Recently updated', 'sectionTitle')
         overview.addWidget(self.recent_title)
+        overview.addSpacing(10)
+        recent_card = QFrame()
+        recent_card.setObjectName('recentCard')
+        recent_card.setSizePolicy(QSizePolicy.Policy.Preferred, QSizePolicy.Policy.Maximum)
+        recent_layout = QVBoxLayout(recent_card)
+        recent_layout.setContentsMargins(14, 8, 14, 8)
+        recent_layout.setSpacing(0)
         self.recent_files = MaterialTable()
+        self.recent_files.setObjectName('recentFiles')
         self.recent_files.setAccessibleName(t('Three recent materials'))
         self.recent_files.setColumnCount(2)
         self.recent_files.setHorizontalHeaderLabels([t('File'), t('Changed')])
@@ -1576,17 +1774,21 @@ class MainWindow(QMainWindow):
         self.recent_files.horizontalHeader().setSectionResizeMode(1, QHeaderView.ResizeMode.ResizeToContents)
         self.recent_files.verticalHeader().hide()
         self.recent_files.verticalHeader().setDefaultSectionSize(58)
+        self.recent_files.setFrameShape(QFrame.Shape.NoFrame)
         self.recent_files.setShowGrid(False)
         self.recent_files.setEditTriggers(QTableWidget.EditTrigger.NoEditTriggers)
         self.recent_files.setSelectionBehavior(QTableWidget.SelectionBehavior.SelectRows)
         self.recent_files.setSelectionMode(QTableWidget.SelectionMode.SingleSelection)
-        self.recent_files.setMaximumHeight(180)
-        self.recent_files.setMinimumHeight(120)
+        self.recent_files.setVerticalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
+        self.recent_files.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Fixed)
         self.recent_files.itemDoubleClicked.connect(lambda *_: self.open_recent())
         self.recent_files.setContextMenuPolicy(Qt.ContextMenuPolicy.CustomContextMenu)
         self.recent_files.customContextMenuRequested.connect(self.recent_menu)
-        overview.addWidget(self.recent_files)
+        self.recent_files.viewport().setAutoFillBackground(False)
+        recent_layout.addWidget(self.recent_files)
+        overview.addWidget(recent_card)
         self.all_files_button = button('View all materials', lambda: self.workspace_tabs.setCurrentIndex(1))
+        self.all_files_button.setObjectName('secondary')
         overview.addWidget(self.all_files_button, alignment=Qt.AlignmentFlag.AlignLeft)
         self.overview_notes = label('', 'subtitle')
         overview.addWidget(self.overview_notes)
@@ -1599,27 +1801,15 @@ class MainWindow(QMainWindow):
             content.removeWidget(widget)
             materials.addWidget(widget, 1 if widget is self.files else 0)
         self.workspace.addWidget(self.materials_page)
-        self.notices_page = QScrollArea()
-        self.notices_page.setWidgetResizable(True)
-        self.notices_body = QWidget()
-        self.notices_layout = QVBoxLayout(self.notices_body)
-        self.notices_layout.setContentsMargins(0, 12, 0, 0)
-        self.notices_page.setWidget(self.notices_body)
-        self.workspace.addWidget(self.notices_page)
         self.sync_panel.layout().removeWidget(self.sync_panel.report_host)
         self.sync_panel.external_report = True
         self.sync_panel.report_host.setMaximumHeight(16777215)
         self.workspace.addWidget(self.sync_panel.report_host)
         self.workspace_tabs.currentChanged.connect(self.change_workspace)
-        controls = QHBoxLayout()
-        controls.setSpacing(8)
-        controls.addWidget(label('Synchronization', 'eyebrow'))
-        controls.addStretch()
-        controls.addWidget(self.sync_button)
-        controls.addWidget(self.pause_button)
-        controls.addWidget(self.stop_button)
-        self.sync_panel.layout().insertLayout(0, controls)
-        content.addWidget(self.sync_panel)
+        self.sync_cluster = SyncCluster(self.sync_button, self.pause_button, self.stop_button)
+        self.sync_panel.recovery_layout.addWidget(self.sync_cluster, alignment=Qt.AlignmentFlag.AlignVCenter)
+        column.addWidget(body, 1)
+        column.addWidget(self.sync_panel)
         self.activity = QTextEdit(self)
         self.activity.setReadOnly(True)
         self.activity.setAccessibleName(t('Activity'))
@@ -1627,7 +1817,13 @@ class MainWindow(QMainWindow):
         self.activity.hide()
         split.addWidget(right)
         self.split = split
-        split.setSizes([240, 740])
+        split.setOpaqueResize(True)
+        split.setHandleWidth(10)
+        split.setStretchFactor(0, 0)
+        split.setStretchFactor(1, 1)
+        sidebar_width = max(200, min(480, self.view_state.get('sidebar_width', 272)))
+        split.setSizes([sidebar_width, max(500, self.width() - sidebar_width - split.handleWidth())])
+        split.splitterMoved.connect(self.sidebar_resized)
         page.addWidget(split, 1)
         self.setCentralWidget(container)
         self.shortcuts = []
@@ -1681,18 +1877,62 @@ class MainWindow(QMainWindow):
     def change_workspace(self, index):
         self.workspace.setCurrentIndex(index)
         self.details_button.blockSignals(True)
-        self.details_button.setChecked(index == 3)
+        self.details_button.setChecked(index == 2)
         self.details_button.blockSignals(False)
-        if index == 3:
+        if index == 2:
             self.build_report()
-        elif index == 2:
-            self.render_notices()
         elif index == 1:
             self.adapt_columns()
+
+    def _status_display(self, summary, title, relevant, source):
+        single = source is not None or len(relevant) == 1
+        focus = None
+        if source is not None:
+            focus = source
+        elif len(relevant) == 1:
+            focus = next(iter(relevant.values()))['source']
+        if not single or summary.recovery != 'report' or summary.tone != 'warning' or not focus or (self.libraries.get(focus.id, {}).get('status') or {}).get('server_deferred'):
+            if single and summary.tone == 'success':
+                return t('Synchronization succeeded'), 'success', '', None
+            return title, summary.tone, '', None
+        status = self.libraries[focus.id]['status']
+        result, remaining = filtered_result(status.get('result'), excluded_files(focus.id))
+        shown = sync_summary({**status, 'result': result}, None)
+        if shown.tone == 'success':
+            return t('Synchronization succeeded'), 'success', '', None
+        facts = warning_facts(result)
+        if not facts:
+            return shown.title, shown.tone, shown.detail, None
+        dismiss = (focus.id, remaining) if remaining else None
+        return t('Synchronized'), 'warning', ' · '.join(facts), dismiss
+
+    def dismiss_unavailable(self):
+        pending = self._unavailable_exclude
+        if not pending:
+            return
+        source_id, paths = pending
+        exclude_files(source_id, paths)
+        self.render_status()
+
+    def _publish_schedule(self, full, tooltip):
+        source = self.selected()
+        relevant = {source.id: self.libraries[source.id]} if source else self.libraries
+        if source:
+            brief = schedule_brief(self.settings.value, relevant[source.id]['status'])
+        elif not self.settings.value.get('scheduled'):
+            brief = schedule_brief(self.settings.value, {})
+        elif len(relevant) == 1 or len({schedule_expectation(self.settings.value, library['status']) for library in relevant.values()}) == 1:
+            brief = schedule_brief(self.settings.value, next(iter(relevant.values()))['status'])
+        else:
+            brief = t('Per university')
+        self.sync_panel.schedule.setText(brief)
+        self.sync_panel.schedule.setAccessibleName(full)
+        set_hint(self.sync_panel.schedule, t('Automatic sync'), full)
 
     def update_sync_age(self):
         from .notifications import relative_time
         rows = []
+        visible = []
         source = self.selected()
         relevant = [self.libraries[source.id]] if source else list(self.libraries.values())
         for library in relevant:
@@ -1700,13 +1940,17 @@ class MainWindow(QMainWindow):
             stamp = status.get('finished')
             current_scope = status.get('scope') == source_scope(library['source'])
             successful = current_scope and status.get('state') in {'Up to date', 'Completed with warnings'} and bool(status.get('result'))
-            title = 'Last synchronization: {time} ({age})' if successful else 'Last attempt: {time} ({age})'
-            text = t(title, time=local_time(stamp), age=relative_time(stamp)) if stamp else t('Not yet synchronized')
+            label = 'Last synchronization: {time} ({age})' if successful else 'Last attempt: {time} ({age})'
+            text = t(label, time=local_time(stamp), age=relative_time(stamp)) if stamp else t('Not yet synchronized')
             if current_scope and not successful and status.get('last_success'):
                 previous = status['last_success']
                 text += '\n' + t('Last complete synchronization: {time} ({age})', time=local_time(previous), age=relative_time(previous))
-            rows.append((library['source'].name + ': ' if len(relevant) > 1 else '') + text)
-        self.sync_panel.meta.setText('\n'.join(rows))
+            prefix = library['source'].name + ': ' if len(relevant) > 1 else ''
+            rows.append(prefix + text)
+            visible.append(prefix + (brief_sync_time(stamp) if stamp else t('Not yet')))
+        self.sync_panel.meta.setText(' · '.join(visible))
+        self.sync_panel.meta.setAccessibleName('\n'.join(rows))
+        set_hint(self.sync_panel.meta, t('Synchronization status'), '\n'.join(rows))
 
     def render_overview(self, entries):
         from .notifications import observe_attempt
@@ -1723,11 +1967,16 @@ class MainWindow(QMainWindow):
             item = QTableWidgetItem(Path(entry['path']).name)
             item.setData(Qt.ItemDataRole.UserRole + 1, entry)
             item.setData(Qt.ItemDataRole.AccessibleTextRole, Path(entry['path']).name + ' · ' + file_context(entry))
-            item.setToolTip(entry['_source_name'] + '\n' + entry['path'])
+            item.setToolTip(hint_text(Path(entry['path']).name, file_context(entry)))
             self.recent_files.setItem(row, 0, item)
             self.recent_files.setItem(row, 1, QTableWidgetItem(local_time(entry.get('changed_at')) if entry.get('changed_at') else '—'))
         self.recent_files.set_empty('' if recent else t('No materials yet'),
                                     '' if recent else t('Start a sync to download your course materials.'))
+        section = self.recent_files.verticalHeader().defaultSectionSize()
+        if recent:
+            self.recent_files.setFixedHeight(section * len(recent))
+        else:
+            self.recent_files._place_empty()
         self.all_files_button.setText(t('View all materials ({count})', count=len(materials)))
         for library in self.libraries.values():
             observe_attempt(data_dir() / 'sources' / library['source'].id, library['status'])
@@ -1758,13 +2007,13 @@ class MainWindow(QMainWindow):
         item = self.recent_files.itemAt(point)
         if item:
             self.recent_files.selectRow(item.row())
-            menu = QMenu(self)
+            menu = MotionMenu(self)
             menu.addAction(t('Open file'), self.open_recent)
             menu.addAction(t('View all materials'), lambda: self.workspace_tabs.setCurrentIndex(1))
             menu.exec(self.recent_files.viewport().mapToGlobal(point))
 
     def render_notices(self):
-        from .notifications import notices, preferences
+        from .notifications import notices
         source = self.selected()
         rows = [(identity, row) for identity in self.libraries if not source or identity == source.id
                 for row in notices(identity) if not row.get('resolved')]
@@ -1778,33 +2027,16 @@ class MainWindow(QMainWindow):
         if hidden:
             summary += ' · ' + t('{count} hidden', count=hidden)
         self.overview_notes.setText(summary)
-        self.workspace_tabs.setTabText(2, t('Notifications') + (f' ({active - hidden})' if active > hidden else ''))
-        while self.notices_layout.count():
-            widget = self.notices_layout.takeAt(0).widget()
-            if widget:
-                widget.deleteLater()
-        self.notices_layout.addWidget(label(summary, 'sectionTitle'))
-        setting = QCheckBox(t('Notify me about new sync problems on this Mac'))
-        setting.setChecked(preferences().get('enabled', False))
-        setting.toggled.connect(self.configure_notifications)
-        self.notices_layout.addWidget(setting)
-        self.notices_layout.addWidget(button('Test notification', self.test_notification), alignment=Qt.AlignmentFlag.AlignLeft)
-        self.notification_permission_note = label(getattr(self, 'notification_feedback', '') or
-            t('Hidden notices stay in Details. Repeated problems do not trigger another notification.'), 'subtitle')
-        self.notices_layout.addWidget(self.notification_permission_note)
-        for identity, row in rows:
-            if not row.get('dismissed'):
-                self.notices_layout.addWidget(self.notice_widget(identity, row))
-        if not rows:
-            self.notices_layout.addWidget(label('New sync problems appear here. Your existing materials remain available.', 'subtitle'))
-        self.notices_layout.addStretch()
+        self.overview_notes.setVisible(errors > 0 or hidden > 0 or summary == t('Action required — see Details'))
+        self._notice_rows = rows
 
     def notice_widget(self, identity, row, *, details=False):
         from .notifications import relative_time
         widget = QFrame()
         widget.setObjectName('noticeRow')
         layout = QVBoxLayout(widget)
-        layout.setContentsMargins(12, 10, 12, 10)
+        layout.setContentsMargins(16, 14, 16, 14)
+        layout.setSpacing(6)
         line = QHBoxLayout()
         titles = {'signin': 'Sign-in required', 'unavailable': 'Download unavailable', 'network': 'Connection unavailable',
                   'errors': 'Sync errors', 'warnings': 'Sync notes', 'incomplete': 'Check incomplete'}
@@ -1813,7 +2045,7 @@ class MainWindow(QMainWindow):
         action = button('Show again' if row.get('dismissed') else 'Dismiss notice',
                         lambda: self.dismiss_notice(identity, row['id'], not row.get('dismissed')))
         action.setObjectName('compactControl')
-        action.setToolTip(t('Hides this notice only. The sync result and recovery steps are kept.'))
+        set_hint(action, action.text(), t('Hides this notice only. The sync result and recovery steps are kept.'))
         line.addWidget(action)
         layout.addLayout(line)
         text = self.libraries[identity]['source'].name + ' · ' + relative_time(row['last_seen'])
@@ -1830,42 +2062,44 @@ class MainWindow(QMainWindow):
         from .notifications import dismiss
         dismiss(identity, notice_id, dismissed)
         self.render_notices()
-        if self.workspace_tabs.currentIndex() == 3:
+        if self.workspace_tabs.currentIndex() == 2:
             self.build_report(identity)
 
     def open_notice_details(self, identity):
-        self.workspace_tabs.setCurrentIndex(3)
+        self.workspace_tabs.setCurrentIndex(2)
         self.build_report(identity)
 
     def configure_notifications(self, enabled):
         from .notifications import set_enabled, permission
-        set_enabled(enabled)
-        if enabled:
-            result = permission(request=True)
-            self.notification_feedback = (t('Allow notifications in macOS when prompted. If denied, enable IliasSync in System Settings → Notifications.')
-                if result != -1 else t('System notifications are available in the installed macOS app. Notices here always work.'))
-        else:
+        if not enabled:
+            set_enabled(False)
             self.notification_feedback = ''
+            self.render_notices()
+            return
+        result = permission(request=True)
+        if result == 2:
+            set_enabled(True)
+            self.notification_feedback = ''
+        elif result == 1:
+            set_enabled(False)
+            self.notification_feedback = t('macOS has denied notifications. Enable IliasSync in System Settings → Notifications.')
+        elif result == -1:
+            set_enabled(False)
+            self.notification_feedback = t('macOS notification access is unavailable. In-app notices remain available.')
+        else:
+            set_enabled(False)
+            self.notification_feedback = t('Allow notifications in macOS when prompted. If denied, enable IliasSync in System Settings → Notifications.')
         self.render_notices()
 
-    def test_notification(self):
-        from .notifications import native_notify, permission, preferences
-        authorization = permission()
-        if authorization == -1:
-            self.notification_feedback = t('macOS notification access is unavailable. In-app notices remain available.')
-            self.notification_permission_note.setText(self.notification_feedback)
+    def showEvent(self, event):
+        super().showEvent(event)
+        if getattr(self, '_backdrop', False):
             return
-        if authorization == 1:
-            self.notification_feedback = t('macOS has denied notifications. Enable IliasSync in System Settings → Notifications.')
-            self.notification_permission_note.setText(self.notification_feedback)
-            return
-        if not preferences().get('enabled') or authorization != 2:
-            self.notification_feedback = t('Enable notifications above and allow IliasSync in macOS first.')
-            self.notification_permission_note.setText(self.notification_feedback)
-            return
-        accepted = native_notify('IliasSync', t('Notifications for new sync problems are enabled.'), 'ilias-sync-test')
-        self.notification_feedback = t('Test notification handed to macOS.') if accepted else t('macOS could not accept the test notification. Check System Settings → Notifications.')
-        self.notification_permission_note.setText(self.notification_feedback)
+        self._backdrop = True
+        from .native_compat import blur_window
+        from .notifications import permission
+        permission()
+        blur_window(int(self.winId()), self.palette().color(QPalette.ColorRole.Window).name())
 
     def request_sync(self):
         if self.process or self.run_info:
@@ -1945,8 +2179,12 @@ class MainWindow(QMainWindow):
         busy = self.process is not None or self.run_info is not None
         self.onboard_button.setVisible(not has_sources)
         self.welcome_brand.setVisible(not has_sources)
+        self.empty_lead.setVisible(not has_sources)
         self.empty_spacer.setVisible(not has_sources)
+        self.file_search.setVisible(has_sources)
         self.source_host.setVisible(has_sources)
+        self.source_title.setAlignment(Qt.AlignmentFlag.AlignHCenter if not has_sources else Qt.AlignmentFlag.AlignLeft)
+        self.source_host.setAlignment(Qt.AlignmentFlag.AlignHCenter if not has_sources else Qt.AlignmentFlag.AlignLeft)
         self.destination.hide()
         self.sidebar_button.setVisible(has_sources)
         self.management_button.setVisible(has_sources)
@@ -1987,7 +2225,7 @@ class MainWindow(QMainWindow):
             self.source_host.setText(t('From one university') if len(self.libraries) == 1 else t('Across {count} universities', count=len(self.libraries)))
         self.file_search.setPlaceholderText(t('Search in this course…') if scope[1] else
                                             t('Search this university…') if source else t('Search all universities…'))
-        self.file_search.setToolTip(self.file_search.placeholderText())
+        self.adapt_search()
         entries = [entry for identity, library in self.libraries.items() if not source or identity == source.id
                    for entry in library['entries'] if not scope[1] or entry.get('course_id') == scope[1]]
         column, order = self.files_header.sortIndicatorSection(), self.files_header.sortIndicatorOrder()
@@ -2005,8 +2243,7 @@ class MainWindow(QMainWindow):
             item.setData(Qt.ItemDataRole.UserRole + 1, entry)
             item.setData(Qt.ItemDataRole.AccessibleTextRole,
                          entry['path'] + ' · ' + entry['_source_name'] + ' · ' + file_context(entry))
-            item.setToolTip(entry['_source_name'] + '\n' + entry.get('course_name', '') + '\n' +
-                            str(Path(entry.get('root', entry['_destination'])) / entry['path']))
+            item.setToolTip(hint_text(Path(entry['path']).name, file_context(entry)))
             self.files.setItem(row, 0, item)
             size = entry.get('target_stat', [0])[0]
             size_item = FileCell(file_size(size))
@@ -2016,11 +2253,11 @@ class MainWindow(QMainWindow):
             changed = entry.get('changed_at', 0)
             date_item = FileCell(local_time(changed) if changed else '—')
             date_item.setData(Qt.ItemDataRole.UserRole, changed)
-            date_item.setToolTip(t('No recorded change') if not changed else local_time(changed))
+            date_item.setData(Qt.ItemDataRole.AccessibleDescriptionRole, t('No recorded change') if not changed else local_time(changed))
             self.files.setItem(row, 2, date_item)
             course_item = FileCell(entry.get('course_name', ''))
             course_item.setData(Qt.ItemDataRole.UserRole, entry.get('course_name', '').casefold())
-            course_item.setToolTip(entry.get('course_name', ''))
+            course_item.setToolTip(hint_text(entry.get('course_name', '')))
             self.files.setItem(row, 3, course_item)
         self.files.setSortingEnabled(True)
         self.files.sortItems(max(0, column), order)
@@ -2056,9 +2293,6 @@ class MainWindow(QMainWindow):
         plan = recovery_plan(relevant[self.recovery_source]['status']) if self.recovery_source else None
         title = summary.title
         status = relevant[source.id]['status'] if source else {}
-        unavailable = (status.get('result') or {}).get('unavailable', 0)
-        if unavailable and summary.tone == 'warning':
-            title += ' · ' + t('{count} files unavailable', count=unavailable)
         repair_id = source.id if source else getattr(self, 'last_repair_source', None)
         repair = self.repair_checks.get(repair_id)
         if repair and repair_id in self.libraries and repair.get('phase') != 'checking':
@@ -2078,11 +2312,18 @@ class MainWindow(QMainWindow):
                 title = summary.title
                 plan = recovery_plan({'state': 'Needs attention'})
                 self.recovery_source = repair_id
-        self.sync_panel.set_state(title, summary.detail, summary.tone)
+        if repair and repair.get('phase') in {'verified', 'failed'}:
+            display_title, display_tone, exception, dismiss_paths = title, summary.tone, '', None
+        else:
+            display_title, display_tone, exception, dismiss_paths = self._status_display(summary, title, relevant, source)
+        self._unavailable_exclude = dismiss_paths
+        self.sync_panel.set_state(display_title, summary.detail, display_tone)
+        self.sync_panel.set_exception(exception, dismiss=bool(dismiss_paths))
         self.recovery = summary.recovery
         self.recovery_plan = plan
         self.recovery_button.setText(plan.button if plan else '')
-        self.recovery_button.setToolTip(relevant[self.recovery_source]['source'].name + '\n' + plan.explanation if plan else '')
+        self.recovery_button.setToolTip('')
+        self.recovery_button.setAccessibleDescription(plan.explanation if plan else '')
         self.recovery_button.setVisible(bool(plan and summary.tone == 'error'))
         if plan and summary.tone == 'error':
             detail = plan.explanation
@@ -2108,8 +2349,7 @@ class MainWindow(QMainWindow):
             next_check = schedule_expectation(self.settings.value, next(iter(relevant.values()))['status'])
         else:
             next_check = t('Automatic checks follow each university’s schedule')
-        self.sync_panel.schedule.setText(next_check)
-        self.sync_panel.schedule.setToolTip('\n'.join(schedules) + '\n' + self.schedule_text())
+        self._publish_schedule(next_check, '\n'.join(schedules) + '\n' + self.schedule_text())
         self.update_sync_age()
         if self.sync_panel.disclosure.isChecked():
             self.build_report()
@@ -2117,6 +2357,7 @@ class MainWindow(QMainWindow):
     def adapt_columns(self):
         if not hasattr(self, 'files'):
             return
+        self.adapt_search()
         self.files.setColumnHidden(3, bool(self.sources.scope()[1]) or self.files.viewport().width() < 850)
         # Keep the active date order visible even in compact windows.
         self.files.setColumnHidden(2, self.files.viewport().width() < 650 and
@@ -2125,9 +2366,32 @@ class MainWindow(QMainWindow):
         if hasattr(self, 'sync_panel') and not self.sync_panel.external_report:
             self.sync_panel.report_host.setMaximumHeight(max(100, min(260, self.height() - 500)))
 
+    def adapt_search(self):
+        if not hasattr(self, 'file_search'):
+            return
+        preferred = self.file_search.fontMetrics().horizontalAdvance(self.file_search.placeholderText()) + 56
+        maximum = min(360, max(180, preferred))
+        if self.file_search.maximumWidth() != maximum:
+            self.file_search.setMaximumWidth(maximum)
+
+    def sidebar_resized(self, *_):
+        if self.sidebar.isVisible():
+            self.view_state['sidebar_width'] = self.sidebar.width()
+        self.adapt_columns()
+        # Moving translucent panes must invalidate their old positions as well.
+        self.update()
+
+    def paintEvent(self, event):
+        paint_window_background(self)
+        super().paintEvent(event)
+
     def resizeEvent(self, event):
         super().resizeEvent(event)
         self.adapt_columns()
+        QTimer.singleShot(0, self.adapt_columns)
+        if getattr(self, '_backdrop', False):
+            from .native_compat import blur_window
+            blur_window(int(self.winId()), self.palette().color(QPalette.ColorRole.Window).name())
 
     def filter_files(self):
         self.workspace_tabs.setCurrentIndex(1)
@@ -2142,6 +2406,8 @@ class MainWindow(QMainWindow):
 
     def search_files(self, text):
         self.file_filters['search'] = text
+        if text and self.file_search.hasFocus() and self.libraries and self.workspace.currentIndex() != 1:
+            self.workspace_tabs.setCurrentIndex(1)
         self.apply_file_filters()
 
     def focus_search(self):
@@ -2199,7 +2465,7 @@ class MainWindow(QMainWindow):
             visible += bool(matches)
         active = any(filters.values())
         self.files_header.filter_button.setChecked(active)
-        self.files_header.filter_button.setToolTip(t('Filters active') if active else t('Filter files'))
+        set_hint(self.files_header.filter_button, t('Filters active') if active else t('Filter files'))
         self.clear_filters_button.setVisible(active)
         self.file_count.setText(t('{visible} of {total} files', visible=visible, total=eligible) if active else
                                 t('1 file') if visible == 1 else t('{count} files', count=visible))
@@ -2213,8 +2479,53 @@ class MainWindow(QMainWindow):
             self.files.set_empty(t('No course information yet'), t('Course descriptions and links appear here after a sync.'))
         else:
             self.files.set_empty(t('Your materials will appear here'), t('Start a sync to download files from your courses.'))
+        if getattr(self, '_armed_open', None) and self._armed_entry() is None:
+            self._armed_open = None
         self.update_file_actions()
         return visible
+
+    def _entry_at(self, row):
+        if not hasattr(self, 'files') or row < 0 or row >= self.files.rowCount() or self.files.isRowHidden(row):
+            return None
+        item = self.files.item(row, 0)
+        return item.data(Qt.ItemDataRole.UserRole + 1) if item else None
+
+    def _arm_open_row(self, item):
+        entry = self._entry_at(item.row())
+        if entry:
+            self._armed_open = (entry.get('_source_id'), entry.get('_identity'))
+
+    def _armed_entry(self):
+        identity = getattr(self, '_armed_open', None)
+        if not identity:
+            return None
+        for row in range(self.files.rowCount()):
+            entry = self._entry_at(row)
+            if entry and (entry.get('_source_id'), entry.get('_identity')) == identity:
+                return entry
+        return None
+
+    def _viewport_entry(self):
+        view = self.files.viewport()
+        if view.height() < 1:
+            return None
+        for y in range(view.height() - 2, 0, -6):
+            index = self.files.indexAt(QPoint(8, y))
+            entry = self._entry_at(index.row()) if index.isValid() else None
+            if entry:
+                return entry
+        return None
+
+    def open_candidate(self):
+        """The selected row, otherwise the row last under the pointer, otherwise the one beside the button."""
+        return self.selected_entry() or self._armed_entry() or self._viewport_entry() or self._first_visible_entry()
+
+    def _first_visible_entry(self):
+        for row in range(self.files.rowCount()):
+            entry = self._entry_at(row)
+            if entry:
+                return entry
+        return None
 
     def selected_entry(self):
         if not hasattr(self, 'files'):
@@ -2227,10 +2538,10 @@ class MainWindow(QMainWindow):
 
     def update_file_actions(self):
         if hasattr(self, 'file_open_button'):
-            self.file_open_button.setEnabled(self.selected_entry() is not None)
+            self.file_open_button.setEnabled(self._first_visible_entry() is not None)
 
-    def file_target(self):
-        entry = self.selected_entry()
+    def file_target(self, entry=None):
+        entry = self.selected_entry() if entry is None else entry
         if not entry:
             return None
         from .storage import safe_path
@@ -2242,16 +2553,16 @@ class MainWindow(QMainWindow):
             return None
 
     def open_file(self):
-        target = self.file_target()
+        entry = self.open_candidate()
+        target = self.file_target(entry)
         if target is None:
             return
         if not target.is_file():
-            entry = self.selected_entry()
             self.show_local_error(t('This file is missing locally. Sync again to restore it.'),
                                   kind='missing', source_id=entry['_source_id'], entry=entry)
-        elif not QDesktopServices.openUrl(QUrl.fromLocalFile(str(target))):
+        elif not launch_local(target):
             self.show_local_error(t('The file could not be opened. Check its default application.'), kind='open',
-                                  source_id=self.selected_entry()['_source_id'], entry=self.selected_entry())
+                                  source_id=entry['_source_id'], entry=entry)
 
     def reveal_file(self):
         target = self.file_target()
@@ -2263,7 +2574,7 @@ class MainWindow(QMainWindow):
         if not item:
             return
         self.files.selectRow(item.row())
-        menu = QMenu(self)
+        menu = MotionMenu(self)
         menu.addAction(t('Open file'), self.open_file)
         menu.addAction(t('Open containing folder'), self.reveal_file)
         entry = self.selected_entry()
@@ -2273,18 +2584,30 @@ class MainWindow(QMainWindow):
         menu.exec(self.files.viewport().mapToGlobal(point))
 
     def show_progress(self, text):
+        import re
         state = self.run_info.get('state', 'running') if self.run_info else 'running'
         loading = self.job and self.job[0] == 'discover'
-        title = {'running': t('Loading your courses') if loading else t('Synchronizing your materials'), 'paused': t('Synchronization paused'),
-                 'stopping': t('Finishing safely…')}[state]
+        title = {'running': t('Loading your courses') if loading else t('Synchronization'), 'paused': t('Paused'),
+                 'stopping': t('Stopping…')}[state]
         identity = self.run_info.get('source') if self.run_info else self.job[1].id if self.job else None
         library = self.libraries.get(identity)
-        if library:
+        selected = self.selected()
+        if library and not loading and (selected is None or selected.id != library['source'].id):
             title += ' · ' + library['source'].name
+        self.sync_panel.set_exception('', dismiss=False)
         self.sync_panel.set_state(title, text, 'running' if state == 'running' else 'neutral', busy=state != 'paused')
+        match = re.search(r'\((\d+)\s*/\s*(\d+)\)', text or '')
+        if match and state == 'running':
+            current, total = int(match.group(1)), int(match.group(2))
+            if total > 0:
+                self.sync_panel.progress.setRange(0, total)
+                self.sync_panel.progress.setValue(min(current, total))
+            else:
+                self.sync_panel.progress.setRange(0, 0)
+        else:
+            self.sync_panel.progress.setRange(0, 0)
         self.recovery_button.hide()
         self.update_sync_age()
-        self.sync_panel.schedule.setText(text)
 
     def show_local_error(self, text, *, kind=None, source_id=None, entry=None, error_status=None):
         self.ui_error = text
@@ -2303,13 +2626,14 @@ class MainWindow(QMainWindow):
         self.recovery_button.setVisible(bool(self.ui_error_source))
         if self.ui_error_kind == 'open':
             self.recovery_button.setText(t('Open containing folder'))
-            self.recovery_button.setToolTip(t('The file was kept. Open its folder to choose another application.'))
+            set_hint(self.recovery_button, self.recovery_button.text(), t('The file was kept. Open its folder to choose another application.'))
         elif self.ui_error_kind == 'missing':
             self.recovery_button.setText(t('Restore file'))
-            self.recovery_button.setToolTip(t('Checks this university and downloads missing materials again. Existing files are kept.'))
+            set_hint(self.recovery_button, self.recovery_button.text(), t('Checks this university and downloads missing materials again. Existing files are kept.'))
         elif self.recovery_plan:
             self.recovery_button.setText(self.recovery_plan.button)
-            self.recovery_button.setToolTip(self.recovery_plan.explanation)
+            self.recovery_button.setToolTip('')
+            self.recovery_button.setAccessibleDescription(self.recovery_plan.explanation)
         self.refresh_controls()
 
     def recover(self):
@@ -2355,7 +2679,7 @@ class MainWindow(QMainWindow):
         self.sync_panel.disclosure.setChecked(True)
 
     def toggle_report(self, expanded):
-        self.workspace_tabs.setCurrentIndex(3 if expanded else 0)
+        self.workspace_tabs.setCurrentIndex(2 if expanded else 0)
 
     def build_report(self, identity=None):
         previous = identity or (self.report_source.currentData() if hasattr(self, 'report_source') else None)
@@ -2425,7 +2749,7 @@ class MainWindow(QMainWindow):
         self.sidebar.setVisible(visible)
         self.view_state['sidebar_hidden'] = not visible
         name = t('Hide sidebar') if visible else t('Show sidebar')
-        self.sidebar_button.setToolTip(name)
+        set_hint(self.sidebar_button, name)
         self.sidebar_button.setAccessibleName(name)
         self.sidebar_action.setText(name)
         self.adapt_columns()
@@ -2437,7 +2761,7 @@ class MainWindow(QMainWindow):
         self.edit()
 
     def source_menu(self, source, parent):
-        menu = QMenu(source.name, parent)
+        menu = MotionMenu(source.name, parent)
         for name, callback in [('Choose sync courses…', lambda: self.start('discover', source)),
                                ('Folder mapping', lambda: self.folder_mapping(source)),
                                ('Open folder', lambda: self.open_folder(source)),
@@ -2451,12 +2775,12 @@ class MainWindow(QMainWindow):
         if source:
             menu = self.source_menu(source, self)
         else:
-            menu = QMenu(self)
+            menu = MotionMenu(self)
             for library in self.libraries.values():
                 menu.addMenu(self.source_menu(library['source'], menu))
             menu.addSeparator()
             menu.addAction(t('Add ILIAS'), self.add).setEnabled(not (self.process or self.run_info))
-        menu.exec(self.management_button.mapToGlobal(self.management_button.rect().bottomLeft()))
+        popup(menu, self.management_button)
 
     def navigation_menu(self, point):
         item = self.sources.itemAt(point)
@@ -2581,24 +2905,24 @@ class MainWindow(QMainWindow):
     def refresh_controls(self):
         busy = self.process is not None or self.run_info is not None
         self.sources.setEnabled(True)
-        self.sync_button.setVisible(bool(self.libraries))
         self.sync_button.setEnabled(not busy and bool(self.selected() or any(source.enabled for source in self.settings.sources())))
         self.sync_button.set_action()
         self.pause_button.set_action("resume" if self.run_info and self.run_info["state"] == "paused" else "pause")
-        self.pause_button.setVisible(busy)
         self.pause_button.setEnabled(busy and not (self.run_info and self.run_info['state'] == 'stopping'))
         if not self.selected() and self.libraries:
             self.sync_button.setText(t('Sync all'))
             self.sync_button.setAccessibleName(t('Sync all'))
         if not busy:
-            self.sync_button.setToolTip(t('Checks all configured courses at this university; browsing a course does not change the sync selection.')
-                                       if self.selected() else t('Checks all enabled universities one after another.'))
+            set_hint(self.sync_button, self.sync_button.text(),
+                     t('Checks the courses selected for synchronization.') if self.selected() else t('Checks all enabled universities one after another.'))
+            self.sync_button.setAccessibleDescription(t('Checks all configured courses at this university; browsing a course does not change the sync selection.')
+                                                     if self.selected() else t('Checks all enabled universities one after another.'))
+        self.sync_cluster.set_mode('hidden' if not self.libraries else 'running' if busy else 'sync')
         self.add_button.setEnabled(not busy)
         self.settings_button.setEnabled(not busy)
         self.recovery_button.setEnabled(not busy)
         if getattr(self, 'recovery_plan', None) and self.recovery_plan.action == 'retry':
             self.recovery_button.hide()
-        self.stop_button.setVisible(busy)
         self.stop_button.setEnabled(busy and not (self.run_info and self.run_info["state"] == "stopping"))
 
     def read_output(self):

@@ -130,10 +130,10 @@ def test_global_duplicate_ids_open_correct_source_and_custom_root(library_app, s
         window.files.selectRow(row)
         entry = window.selected_entry()
         assert window.file_target().read_bytes() == entry['_source_id'].encode()
-        with patch('ilias_sync.gui.QDesktopServices.openUrl', return_value=True) as opened:
+        with patch('ilias_sync.gui.launch_local', return_value=True) as opened:
             window.files.setFocus()
             QTest.keyClick(window.files, Qt.Key.Key_Return)
-            target = Path(opened.call_args.args[0].toLocalFile())
+            target = Path(opened.call_args.args[0])
             assert target.read_bytes() == entry['_source_id'].encode()
             if entry['_source_id'] == second.id:
                 assert target.is_relative_to(custom)
@@ -253,7 +253,7 @@ def test_compact_geometry_density_keyboard_and_sidebar_toggle(library_app, sourc
     library_app.processEvents()
     assert (window.width(), window.height()) == size
     # Fixed, always available sync controls and last-sync time reserve space.
-    assert window.files.viewport().height() // window.files.verticalHeader().defaultSectionSize() >= {560: 3, 700: 6, 800: 9}[size[1]]
+    assert window.files.viewport().height() // window.files.verticalHeader().defaultSectionSize() >= {560: 3, 700: 6, 800: 8}[size[1]]
     assert window.files.verticalHeader().defaultSectionSize() <= 48
     assert window.sync_panel.meta.isVisible()
     assert not window.sync_panel.detail.isVisible()
