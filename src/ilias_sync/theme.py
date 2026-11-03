@@ -23,6 +23,7 @@ QMainWindow, QDialog, QWidget#dialogBody, QWidget#page {{ background: {c['window
 QWidget#formPane, QFrame#surface {{ background: {c['surface']}; border: 1px solid {c['border']}; border-radius: 12px; }}
 QFrame#surface QLabel, QWidget#formPane QLabel {{ background: transparent; border: none; }}
 QScrollArea, QScrollArea > QWidget > QWidget {{ background: {c['window']}; border: none; }}
+QTabWidget, QTabBar, QDialogButtonBox {{ background: transparent; border: none; }}
 QStackedWidget {{ background: transparent; border: none; }}
 QTabWidget::pane {{ border: none; padding-top: 14px; background: {c['window']}; }}
 QTabBar::tab {{ background: {c['inset']}; color: {c['muted']}; padding: 8px 20px; border-radius: 6px; margin-right: 6px; }}
