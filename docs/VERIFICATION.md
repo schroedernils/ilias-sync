@@ -1,5 +1,24 @@
 # Verification boundaries
 
+## Release 1.0.0 — 3 November 2026
+
+- Local complete suite: **293 tests passed**. Ruff and whitespace checks passed.
+- Synthetic UI review: **101 states**, including compact windows, both appearances, active sync,
+  sign-in recovery and empty states. Product screenshots were regenerated from synthetic courses.
+- Targeted native state checks cover repeated Aqua/Dark Aqua transitions and **200 backdrop updates**
+  without resetting the window style, moving its frame or replacing Qt's content view. Hidden native
+  test windows are not visual proof; installed interaction checks are tracked separately.
+- The macOS package passed its offline executable self-test at version **1.0.0** and strict ad-hoc
+  signature validation. Build identifiers distinguish it from older alpha installations.
+- All four release packages must pass the native GitHub Actions build matrix and packaged self-tests;
+  the publishing workflow validates the source run, semantic version, package names and SHA-256 sums.
+- No universal ILIAS/SSO compatibility, macOS notarization, Windows Authenticode signature, spoken
+  screen-reader validation or physical Windows/Linux desktop usability study is claimed.
+- Repository history was checked for credential files, private keys and common GitHub-token formats
+  before publication. This is a bounded check, not a security audit.
+
+Older sections below describe their dated builds and do not replace the 1.0.0 checks.
+
 ## Weekday schedule editor — 1 November 2026
 
 - Complete suite: **262 tests passed in 38.98 seconds**; focused editor tests and Ruff/whitespace checks
