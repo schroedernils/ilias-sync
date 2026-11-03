@@ -1,37 +1,47 @@
-name: Publish checked preview
+name: Publish verified release
 on:
   workflow_dispatch:
     inputs:
       run_id:
-        description: Successful Test and package run for all four platforms
+        description: Successful Test and package run for all four desktop packages
         required: true
 permissions:
   contents: write
   actions: read
+concurrency:
+  group: publish-release
+  cancel-in-progress: false
 jobs:
   release:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - name: Verify source run
+      - name: Verify source build
         id: source
         env:
           GH_TOKEN: ${{ github.token }}
           RUN_ID: ${{ inputs.run_id }}
         run: |
           [[ "$RUN_ID" =~ ^[0-9]+$ ]]
-          gh run view "$RUN_ID" --json conclusion,headSha,jobs > /tmp/source-run.json
+          gh api "repos/$GITHUB_REPOSITORY/actions/runs/$RUN_ID" > /tmp/source-run.json
+          gh run view "$RUN_ID" --json jobs > /tmp/source-jobs.json
           python - <<'PY'
           import json, os
           from pathlib import Path
           run = json.loads(Path('/tmp/source-run.json').read_text())
-          assert run['conclusion'] == 'success'
-          names = {'build (macos-15, macOS-arm64)', 'build (macos-15-intel, macOS-x64)',
-                   'build (windows-2022, Windows-x64)', 'build (ubuntu-22.04, Linux-x64)'}
-          assert {j['name'] for j in run['jobs'] if j['conclusion'] == 'success'} == names
+          jobs = json.loads(Path('/tmp/source-jobs.json').read_text())['jobs']
+          assert run['conclusion'] == 'success' and run['status'] == 'completed'
+          assert run['path'] == '.github/workflows/build.yml'
+          assert run['repository']['full_name'] == os.environ['GITHUB_REPOSITORY']
+          expected = {'build (macos-15, macOS-arm64)', 'build (macos-15-intel, macOS-x64)',
+                      'build (windows-2022, Windows-x64)', 'build (ubuntu-22.04, Linux-x64)'}
+          assert {job['name'] for job in jobs if job['conclusion'] == 'success'} == expected
           with open(os.environ['GITHUB_OUTPUT'], 'a') as out:
-              out.write('sha=' + run['headSha'] + '\n')
+              out.write('sha=' + run['head_sha'] + '\n')
           PY
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ steps.source.outputs.sha }}
       - uses: actions/download-artifact@v4
         with:
           run-id: ${{ inputs.run_id }}
@@ -39,30 +49,37 @@ jobs:
           pattern: IliasSync-*
           path: release-assets
           merge-multiple: true
-      - name: Validate package checksums
+      - name: Validate version and all package checksums
+        id: package
         run: |
           python - <<'PY'
-          import hashlib
+          import hashlib, os, re, tomllib
           from pathlib import Path
+          version = tomllib.loads(Path('pyproject.toml').read_text())['project']['version']
+          assert re.fullmatch(r'\d+\.\d+\.\d+', version), 'Stable semantic version required'
           root = Path('release-assets')
-          sums = sorted(root.glob('*.sha256'))
-          assert len(sums) == 4
+          names = {f'IliasSync-{version}-{name}' for name in
+                   ['macOS-arm64.dmg', 'macOS-x64.dmg', 'Windows-x64.zip', 'Linux-x64.tar.gz']}
+          assert {p.name for p in root.iterdir()} == names | {name + '.sha256' for name in names}
           lines = []
-          for sidecar in sums:
-              package = root / sidecar.name.removesuffix('.sha256')
-              expected, name = sidecar.read_text().strip().split('  ', 1)
-              assert name == package.name
-              assert package.is_file()
+          for name in sorted(names):
+              package = root/name
+              expected, recorded = (root/(name + '.sha256')).read_text().strip().split('  ', 1)
+              assert name == recorded
               assert hashlib.sha256(package.read_bytes()).hexdigest() == expected
               lines.append(expected + '  ' + name)
-          (root / 'SHA256SUMS').write_text('\n'.join(lines) + '\n')
+          (root/'SHA256SUMS').write_text('\n'.join(lines) + '\n')
+          assert Path(f'docs/releases/{version}.md').is_file()
+          with open(os.environ['GITHUB_OUTPUT'], 'a') as out:
+              out.write('version=' + version + '\n')
           PY
-      - name: Publish private alpha release
+      - name: Publish stable release
         env:
           GH_TOKEN: ${{ github.token }}
           SOURCE_SHA: ${{ steps.source.outputs.sha }}
+          VERSION: ${{ steps.package.outputs.version }}
         run: |
-          gh release create v0.1.0-alpha.2 release-assets/* \
-            --target "$SOURCE_SHA" --prerelease \
-            --title "IliasSync 0.1.0 Alpha 2" \
-            --notes-file docs/releases/0.1.0-alpha.2.md
+          gh release create "v$VERSION" release-assets/* \
+            --target "$SOURCE_SHA" --latest \
+            --title "IliasSync $VERSION" \
+            --notes-file "docs/releases/$VERSION.md"
