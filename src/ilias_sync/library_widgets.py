@@ -1,19 +1,20 @@
 """Small native widgets for readable materials and non-modal synchronization feedback."""
 from pathlib import PurePosixPath
 
-from PySide6.QtCore import QRect, QSize, Qt, Signal
-from PySide6.QtGui import QColor, QFont, QPalette, QPainter, QPen
+from PySide6.QtCore import QEvent, QRect, QSize, Qt, Signal
+from PySide6.QtGui import QColor, QFont, QFontMetrics, QPalette, QPainter, QPen
 from PySide6.QtWidgets import (QApplication, QFrame, QHBoxLayout, QLabel, QProgressBar, QStyle,
                               QStyledItemDelegate, QStyleOptionViewItem, QTableWidget, QVBoxLayout, QWidget,
-                              QTreeWidget, QTreeWidgetItem, QPushButton)
+                              QTreeWidget, QTreeWidgetItem, QPushButton, QToolTip)
 from PySide6.QtWidgets import QScrollArea
 
 from .i18n import t
+from .hints import hint_text
 from .theme import DARK, LIGHT
 
 
 class ElidedLabel(QLabel):
-    """A single-line label that retains its complete text for tooltips and AT."""
+    """Keep complete text accessible; hover only reveals otherwise clipped text."""
     def __init__(self, text='', parent=None):
         super().__init__(parent)
         self.full_text = text
@@ -29,16 +30,41 @@ class ElidedLabel(QLabel):
 
     def setText(self, text):
         self.full_text = text
-        self.setToolTip(text)
         self.setAccessibleName(text)
-        super().setText(self.fontMetrics().elidedText(text, Qt.TextElideMode.ElideMiddle, max(1, self.width())))
+        self._fit_text()
+
+    def _fit_text(self):
+        shown = self.fontMetrics().elidedText(self.full_text, Qt.TextElideMode.ElideRight, max(1, self.width()))
+        super().setText(shown)
+        if not self.property('helpHint'):
+            self.setToolTip(hint_text(self.full_text) if shown != self.full_text else '')
 
     def resizeEvent(self, event):
         super().resizeEvent(event)
-        super().setText(self.fontMetrics().elidedText(self.full_text, Qt.TextElideMode.ElideMiddle, max(1, self.width())))
+        self._fit_text()
 
 
 class MaterialDelegate(QStyledItemDelegate):
+    def needs_hint(self, option, index):
+        entry = index.data(Qt.ItemDataRole.UserRole + 1) or {}
+        if index.column() != 0 or not entry:
+            return option.fontMetrics.horizontalAdvance(str(index.data() or '')) > option.rect.width() - 8
+        width = max(0, option.rect.width() - 56)
+        font = QFont(option.font)
+        font.setWeight(QFont.Weight.Medium)
+        if QFontMetrics(font).horizontalAdvance(PurePosixPath(entry['path']).name) > width:
+            return True
+        font.setPixelSize(max(11, round(option.fontMetrics.height() * 0.78)))
+        font.setWeight(QFont.Weight.Normal)
+        context = material_context(entry, getattr(option.widget, 'library_scope', 'source'))
+        return QFontMetrics(font).horizontalAdvance(context) > width
+
+    def helpEvent(self, event, view, option, index):
+        if event.type() == QEvent.Type.ToolTip and not self.needs_hint(option, index):
+            QToolTip.hideText()
+            return True
+        return super().helpEvent(event, view, option, index)
+
     def paint(self, painter, option, index):
         if index.column() != 0:
             return super().paint(painter, option, index)
