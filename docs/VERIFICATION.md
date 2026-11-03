@@ -2,7 +2,7 @@
 
 ## Release 1.0.0 — 3 November 2026
 
-- Local complete suite: **293 tests passed**. Ruff and whitespace checks passed.
+- Local complete suite: **296 tests passed**. Ruff and whitespace checks passed.
 - Synthetic UI review: **101 states**, including compact windows, both appearances, active sync,
   sign-in recovery and empty states. Product screenshots were regenerated from synthetic courses.
 - Targeted native state checks cover repeated Aqua/Dark Aqua transitions and **200 backdrop updates**
@@ -10,8 +10,18 @@
   test windows are not visual proof; installed interaction checks are tracked separately.
 - The macOS package passed its offline executable self-test at version **1.0.0** and strict ad-hoc
   signature validation. Build identifiers distinguish it from older alpha installations.
-- All four release packages must pass the native GitHub Actions build matrix and packaged self-tests;
-  the publishing workflow validates the source run, semantic version, package names and SHA-256 sums.
+- All four release packages passed the [native build matrix](https://github.com/schroedernils/ilias-sync/actions/runs/41697340947)
+  and packaged offline self-tests: macOS arm64 and Intel **296 passed** each; Windows **290 passed,
+  6 skipped**; Linux **294 passed, 2 skipped**. Platform-specific skips remain visible in the job logs.
+- [Release 1.0.0](https://github.com/schroedernils/ilias-sync/releases/tag/v1.0.0) was published from
+  `f6a09e0ce3e7ad5fb742ebc5475615e070c4b7c9` (package build `f6a09e0ce3e7-f4ca74959c2a`).
+  The [publishing workflow](https://github.com/schroedernils/ilias-sync/actions/runs/41700704134) verified
+  the source run, semantic version, all four package names and SHA-256 sums. Public anonymous repository
+  and latest-release access was checked after publication.
+- The downloaded release macOS arm64 package also passed its offline self-test and strict ad-hoc
+  signature verification locally; its bundled icon matches the supplied dark icon byte for byte.
+  The new sidebar correction has synthetic drag and hidden AppKit state regressions; direct dragging
+  in the installed 1.0.0 app remains unverified in this pass.
 - No universal ILIAS/SSO compatibility, macOS notarization, Windows Authenticode signature, spoken
   screen-reader validation or physical Windows/Linux desktop usability study is claimed.
 - Repository history was checked for credential files, private keys and common GitHub-token formats
