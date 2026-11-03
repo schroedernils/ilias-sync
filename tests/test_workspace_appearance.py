@@ -34,6 +34,8 @@ def test_dragging_sidebar_keeps_content_inside_window(workspace, size):
     app, window = workspace
     window.resize(*size)
     app.processEvents()
+    recent = window.recent_files
+    assert recent.y() + recent.height() <= recent.parentWidget().height()
     for tab in [0, 1, 2, 0]:
         window.workspace_tabs.setCurrentIndex(tab)
         for delta in [150, -250, 350, -170]:
