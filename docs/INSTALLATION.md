@@ -1,13 +1,12 @@
 # Installation und Anmeldung
 
 Lade nur Pakete aus den [Projekt-Releases](https://github.com/schroedernils/ilias-sync/releases)
-und prüfe die SHA-256-Prüfsumme. Während der privaten Alpha benötigen auch die
-Downloads Repository-Zugriff. Ein fehlender Zugriff kann als GitHub-404 erscheinen.
+und prüfe die SHA-256-Prüfsumme. Die Pakete enthalten Python und Qt; eine separate Installation ist nicht nötig.
 
 ## macOS
 
 Ab macOS 13, separate Pakete für Apple Silicon und Intel. DMG öffnen, App nach
-Programme ziehen. Die Alpha ist ad-hoc signiert, nicht Developer-ID-signiert oder
+Programme ziehen. Das macOS-Paket ist ad-hoc signiert, nicht Developer-ID-signiert oder
 notarisiert. macOS kann eine explizite Freigabe unter Systemeinstellungen →
 Datenschutz & Sicherheit verlangen. Prüfe Herkunft und Prüfsumme, bevor du einer
 App vertraust; deaktivere keine systemweiten Schutzfunktionen.
@@ -15,7 +14,7 @@ App vertraust; deaktivere keine systemweiten Schutzfunktionen.
 ## Windows
 
 Windows 10/11 x64. ZIP vollständig in einen dauerhaften Ordner entpacken.
-`IliasSync.exe` und `_internal` zusammen lassen. Die Alpha hat keine
+`IliasSync.exe` und `_internal` zusammen lassen. Das Windows-Paket hat keine
 Authenticode-Signatur; Windows kann eine Reputationswarnung anzeigen.
 
 ## Linux

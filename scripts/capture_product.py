@@ -10,8 +10,9 @@ os.environ.setdefault("QT_SCALE_FACTOR", "2")
 
 def main():
     from PySide6.QtWidgets import QApplication
+    from PySide6.QtGui import QFontDatabase
     from ilias_sync.branding import app_icon
-    from ilias_sync.gui import MainWindow, FolderMappingDialog, SourceDialog, HelpDialog
+    from ilias_sync.gui import MainWindow, FolderMappingDialog, SourceDialog, HelpDialog, SettingsDialog
     from ilias_sync.storage import Settings, Source, data_dir, write_json, source_scope
     from ilias_sync.theme import Theme
     output = Path(__file__).resolve().parents[1] / "docs/images"
@@ -34,11 +35,13 @@ def main():
                  ("LDS/Übungen/Blatt 01.pdf", "crs-3/Übungen/Blatt 01.pdf", "crs-3", 180000)]
         write_json(state / "manifest.json", {"schema": 1, "files": {
             f"file:{index}": {"path": path, "logical": logical, "course_id": course,
-                              "target_stat": [size], "size": size}
+                              "target_stat": [size], "size": size, "changed_at": time.time() - index * 3600, "change": "added",
+                              "course_name": next(c["name"] for c in courses if c["id"] == course)}
             for index, (path, logical, course, size) in enumerate(names)}})
         write_json(state / "status.json", {"state": "Up to date", "scope": source_scope(source), "finished": time.time(), "result": {
-            "files": 5, "skipped": {}, "warnings": 0, "errors": 0, "unavailable": 0}})
+            "files": 5, "counts": {"added": 5}, "material_counts": {"added": 5}, "skipped": {}, "warnings": 0, "errors": 0, "unavailable": 0}})
         app = QApplication([])
+        app.setFont(QFontDatabase.systemFont(QFontDatabase.SystemFont.GeneralFont))
         app.setWindowIcon(app_icon())
         app.theme = Theme(app, "light")
         window = MainWindow()
@@ -53,6 +56,14 @@ def main():
         capture(window, "app-light.png")
         app.theme.set_mode("dark")
         capture(window, "app-dark.png")
+        window.workspace_tabs.setCurrentIndex(1)
+        capture(window, "materials.png")
+        window.workspace_tabs.setCurrentIndex(0)
+        settings.value.update(scheduled=True, schedule_mode="weekly", weekly_times={"0":["09:00","16:30"],"1":["13:00"],"2":["09:00","16:30"],"3":["13:00"],"4":["10:00"],"5":[],"6":[]})
+        schedule = SettingsDialog(settings)
+        schedule.tabs.setCurrentIndex(1)
+        capture(schedule, "schedule.png")
+        schedule.reject()
         app.theme.set_mode("light")
         mapping = FolderMappingDialog(source, settings)
         mapping.tree.expandAll()

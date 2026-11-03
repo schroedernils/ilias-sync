@@ -1,90 +1,99 @@
 <div align="center">
-  <img src="docs/images/icon.svg" width="80" height="80" alt="IliasSync">
+  <img src="docs/images/icon.svg" width="88" height="88" alt="IliasSync">
   <h1>IliasSync</h1>
-  <p><strong>Deine ILIAS-Kursdateien. Lokal gespeichert. Automatisch aktuell.</strong></p>
-  <p>Für macOS, Windows und Linux. Mit deinen Ordnern und deinem Zeitplan.</p>
+  <p><strong>Dein Studium. Deine Dateien. Automatisch auf deinem Computer.</strong></p>
+  <p>Eine ruhige Desktop-App für ILIAS-Materialien – auf macOS, Windows und Linux.</p>
+  <p>
+    <a href="https://github.com/schroedernils/ilias-sync/releases/latest">Herunterladen</a> ·
+    <a href="#schnellstart">Schnellstart</a> ·
+    <a href="docs/INSTALLATION.md">Installation</a> ·
+    <a href="https://github.com/schroedernils/ilias-sync/issues/new/choose">Hilfe & Feedback</a>
+  </p>
+  <p>
+    <a href="https://github.com/schroedernils/ilias-sync/releases/latest"><img src="https://img.shields.io/github/v/release/schroedernils/ilias-sync?color=497b96&label=Release" alt="Aktuelles Release"></a>
+    <a href="https://github.com/schroedernils/ilias-sync/actions/workflows/build.yml"><img src="https://github.com/schroedernils/ilias-sync/actions/workflows/build.yml/badge.svg" alt="Tests und native Pakete"></a>
+    <a href="LICENSE"><img src="https://img.shields.io/badge/Lizenz-GPL--3.0--or--later-59665f" alt="GPL-3.0-or-later"></a>
+  </p>
 </div>
 
 <picture>
   <source media="(prefers-color-scheme: dark)" srcset="docs/images/app-dark.png">
-  <img src="docs/images/app-light.png" alt="IliasSync zeigt lokal gespeicherte Skripte und Übungsblätter sowie die Auswahl von Kursen und Ordnern.">
+  <img src="docs/images/app-light.png" alt="IliasSync mit Hochschul- und Kursnavigation, drei zuletzt aktualisierten Materialien und gemeinsamem Synchronisierungsbereich.">
 </picture>
+<p align="center"><sub>Aktuelle Produktoberfläche mit synthetischen Beispieldaten. Keine privaten Konten oder Kursunterlagen.</sub></p>
 
-<p align="center"><sub>Synthetische Ansicht des lokalen Entwicklungsstands vom 28.10.2026; kein Screenshot des veröffentlichten Alpha-2-Pakets.</sub></p>
+IliasSync hält die Materialien deiner ausgewählten ILIAS-Kurse in deinen eigenen Ordnern bereit. Du findest neue Skripte und Übungsblätter direkt in der App oder öffnest sie wie gewohnt im Finder beziehungsweise Dateimanager. Die Synchronisierung läuft auf Wunsch nach deinem Wochenplan.
 
-<p align="center">
-  <a href="https://github.com/schroedernils/ilias-sync/releases/tag/v0.1.0-alpha.2">Downloads</a> ·
-  <a href="#in-drei-schritten-starten">Einrichtung</a> ·
-  <a href="https://github.com/schroedernils/ilias-sync/issues/new/choose">Problem melden</a> ·
-  <a href="docs/DEVELOPMENT.md">Entwicklung</a>
-</p>
+## Was du damit machen kannst
 
-> **Private Alpha:** Das Repository und seine Downloads benötigen derzeit eine GitHub-Freigabe. Die öffentliche Öffnung ist geplant. Diese Vorabversion ist noch nicht an jeder Hochschule geprüft.
+| | |
+| --- | --- |
+| **Materialien schnell finden** | Hochschulen und Kurse in der Sidebar, drei aktuelle Dateien in der Übersicht, durchsuchbare Gesamtliste, Filter und Sortierung. |
+| **Mehrere Hochschulen verbinden** | Materialien gemeinsam, pro Hochschule oder pro Kurs ansehen. Deine Ansicht verändert die ausgewählten Sync-Kurse nicht. |
+| **Eigene Ordner verwenden** | Kurse, Unterordner und einzelne Dateien zuordnen; Ordnernamen anpassen. Technische Kurs-IDs sind standardmäßig ausgeblendet. |
+| **Deinen Wochenplan einstellen** | Intervalle oder unabhängige Uhrzeiten für Montag bis Sonntag. Zeiten auf einzelne Tage, Werktage oder die ganze Woche übertragen. |
+| **Läufe steuern** | Jetzt synchronisieren, pausieren, fortsetzen oder den aktuellen Lauf beenden. Der Zeitplan bleibt beim Beenden erhalten. |
+| **Probleme gezielt lösen** | Klare nächste Schritte bei Anmeldung, Netzwerk oder fehlenden Dateien; detaillierte Berichte und optionale Systembenachrichtigungen für neue Probleme. |
+| **Dateien behalten** | Keine automatische Löschung lokal vorhandener Materialien, Versionskopien und Schutz erkannter lokaler Änderungen. |
+| **Lokal arbeiten** | Kein IliasSync-Konto, kein eigener Cloud-Dienst und keine App-Telemetrie. Passwörter liegen im System-Passwortspeicher. |
 
-## Was IliasSync für dich übernimmt
-
-- **Dateien herunterladen:** Skripte, Folien und Übungsblätter aus deinen ausgewählten ILIAS-Kursen lokal ablegen und Änderungen nachladen.
-- **Ordnung behalten:** Eigene Zielordner für ganze Kurse, Unterordner oder einzelne Dateien. Auch ein Google-Drive- oder OneDrive-Ordner ist möglich.
-- **Nach Zeitplan arbeiten:** Automatische Läufe über das Betriebssystem, standardmäßig alle sechs Stunden. Im Akkubetrieb pausiert. Zwischen den Läufen bleibt kein Sync-Prozess aktiv.
-- **Kontrolle behalten:** Einen Lauf pausieren, fortsetzen oder beenden. Bereits gespeicherte Dateien bleiben erhalten.
-- **Lokal bleiben:** Kein zusätzliches IliasSync-Konto und keine App-Telemetrie. Passwörter liegen im Passwortspeicher deines Systems.
-
-Die Oberfläche startet auf Deutsch. Unter **Einstellungen → Allgemein** kannst du zu Englisch wechseln und Hell, Dunkel oder **Wie System** wählen.
-
-## Entwicklungsstand und veröffentlichtes Paket
-
-Die hier beschriebenen neuen Bibliotheks-, Wiederherstellungs-, Ordner-, Filter-, Tageszeitplan- und Berichtsabläufe gehören zum lokalen Entwicklungsstand. Der Downloadlink führt weiterhin zum veröffentlichten Alpha 2 vom 22.10.2026. Diese Arbeit wurde nicht gepusht oder als Release veröffentlicht. Neue lokale Pakete zeigen unter **Hilfe & Über IliasSync** eine Build-Kennung aus Git-Revision und Quellfingerprint; dieselbe Kennung steht im Offline-Selbsttest und bei neu aufgezeichneten Versuchen. Die Versionsnummer `0.1.0a2` allein unterscheidet diese Pakete nicht. [Prüfnachweise](docs/VERIFICATION.md).
+Deutsch und Englisch · Hell, Dunkel und Systemdarstellung · Tastaturbedienung und Kontextmenüs
 
 ## Herunterladen
 
-Alle Pakete stehen im [aktuellen Alpha-Release](https://github.com/schroedernils/ilias-sync/releases/tag/v0.1.0-alpha.2). Prüfe die Datei gegen `SHA256SUMS` im selben Release. Python und Qt sind enthalten; Java wird nicht benötigt.
+Python und Qt sind in den Paketen enthalten. Lade das passende Paket aus dem [aktuellen Release](https://github.com/schroedernils/ilias-sync/releases/latest) und vergleiche es mit `SHA256SUMS` im selben Release.
 
-| System | Paket | Installation |
+| Computer | Download | Start |
 | --- | --- | --- |
-| **macOS 13+** | DMG für Apple Silicon oder Intel | Öffnen, IliasSync nach Programme ziehen und starten. |
-| **Windows 10/11 x64** | ZIP | Vollständig in einen festen Ordner entpacken, `IliasSync.exe` starten. `_internal` muss daneben bleiben. |
-| **Linux x64** | tar.gz; glibc 2.35+ | Entpacken und `./IliasSync/IliasSync` starten. Optional `install-desktop.sh` für einen Menüeintrag ausführen. |
+| **Mac mit Apple Silicon** | `IliasSync-1.0.0-macOS-arm64.dmg` | DMG öffnen, App nach Programme ziehen. |
+| **Mac mit Intel** | `IliasSync-1.0.0-macOS-x64.dmg` | DMG öffnen, App nach Programme ziehen. |
+| **Windows 10/11, x64** | `IliasSync-1.0.0-Windows-x64.zip` | Komplett entpacken und `IliasSync.exe` starten. |
+| **Linux, x64** | `IliasSync-1.0.0-Linux-x64.tar.gz` | Entpacken und `./IliasSync/IliasSync` starten. |
 
-**Signaturstatus:** macOS ist ad-hoc signiert und nicht notarisiert. Windows hat keine Authenticode-Signatur. Es gibt noch keinen automatischen Updater. Details zu Linux-Bibliotheken, System-Passwortspeichern und Hintergrundläufen: [Installation](docs/INSTALLATION.md).
+macOS 13+; Linux mit glibc 2.35+ und grafischer Sitzung. Mobile Betriebssysteme und native Windows/Linux-ARM-Pakete gehören nicht zu diesem Release. **Distribution:** macOS-Pakete sind ad-hoc signiert, aber nicht notarisiert; Windows-Pakete haben keine Authenticode-Signatur. Ein automatischer Updater ist noch nicht enthalten. [Systemanforderungen, Passwortspeicher und Prüfsummen →](docs/INSTALLATION.md)
 
-## In drei Schritten starten
+## Schnellstart
 
-1. **ILIAS hinzufügen:** Die HTTPS-Startadresse deiner Hochschule eintragen und prüfen.
-2. **Anmelden:** Hochschulzugang, unterstütztes SSO oder eine eigene Browsersitzung verwenden. Einen festen Zielordner auswählen.
-3. **Kurse wählen und synchronisieren:** Alle beigetretenen Kurse oder eine Auswahl. Bei Bedarf den Zeitplan unter **Einstellungen → Zeitplan** aktivieren.
+1. **ILIAS hinzufügen:** HTTPS-Adresse deiner Hochschule eintragen und prüfen.
+2. **Anmelden und Ziel wählen:** Hochschulzugang, unterstütztes Shibboleth-SSO oder importierte Browsersitzung verwenden und einen eigenen Materialordner wählen.
+3. **Kurse auswählen:** Gewünschte Kurse festlegen und **Jetzt synchronisieren** drücken. Unter **Einstellungen → Zeitplan** kannst du automatische Läufe aktivieren.
 
-Du kannst mehrere ILIAS-Quellen hinzufügen. Fahre links über eine Quelle, um den Stift zum **Bearbeiten** einzublenden, oder nutze Rechtsklick → **Bearbeiten**. Mit der Tastatur geht auch F2. Rechts neben **Kurse auswählen** stehen **Ordner zuordnen** und **Ordner öffnen** als Symbole mit Tooltips. **Einstellungen** öffnet Sprache, Erscheinungsbild und Zeitplan.
+Danach ist die Übersicht dein Einstieg. **Alle ansehen** öffnet die komplette Materialliste. Doppelklick oder Return öffnet eine Datei; über das Kontextmenü erreichst du ihren Ordner. Die Suche berücksichtigt die aktuelle Hochschule oder den Kurs. Das **…**-Menü der Hochschule enthält Kursauswahl, Ordnerzuordnung und Profilbearbeitung.
 
-Bei MFA oder einer eigenen Anmeldeseite kann ein Netscape-`cookies.txt`-Export nötig sein. Die App importiert nur Cookies für den eingestellten ILIAS-Host und liest dein Browserprofil nicht selbst. Eine Sitzung kann ablaufen; dann ist ein neuer Import nötig. Behandle solche Exporte wie ein Passwort. [Mehr zur Anmeldung](docs/INSTALLATION.md#anmeldung).
+<details>
+<summary><strong>Wochenplan und Benachrichtigungen</strong></summary>
 
-## Deine Dateien und Ordner
+<img src="docs/images/schedule.png" width="640" alt="Wochenplan mit eigenen Zeiten für jeden Wochentag und Zeiten-kopieren-Button neben der Akkuoption.">
 
-<img src="docs/images/folders.png" width="800" alt="Ordnerzuordnung mit Kursen, Unterordnern und einzelnen Dateien.">
+Ein leerer Tag bleibt frei. **Zeiten kopieren** übernimmt einen bestehenden Tag auf einen anderen Tag, Montag bis Freitag oder alle Tage. Erst **Speichern** übernimmt Änderungen. Der Computer muss wach, angemeldet und online sein; verpasste Ausführungen regelt das Betriebssystem. Zwischen den Läufen bleibt kein Sync-Prozess aktiv.
 
-Die spezifischste Ordnerregel gewinnt: eine Dateiregel vor einer Unterordnerregel, eine Unterordnerregel vor einer Kursregel. Neue Ziele gelten ab dem nächsten Lauf; bisherige Kopien bleiben erhalten. Semester und Abkürzungen werden nicht aus beliebigen Kursnamen erraten.
+Benachrichtigungen sind optional. Wiederholungen desselben Problems lösen keine neue Systemmeldung aus. Eine ausgeblendete Meldung bleibt in Details nachvollziehbar. Die Erlaubnis für Systemmeldungen wird nur nach deiner ausdrücklichen Aktivierung angefragt.
+</details>
 
-Verschwindet ein Inhalt aus ILIAS, löscht IliasSync deine lokale Kopie nicht automatisch. Ältere Dateiinhalte werden unter `Versions/` aufbewahrt. Bei erkannten lokalen Änderungen bekommt die neue Serverversion einen eigenen Konfliktnamen. [Dateierhalt und Wiederherstellung](docs/RECOVERY.md).
+<details>
+<summary><strong>Ordner, lokale Änderungen und Cloud-Speicher</strong></summary>
 
-Ein Cloud-Zielordner ist möglich. **Den Upload übernimmt dein Cloud-Client; IliasSync bestätigt ihn nicht.** Sichere App-Daten und Zielordner. Eine Cloud-Synchronisierung allein ist kein geprüfter Wiederherstellungsplan.
+<img src="docs/images/folders.png" width="800" alt="Ordnerzuordnung für Kurse, Unterordner und einzelne Dateien.">
 
-## Was du vor der Nutzung wissen solltest
+Die spezifischste Zuordnung gewinnt: Datei vor Unterordner vor Kurs. Neue Ziele gelten ab dem nächsten Lauf; bisherige Kopien bleiben erhalten. Ältere Dateiversionen liegen unter `Versions/`. Bei erkannten lokalen Änderungen wird die neue Serverversion getrennt gespeichert. Für aktive Annotationen empfehlen sich eigene Arbeitskopien.
 
-**Kompatibilität:** ILIAS-Versionen, Hochschuldesigns, Plugins und SSO/MFA unterscheiden sich. Eine eigene Adresse ist konfigurierbar, aber nicht jede Installation funktioniert ohne Anpassung. Foren, Tests, Umfragen, SCORM und manche externen Inhalte sind kein vollständiges Offline-Abbild. Übersprungene und nicht verfügbare Inhalte werden im Ergebnis ausgewiesen.
+Ein Google-Drive-, OneDrive- oder anderer Cloud-Ordner ist als Ziel möglich. Den Upload übernimmt dein Cloud-Client; IliasSync kann dessen Abschluss nicht bestätigen. [Dateierhalt und Wiederherstellung →](docs/RECOVERY.md)
+</details>
 
-**Schnelle Folgeläufe:** Ein lokaler Inhaltsindex vermeidet wiederholtes HTML-Parsing. Bekannte Inhaltsseiten werden bei jedem Lauf frisch geprüft, mit bis zu 64 vorbereiteten Seitenprüfungen. Eine gemeinsame HTTP-Grenze erlaubt insgesamt höchstens acht Anfragen pro Host, einschließlich Downloads, Anmeldung und Weiterleitungen; acht PFERD-Arbeitsslots bearbeiten neue Inhalte. Bereits leer bestätigte Termine werden bei unterstützten Kursübersichten über die aktuellen Materialzähler geprüft. Es gibt keine künstliche Pause nach Aufgaben. Automatische Läufe sind frühestens stündlich möglich. Die Vorgaben deiner Hochschule gehen vor. [Messung und Grenzen](docs/SYNC_PERFORMANCE.md).
+## Kompatibilität und Datenschutz
 
-**Nutzungsrechte:** IliasSync ist unabhängig und kein offizielles Angebot einer Hochschule oder des ILIAS-Projekts. Nutze nur berechtigte Zugänge und beachte Hochschulregeln sowie Rechte an Kursmaterialien, besonders bei Cloud-Ablage und Weitergabe. Die Softwarelizenz erteilt keine Rechte an heruntergeladenen Inhalten.
+ILIAS-Versionen, Hochschuldesigns, Plugins und Anmeldeseiten unterscheiden sich. Nicht jede Hochschule oder jedes SSO ist bereits verifiziert. Bei MFA kann ein eigener Netscape-`cookies.txt`-Export nötig sein; die App liest dein Browserprofil nicht selbst. Behandle solche Exporte wie Passwörter. [Anmeldewege →](docs/INSTALLATION.md#anmeldung)
 
-[Nutzung, Plattformen & Quellen](docs/USAGE.md) · [Was tatsächlich geprüft wurde](docs/VERIFICATION.md) · [Sicherheit](SECURITY.md)
+IliasSync synchronisiert unterstützte Kursdateien; Foren, Tests, Umfragen, SCORM und bestimmte externe Inhalte sind kein vollständiges Offline-Abbild. Nicht verfügbare oder nicht unterstützte Inhalte werden im Bericht ausgewiesen. Folgeprüfungen nutzen lokale Indizes, prüfen bekannte Inhaltsseiten erneut und respektieren serverseitige Wartezeiten. Die Dauer hängt von Hochschule, Verbindung und neuen Downloads ab. [Synchronisierung →](docs/SYNC_PERFORMANCE.md)
 
-## Feedback und Beiträge
+Das Projekt ist unabhängig von ILIAS und deiner Hochschule. Nutze nur berechtigte Zugänge und beachte die Regeln und Nutzungsrechte deiner Kursmaterialien. [Sicherheit](SECURITY.md) · [Lizenzen](THIRD_PARTY_NOTICES.md) · [Prüfgrenzen](docs/VERIFICATION.md)
 
-Eine Hochschule funktioniert nicht? [Erstelle einen Fehlerbericht](https://github.com/schroedernils/ilias-sync/issues/new/choose) mit Betriebssystem, App-Version, ILIAS-Version und den Schritten bis zum Fehler. **Keine Passwörter, Cookies, privaten Kursunterlagen oder ungeschwärzten Kontodaten anhängen.**
+## Mitmachen
 
-Beiträge zu Fehlerbehebungen, Übersetzungen und synthetischen Testfällen sind willkommen. Lies zuerst [CONTRIBUTING.md](CONTRIBUTING.md). Technischer Einstieg: [Entwicklung](docs/DEVELOPMENT.md) und [Architektur](docs/ARCHITECTURE.md).
+[Fehler melden](https://github.com/schroedernils/ilias-sync/issues/new/choose) · [Feature vorschlagen](https://github.com/schroedernils/ilias-sync/issues/new/choose) · [Entwicklung](docs/DEVELOPMENT.md) · [Beitragen](CONTRIBUTING.md) · [Architektur](docs/ARCHITECTURE.md)
 
-## Lizenz und Grundlage
+Bitte Betriebssystem, App-Version beziehungsweise Build-Kennung und reproduzierbare Schritte angeben. Keine Passwörter, Cookies, privaten Kursunterlagen oder ungeschwärzten Kontodaten veröffentlichen. Sicherheitsprobleme bitte gemäß [SECURITY.md](SECURITY.md) privat melden.
 
-IliasSync steht unter [GPL-3.0-or-later](LICENSE). Die Downloadbibliothek [PFERD](https://github.com/Garmelon/PFERD) steht unter MIT. Qt und weitere Bibliotheken behalten ihre jeweiligen Lizenzen; [alle Hinweise](THIRD_PARTY_NOTICES.md) liegen auch den Paketen bei.
+## Open Source
 
-[Ilias Downloader Tool](https://iliasdownloadertool.de/) und [ILIAS-Sync2Folder](https://viperinius.github.io/ILIAS-Sync2Folder/) dienen als Kontext für Dateiorganisation und Kompatibilitätsgrenzen. Ihr Code und ihre Grafiken werden nicht eingebunden. [Einordnung der Referenzen](docs/USAGE.md#was-wir-aus-anderen-projekten-lernen).
+[GPL-3.0-or-later](LICENSE). Downloads basieren auf [PFERD](https://github.com/Garmelon/PFERD) (MIT); Qt und weitere Bibliotheken behalten ihre jeweiligen Lizenzen. Lizenztexte und Hinweise werden mit den Paketen ausgeliefert. Die App enthält keine Werbung und keinen zusätzlichen Online-Account.

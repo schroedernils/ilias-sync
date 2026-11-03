@@ -1,6 +1,6 @@
 # Entwicklung
 
-Python 3.12 oder 3.13. Betriebssystemabhängige Pakete müssen auf dem Zielsystem gebaut werden.
+Python 3.12 ist die geprüfte Build-Umgebung; der Quellcode unterstützt außerdem Python 3.13. Betriebssystemabhängige Pakete müssen auf dem Zielsystem gebaut werden.
 
 ```sh
 python3.12 -m venv .venv
@@ -33,3 +33,7 @@ Die CI prüft macOS arm64/Intel, Windows x64 und Linux x64. Die Pakete führen e
 Offline-Test mit ihrer eingefrorenen Runtime aus. Qt bleibt dynamisch geladen und
 austauschbar. Siehe [Lizenzhinweise](LICENSES.md), [Architektur](ARCHITECTURE.md)
 und [Prüfgrenzen](VERIFICATION.md).
+
+## Release erstellen
+
+Version in `pyproject.toml` und `src/ilias_sync/__init__.py` gemeinsam erhöhen, Release-Notizen unter `docs/releases/<version>.md` ergänzen und alle Änderungen prüfen. Der Workflow **Test and package** baut vier native Pakete. Erst nach seinem erfolgreichen Abschluss wird **Publish verified release** mit dessen Run-ID gestartet. Der Veröffentlichungsworkflow prüft Quelle, Version, alle vier Jobs und jede Prüfsumme. Kein Paket wird lokal für ein fremdes Betriebssystem vorgetäuscht.

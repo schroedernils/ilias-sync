@@ -1,8 +1,8 @@
 # Mitwirken
 
 Danke für Fehlerberichte, Übersetzungen, Dokumentation und kleine, gezielte Fixes.
-Das Repository ist zunächst privat. Die Regeln gelten bereits für die Alpha und
-später für öffentliche Beiträge.
+Beiträge werden über Issues und Pull Requests koordiniert. Bitte halte Änderungen
+klein und nachvollziehbar.
 
 ## Einen Fehler melden
 
