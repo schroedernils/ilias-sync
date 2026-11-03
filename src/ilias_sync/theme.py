@@ -4,6 +4,7 @@ import re
 from PySide6.QtCore import QEvent, QObject, Qt
 from PySide6.QtGui import QColor, QPalette, QFontInfo
 from PySide6.QtWidgets import QApplication, QWidget
+from shiboken6 import isValid
 
 from .control_colors import pause_colors
 
@@ -261,6 +262,12 @@ class Theme(QObject):
     def __init__(self, application, mode='system'):
         super().__init__(application)
         self.app = application
+        previous = getattr(application, '_ilias_theme_manager', None)
+        if previous is not None and isValid(previous):
+            previous._active = False
+            self.app.removeEventFilter(previous)
+        application._ilias_theme_manager = self
+        self._active = True
         self.mode = mode
         self.app.setStyle('Fusion')
         self.hints = self.app.styleHints()
@@ -292,6 +299,8 @@ class Theme(QObject):
         self.apply()
 
     def apply(self, scheme=None):
+        if not self._active:
+            return
         scheme = scheme if isinstance(scheme, Qt.ColorScheme) else self.app.styleHints().colorScheme()
         dark = self.mode == 'dark' or (self.mode == 'system' and scheme == Qt.ColorScheme.Dark)
         c = DARK if dark else LIGHT
