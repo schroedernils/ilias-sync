@@ -20,6 +20,7 @@ from PySide6.QtWidgets import (
 )
 
 from . import __version__
+from .scrolling import TranslucentScrollArea
 from .branding import BrandMark, app_icon, paint_action
 from .control import active_run, send_command
 from .theme import LIGHT, Theme, stylesheet
@@ -1224,7 +1225,7 @@ class SettingsDialog(QDialog):
         self.update_schedule_fields()
 
     def page(self):
-        scroll = QScrollArea()
+        scroll = TranslucentScrollArea()
         scroll.setWidgetResizable(True)
         body = QWidget()
         body.setObjectName('dialogBody')
