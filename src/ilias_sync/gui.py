@@ -2130,10 +2130,13 @@ class MainWindow(QMainWindow):
         self.adapt_columns()
 
     def filter_files(self):
+        self.workspace_tabs.setCurrentIndex(1)
         if self.filter_panel is None:
             self.filter_panel = FileFilterDialog(self)
-            self.content_layout.insertWidget(self.content_layout.indexOf(self.library_widget) + 1, self.filter_panel)
-        self.filter_panel.setVisible(not self.filter_panel.isVisible())
+            self.filter_panel.hide()
+            materials = self.materials_page.layout()
+            materials.insertWidget(materials.indexOf(self.files), self.filter_panel)
+        self.filter_panel.setVisible(self.filter_panel.isHidden())
         if self.filter_panel.isVisible():
             self.filter_panel.course.setFocus()
 
