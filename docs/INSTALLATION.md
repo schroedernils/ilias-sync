@@ -5,8 +5,22 @@ und prüfe die SHA-256-Prüfsumme. Die Pakete enthalten Python und Qt; eine sepa
 
 ## macOS
 
-Ab macOS 13, separate Pakete für Apple Silicon und Intel. DMG öffnen, App nach
-Programme ziehen. Das macOS-Paket ist ad-hoc signiert, nicht Developer-ID-signiert oder
+Ab macOS 13, separate Pakete für Apple Silicon und Intel:
+
+- **Mac mit M-Chip:** `macOS-arm64.dmg` enthält die native Apple-Silicon-App. Sie benötigt kein Rosetta.
+- **Mac mit Intel-Prozessor:** `macOS-x64.dmg` verwenden.
+
+Deinen Prozessor findest du unter Apple-Menü → **Über diesen Mac**. DMG öffnen,
+App nach Programme ziehen. Falls auf einem Mac mit M-Chip eine Intel-Version installiert
+war, IliasSync beenden und die App in Programme durch die ARM64-Version ersetzen.
+Einstellungen und Materialordner bleiben erhalten; eine erneute Einrichtung ist nicht nötig.
+
+Apple hat das Ende der allgemeinen Rosetta-Unterstützung nach macOS 27 angekündigt.
+Die Intel-App wäre auf einem Apple-Silicon-Mac davon betroffen; verwende dort das native
+Paket. Das ist keine Vorabzertifizierung für ein noch nicht geprüftes macOS 28.
+[Apples Ankündigung](https://developer.apple.com/news/?id=w5ngl9k2)
+
+Das macOS-Paket ist ad-hoc signiert, nicht Developer-ID-signiert oder
 notarisiert. macOS kann eine explizite Freigabe unter Systemeinstellungen →
 Datenschutz & Sicherheit verlangen. Prüfe Herkunft und Prüfsumme, bevor du einer
 App vertraust; deaktivere keine systemweiten Schutzfunktionen.

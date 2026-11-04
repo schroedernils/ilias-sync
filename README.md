@@ -48,6 +48,8 @@ Python und Qt sind in den Paketen enthalten. Lade das passende Paket aus dem [ak
 | **Ubuntu/Debian, x64** | `IliasSync-1.0.2-Linux-x64.deb` | Über die Paketverwaltung installieren, danach im App-Menü öffnen. |
 | **Andere Linux-Distributionen, x64** | `IliasSync-1.0.2-Linux-x64.tar.gz` | Entpacken; `install-desktop.sh` legt einen App-Menü-Eintrag an. |
 
+**Mac mit M-Chip:** Verwende das [native Apple-Silicon-Paket (arm64)](https://github.com/schroedernils/ilias-sync/releases/download/v1.0.2/IliasSync-1.0.2-macOS-arm64.dmg). Es benötigt kein Rosetta. Das separate Mac-Paket mit `x64` im Namen ist für Intel-Macs bestimmt. [Mac-Architektur und Rosetta →](docs/INSTALLATION.md#macos)
+
 Für Windows bleibt ein portables ZIP verfügbar. **Dieses zuerst vollständig entpacken; die EXE direkt im ZIP zu starten funktioniert nicht.** Setup und DEB installieren alle mitgelieferten Laufzeitdateien gemeinsam. [Installation und Deinstallation →](docs/INSTALLATION.md)
 
 macOS 13+; Linux mit glibc 2.35+ und grafischer Sitzung. Mobile Betriebssysteme und native Windows/Linux-ARM-Pakete gehören nicht zu diesem Release. **Distribution:** macOS-Pakete sind ad-hoc signiert, aber nicht notarisiert; Windows-Pakete haben keine Authenticode-Signatur. Ein automatischer Updater ist noch nicht enthalten. [Systemanforderungen, Passwortspeicher und Prüfsummen →](docs/INSTALLATION.md)

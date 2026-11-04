@@ -1,5 +1,20 @@
 # Verification boundaries
 
+## Apple Silicon and Rosetta — 4 November 2026
+
+The reported macOS 28 warning was traced to an installed **1.0.1 x86_64** app on an
+Apple-Silicon Mac. It was replaced with the existing official **1.0.2 arm64** release
+package; no new binary release or framework migration was needed. All **114 Mach-O
+files** in that bundle contain arm64, with no Intel-only native library or helper.
+DMG SHA-256, strict ad-hoc signature checks and the installed offline self-test passed
+at build `85a1ebfa5985-ea8fd2bc3549`. The native app reopened the existing library.
+Settings and the launchd schedule stayed byte-identical; no live sync was started.
+
+This removes the Rosetta dependency from this installation. It is not a macOS 28
+runtime certification. [Apple's announcement](https://developer.apple.com/news/?id=w5ngl9k2)
+identifies macOS 27 as the last release with general Rosetta support. Installation
+instructions now distinguish M-chip/arm64 from Intel/x64 explicitly.
+
 ## Installer and surface corrections — 1.0.2
 
 Windows packaging now builds an Inno Setup installer alongside the portable ZIP. Linux
