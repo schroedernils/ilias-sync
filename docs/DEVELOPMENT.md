@@ -26,7 +26,8 @@ Gesamtsammlung geprüft; Qt-Testfenster sammeln sich so nicht zwischen Modulen a
 | `python -m ilias_sync --sync` | Fällige Quellen einmal synchronisieren, danach beenden |
 | `python -m ilias_sync --sync --profile <UUID>` | Manueller Lauf; umgeht Fälligkeit und Akkupause |
 | `python -m ilias_sync --discover --profile <UUID>` | Beigetretene Kurse lesen |
-| `python scripts/build.py` | Natives Paket mit Lizenztexten und Prüfsumme bauen |
+| `python scripts/build.py` | Natives Paket, Windows-Setup bzw. Linux-DEB mit Lizenztexten und Prüfsummen bauen |
+| `python scripts/verify_install.py` | Nur auf isolierten CI-Runnern: Installer, installierte Runtime, erneute Installation und Deinstallation prüfen |
 | `python scripts/capture_product.py` | Reproduzierbare Qt-Screenshots mit synthetischen Beispielen |
 | `python scripts/review_interface.py` | Helle/dunkle UX-Zustände inklusive Fehler, Pause, Erststart und kompakter Fenster; Ausgabe unter `.local/redesign-review` |
 
@@ -40,4 +41,4 @@ und [Prüfgrenzen](VERIFICATION.md).
 
 ## Release erstellen
 
-Version in `pyproject.toml` und `src/ilias_sync/__init__.py` gemeinsam erhöhen, Release-Notizen unter `docs/releases/<version>.md` ergänzen und alle Änderungen prüfen. Der Workflow **Test and package** baut vier native Pakete. Erst nach seinem erfolgreichen Abschluss wird **Publish verified release** mit dessen Run-ID gestartet. Der Veröffentlichungsworkflow prüft Quelle, Version, alle vier Jobs und jede Prüfsumme. Kein Paket wird lokal für ein fremdes Betriebssystem vorgetäuscht.
+Version in `pyproject.toml` und `src/ilias_sync/__init__.py` gemeinsam erhöhen, Release-Notizen unter `docs/releases/<version>.md` ergänzen und alle Änderungen prüfen. Der Workflow **Test and package** baut auf vier nativen Zielen zwei DMGs, Windows-Setup und ZIP sowie Linux-DEB und TAR.GZ. Windows benötigt Inno Setup 6 (auf dem CI-Image vorhanden), Linux `dpkg-deb` und für die Installationsprüfung `desktop-file-validate`. Erst nach erfolgreichem Abschluss wird **Publish verified release** mit dessen Run-ID gestartet. Der Veröffentlichungsworkflow prüft Quelle, Version, alle vier Jobs und alle sechs Pakete mit ihren Prüfsummen. Kein Paket wird lokal für ein fremdes Betriebssystem vorgetäuscht.

@@ -13,13 +13,36 @@ App vertraust; deaktivere keine systemweiten Schutzfunktionen.
 
 ## Windows
 
-Windows 10/11 x64. ZIP vollständig in einen dauerhaften Ordner entpacken.
-`IliasSync.exe` und `_internal` zusammen lassen. Das Windows-Paket hat keine
-Authenticode-Signatur; Windows kann eine Reputationswarnung anzeigen.
+Windows 10/11 x64. **Empfohlen:** `IliasSync-1.0.2-Windows-x64-Setup.exe` öffnen
+und dem Installationsassistenten folgen. Die App wird für deinen Benutzer unter
+`%LOCALAPPDATA%\Programs\IliasSync` installiert, ohne Administratorrechte.
+Danach findest du IliasSync im Startmenü; eine Desktop-Verknüpfung ist optional.
+Ein erneuter Installer-Lauf aktualisiert dieselbe Installation.
+
+**Portable Alternative:** ZIP zuerst über **Alle extrahieren** vollständig in
+einen dauerhaften Ordner entpacken. `IliasSync.exe` und `_internal` zusammen lassen.
+Ein Start direkt aus dem ZIP führt zu „Failed to load Python DLL“, weil Windows
+dabei nur die EXE temporär entpackt.
+
+Installer und App haben keine Authenticode-Signatur; Windows kann eine
+Reputationswarnung anzeigen. Der Installer beseitigt diese Signaturgrenze nicht.
 
 ## Linux
 
-x64, glibc 2.35+, grafische Sitzung. Beispiel für Ubuntu:
+x64, glibc 2.35+, grafische Sitzung. **Ubuntu 22.04+ / kompatible Debian-Systeme:**
+DEB über die grafische Paketverwaltung installieren oder im Download-Ordner:
+
+```sh
+sudo apt install ./IliasSync-1.0.2-Linux-x64.deb
+```
+
+APT installiert die benötigten Systembibliotheken. Die App liegt unter
+`/opt/iliassync`; ein Eintrag im App-Menü und der Befehl `ilias-sync` sind enthalten.
+Weitere Versionen desselben Pakets aktualisieren die vorhandene Installation.
+Auf Debian ist mindestens glibc 2.35 erforderlich, beispielsweise Debian 12+.
+
+**Andere Distributionen / portable Nutzung:** TAR.GZ vollständig entpacken,
+`./IliasSync/IliasSync` starten. Beispiel für die benötigten Bibliotheken auf Ubuntu:
 
 ```sh
 sudo apt install libegl1 libxkbcommon-x11-0 libxcb-cursor0 libdbus-1-3
@@ -27,8 +50,25 @@ sudo apt install libegl1 libxkbcommon-x11-0 libxcb-cursor0 libdbus-1-3
 
 Passwortspeicherung erfordert einen entsperrten Secret-Service- oder
 KWallet-Passwortspeicher. Hintergrundläufe benötigen eine systemd-Benutzersitzung.
-`install-desktop.sh` ist optional und erzeugt einen Menüeintrag für den aktuellen
-Benutzer. Das entpackte App-Verzeichnis muss danach an seinem Ort bleiben.
+Beim portablen Archiv erzeugt `install-desktop.sh` optional einen Menüeintrag für
+den aktuellen Benutzer. Das entpackte App-Verzeichnis muss danach an seinem Ort
+bleiben. Ein DEB ist kein Paket für RPM-basierte Distributionen.
+
+## Aktualisieren und deinstallieren
+
+Beende die App und einen laufenden Sync vor einem Update. Unter Windows den neuen
+Installer ausführen, unter Ubuntu/Debian das neue DEB installieren, unter macOS die
+App in Programme ersetzen.
+
+- **Windows:** Einstellungen → Apps → Installierte Apps → IliasSync → Deinstallieren.
+- **Ubuntu/Debian:** Über die Paketverwaltung entfernen oder `sudo apt remove iliassync`.
+- **macOS:** App aus Programme in den Papierkorb verschieben.
+
+Installationsdateien und Menüeinträge werden entfernt. Deine Materialordner,
+Einstellungen und Einträge im System-Passwortspeicher bleiben erhalten. Schalte vor
+einer dauerhaften Deinstallation die automatische Synchronisierung in der App aus,
+damit kein verwaister Zeitplan zurückbleibt. Bei einem Wechsel vom portablen Archiv
+zur installierten App den Zeitplan vom neuen Installationsort erneut speichern.
 
 ## Anmeldung
 

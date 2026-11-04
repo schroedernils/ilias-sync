@@ -1,5 +1,28 @@
 # Verification boundaries
 
+## Installer and surface corrections — 1.0.2
+
+Windows packaging now builds an Inno Setup installer alongside the portable ZIP. Linux
+packaging builds a DEB alongside the portable TAR.GZ. The release gate requires all six
+packages from four native targets and verifies every SHA-256 sidecar before publishing.
+Windows/Linux CI also installs the actual package, checks the installed offline runtime,
+repeats installation, removes the app and checks retention of an isolated data sentinel.
+The DEB desktop entry is validated; Windows checks its Start-menu shortcut and uninstall
+registration. These checks do not establish real account or credential-vault compatibility.
+
+The UI correction aligns error descriptions immediately beneath the heading, before timing
+metadata. Linux/Windows use solid window, dialog and popup surfaces, including the setup
+dialog from the reported Windows screenshot. Product screenshots are regenerated from
+synthetic materials; the README always selects the dark overview. Earlier Linux guest
+checks below apply to the same opaque-surface correction. Release-specific CI and direct
+Windows guest evidence are recorded separately when complete.
+
+Local release preparation passed **307 tests** in 39 isolated modules, Ruff and
+whitespace checks. The synthetic interface review rendered **101 states**, including
+setup, dark/light, compact windows and recovery. The regenerated dark overview,
+light setup and error footer were inspected. This is synthetic Qt evidence, not a
+Windows desktop or installed-package proof.
+
 ## Linux surface rendering — Ubuntu 26.04 ARM64
 
 The former stylesheet requested translucent surfaces without a native backdrop on Linux. The

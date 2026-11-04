@@ -1,5 +1,14 @@
 # Changelog
 
+## 1.0.2 — 2026-11-04
+
+- Add a per-user Windows setup wizard with Start menu entry, optional desktop shortcut and registered uninstaller.
+- Add an Ubuntu/Debian DEB package with desktop launcher, application icon and declared runtime dependencies.
+- Verify installed executables, repeat installation and removal on native Windows/Linux CI runners; keep portable archives available.
+- Use solid window, dialog and popup surfaces outside macOS to avoid transparency and mixed-background rendering on Windows/Linux.
+- Place sync error descriptions directly beneath and aligned with the status heading, before timestamps and schedule details.
+- Use the dark product screenshot as the fixed GitHub README preview.
+
 ## 1.0.1
 
 - Fix macOS sidebar resizing by letting Qt own the expanded client area and preserving its native view hierarchy.
