@@ -23,6 +23,7 @@ Gesamtsammlung geprüft; Qt-Testfenster sammeln sich so nicht zwischen Modulen a
 | Befehl | Verhalten |
 | --- | --- |
 | `python -m ilias_sync --self-test` | Isolierter Offline-Runtime-Test einschließlich Icon- und Qt-Plugins |
+| `python -m ilias_sync --repair-schedule` | Registriert ausschließlich einen bereits eingeschalteten gespeicherten Zeitplan bei Bedarf neu; verändert keine Uhrzeiten |
 | `python -m ilias_sync --sync` | Fällige Quellen einmal synchronisieren, danach beenden |
 | `python -m ilias_sync --sync --profile <UUID>` | Manueller Lauf; umgeht Fälligkeit und Akkupause |
 | `python -m ilias_sync --discover --profile <UUID>` | Beigetretene Kurse lesen |

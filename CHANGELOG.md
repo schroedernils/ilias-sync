@@ -1,5 +1,12 @@
 # Changelog
 
+## 1.0.3 — 2026-11-04
+
+- Restore missing OS scheduling registrations automatically at app startup, using the saved interval, daily times or weekly plan unchanged.
+- Reconnect automatic sync to the current executable after moving or reinstalling the app; leave intact timers and deliberately disabled automation alone.
+- Allow saving unchanged schedule settings to repair a missing registration; retain settings and expose a direct recovery action if the system scheduler is unavailable.
+- Check calendar preservation during native installer round-trips and exercise actual Windows task creation, removal and idempotent repair in CI.
+
 ## 1.0.2 — 2026-11-04
 
 - Add a per-user Windows setup wizard with Start menu entry, optional desktop shortcut and registered uninstaller.

@@ -27,7 +27,7 @@ App vertraust; deaktivere keine systemweiten Schutzfunktionen.
 
 ## Windows
 
-Windows 10/11 x64. **Empfohlen:** `IliasSync-1.0.2-Windows-x64-Setup.exe` öffnen
+Windows 10/11 x64. **Empfohlen:** `IliasSync-1.0.3-Windows-x64-Setup.exe` öffnen
 und dem Installationsassistenten folgen. Die App wird für deinen Benutzer unter
 `%LOCALAPPDATA%\Programs\IliasSync` installiert, ohne Administratorrechte.
 Danach findest du IliasSync im Startmenü; eine Desktop-Verknüpfung ist optional.
@@ -47,7 +47,7 @@ x64, glibc 2.35+, grafische Sitzung. **Ubuntu 22.04+ / kompatible Debian-Systeme
 DEB über die grafische Paketverwaltung installieren oder im Download-Ordner:
 
 ```sh
-sudo apt install ./IliasSync-1.0.2-Linux-x64.deb
+sudo apt install ./IliasSync-1.0.3-Linux-x64.deb
 ```
 
 APT installiert die benötigten Systembibliotheken. Die App liegt unter
@@ -81,8 +81,10 @@ App in Programme ersetzen.
 Installationsdateien und Menüeinträge werden entfernt. Deine Materialordner,
 Einstellungen und Einträge im System-Passwortspeicher bleiben erhalten. Schalte vor
 einer dauerhaften Deinstallation die automatische Synchronisierung in der App aus,
-damit kein verwaister Zeitplan zurückbleibt. Bei einem Wechsel vom portablen Archiv
-zur installierten App den Zeitplan vom neuen Installationsort erneut speichern.
+damit kein verwaister Zeitplan zurückbleibt. Ab Version 1.0.3 prüft die App beim
+nächsten Start einen eingeschalteten Zeitplan und verbindet ihn bei Bedarf mit dem
+aktuellen Installationsort. Ein fehlender Systemauftrag wird mit deinen gespeicherten
+Uhrzeiten neu angelegt. Eine bewusst ausgeschaltete Automatik bleibt aus.
 
 ## Anmeldung
 
@@ -103,9 +105,16 @@ Client-ID zu erkennen. Bei Bedarf steht sie im ILIAS-Anmeldelink als `client_id=
 ## Zeitplan
 
 Standard: alle sechs Stunden, im Akkubetrieb verschoben. Der Computer muss wach
-und angemeldet sein. Verschiebe die App nach der Einrichtung nicht; falls doch,
-deaktiviere den Zeitplan und aktiviere ihn vom neuen Installationsort erneut.
-Anwendungsdaten und Passwörter liegen außerhalb des App-Verzeichnisses.
+und angemeldet sein. Anwendungsdaten, Wochenplan und Passwörter liegen außerhalb des
+App-Verzeichnisses. Ein normales Update oder eine Neuinstallation löscht diese Daten
+nicht. Öffne die App nach einem Wechsel des Installationsorts einmal, damit der
+Systemauftrag mit dem neuen Pfad verbunden wird. Ist die Aufgabenplanung gerade
+nicht verfügbar, führt **Zeitplan prüfen** zu den erhaltenen Einstellungen. Ein erneutes
+**Speichern** versucht die Reparatur auch bei unveränderten Uhrzeiten.
+
+Wer auch die Benutzerdaten absichtlich entfernt, entfernt damit den gespeicherten
+Zeitplan. Ein vollständiger Onboarding-Reset unterscheidet sich vom Ersetzen der App;
+für eine spätere Wiederherstellung müssen die App-Daten gesichert werden.
 
 „Beenden“ beendet den aktuellen Batch, nicht den nächsten geplanten Lauf. Zum
 Abschalten des Zeitplans „Automatisch synchronisieren“ in den Einstellungen lösen.

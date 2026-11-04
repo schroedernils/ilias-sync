@@ -135,7 +135,10 @@ def info_sections():
          "Zum Abschalten künftiger Läufe deaktiviere Automatisch synchronisieren und speichere.\n\n"
          "Der Computer muss wach, angemeldet und für neue Downloads online sein. Eine angezeigte nächste "
          "Uhrzeit ist geplant, keine Ausführungsgarantie. Zwischen den Läufen bleibt kein Sync-Prozess aktiv. "
-         "Nach einer abgelaufenen Anmeldung ist zuerst eine neue Anmeldung nötig."
+         "Nach einer abgelaufenen Anmeldung ist zuerst eine neue Anmeldung nötig. "
+         "Updates und normale Neuinstallationen behalten deinen Zeitplan. Nach einem Ortswechsel öffne die App einmal; "
+         "sie verbindet die eingeschaltete Automatik mit der neuen Installation und repariert einen fehlenden Systemauftrag. "
+         "Bei Zeitplan prüfen bleiben deine Uhrzeiten erhalten; erneutes Speichern versucht die Reparatur."
          if de else
          "In Settings → Schedule, enable automatic runs and choose an interval or a weekly schedule. Use + beside a weekday to add a time, "
          "edit it directly, and remove it with ×. Days without times remain free. Copy times beside the battery option applies a day's times to another day, Monday–Friday or all days. "
@@ -145,7 +148,9 @@ def info_sections():
          "Completed files and the schedule are kept. To stop future runs, turn off Automatic sync and save.\n\n"
          "Your computer must be awake, signed in and online for new downloads. The next displayed time "
          "is planned, not guaranteed. No sync process stays active between runs. "
-         "An expired session needs a new sign-in first."),
+         "An expired session needs a new sign-in first. "
+         "Updates and normal reinstalls keep your schedule. After moving the app, open it once; it reconnects enabled "
+         "automation to the current installation and repairs a missing OS job. Review schedule keeps your times; save again to retry."),
         ("Nutzung" if de else "Use",
          "IliasSync ist ein unabhängiges Projekt, kein Angebot von ILIAS oder deiner Hochschule. "
          "Lade nur Inhalte herunter, auf die du berechtigt zugreifen darfst. Beachte die Regeln deiner Hochschule "

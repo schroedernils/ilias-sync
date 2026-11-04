@@ -1,5 +1,21 @@
 # Verification boundaries
 
+## Schedule retention — 1.0.3
+
+Saved calendar settings already live outside the application bundle and installer payload.
+The missing behavior was reconciling the OS registration with that saved policy after a
+job was removed or the executable moved. Startup now checks only enabled automation,
+leaves matching registrations alone and reinstalls missing/stale jobs without changing
+the stored policy. An unchanged Save can also repair registration. Scheduler failures
+retain the saved times and expose a recovery action directly to Schedule settings.
+
+The complete local collection passed **321 tests** in 40 isolated modules, with Ruff
+and whitespace checks. New regressions cover intervals, daily and weekly calendars,
+removed registrations, changed paths, disabled automation, unchanged Save and rollback.
+Native installer verification now asserts that an enabled saved weekly calendar stays
+byte-identical through install/reinstall/removal. Windows also exercises actual task
+creation and two repairs: the second must leave the intact registration alone.
+
 ## Apple Silicon and Rosetta — 4 November 2026
 
 The reported macOS 28 warning was traced to an installed **1.0.1 x86_64** app on an
