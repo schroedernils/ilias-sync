@@ -23,6 +23,27 @@ setup, dark/light, compact windows and recovery. The regenerated dark overview,
 light setup and error footer were inspected. This is synthetic Qt evidence, not a
 Windows desktop or installed-package proof.
 
+Release-specific verification is now complete. The [four-target build](https://github.com/schroedernils/ilias-sync/actions/runs/41874873713)
+passed at `85a1ebfa5985d3130757e8c2b6232fdd08120c4c`: macOS arm64 and Intel
+**307 passed** each, Windows **298 passed / 9 platform skips**, Linux **304 passed /
+3 platform skips**. Both installed-package round-trips passed, including runtime,
+repeat install, removal, launcher/registration checks and the retained data sentinel.
+
+The exact Windows setup from that run was also installed for the user in the existing
+SwiftVM Windows 11 guest (Arm64 host OS, x64 app emulation). Its SHA-256 matches the
+published manifest; installed offline self-test passed at **1.0.2**, build
+`85a1ebfa5985-6b71463f5c04`. The main window and the previously broken first-run setup
+dialog were inspected directly in both dark and light appearances using isolated
+settings. No university login, credential storage or live sync was performed in Windows.
+The installed app was then opened normally; the isolated preview processes were closed.
+
+[Release 1.0.2](https://github.com/schroedernils/ilias-sync/releases/tag/v1.0.2) was published by
+the [verified publishing workflow](https://github.com/schroedernils/ilias-sync/actions/runs/41876627914).
+All six package names, six checksum sidecars and `SHA256SUMS` were checked against
+the published release metadata. The public latest-release URL points to `v1.0.2`.
+This does not add notarization, Authenticode signing, a self-updater or native ARM
+Windows/Linux release packages.
+
 ## Linux surface rendering — Ubuntu 26.04 ARM64
 
 The former stylesheet requested translucent surfaces without a native backdrop on Linux. The
