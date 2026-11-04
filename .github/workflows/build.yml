@@ -37,7 +37,7 @@ jobs:
       - name: Lint
         run: ruff check .
       - name: Test
-        run: python -m pytest -q
+        run: python scripts/test.py
       - name: Package and smoke-test native executable
         run: python scripts/build.py
       - uses: actions/upload-artifact@v4

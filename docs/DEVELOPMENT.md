@@ -16,6 +16,10 @@ python -m ilias_sync
 `ILIAS_SYNC_DATA_DIR=/absoluter/test/ordner` isoliert Entwicklungsdaten. Verwende
 synthetische Kurse und keine echten Zugangsdaten in Tests, Screenshots oder CI.
 
+`python scripts/test.py` führt dieselbe vollständige pytest-Sammlung wie die CI aus,
+mit einem frischen Prozess pro Testmodul. Die ausgeführte Fallzahl wird gegen die
+Gesamtsammlung geprüft; Qt-Testfenster sammeln sich so nicht zwischen Modulen an.
+
 | Befehl | Verhalten |
 | --- | --- |
 | `python -m ilias_sync --self-test` | Isolierter Offline-Runtime-Test einschließlich Icon- und Qt-Plugins |
