@@ -1,5 +1,22 @@
 # Verification boundaries
 
+## Sidebar correction — 1.0.1
+
+The 1.0.0 sidebar defect was reproduced by native dragging in the installed macOS app and an isolated
+three-file example. The native backdrop changed the full-size content-view style behind Qt's back;
+the splitter's requested sizes and its actual pane frames could then disagree. Plain Qt rendering and
+Qt-managed client-area flags were compared directly. The correction configures the client area through
+Qt before Cocoa creates the window and stops reinserting or changing Qt's view/layer hierarchy.
+
+Native example-window dragging was checked in both directions; the owner also confirmed the corrected
+probe. A separate hidden Cocoa regression covers **108 pane transitions** across three window sizes,
+three theme states and overview/materials/details, including library refresh after each move. Sync-result
+tests cover success, warnings, failure and stop, plus constrained-window recovery, hiding/showing and
+language-change reconstruction. Direct installed-package evidence is recorded separately below when complete.
+
+The temporary sidebar probe uses synthetic files and an offline simulated sync. It is not an account
+or university compatibility test and is not part of the released app.
+
 ## Release 1.0.0 — 3 November 2026
 
 - Local complete suite: **296 tests passed**. Ruff and whitespace checks passed.

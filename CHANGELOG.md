@@ -1,5 +1,11 @@
 # Changelog
 
+## 1.0.1
+
+- Fix macOS sidebar resizing by letting Qt own the expanded client area and preserving its native view hierarchy.
+- Preserve the chosen sidebar width through sync completion, refresh, temporary window constraints and language changes.
+- Add hidden Cocoa geometry and sync-result regressions; isolate CI test modules while verifying the full collection count.
+
 ## 1.0.0 — 2026-11-03
 
 First regular desktop release for macOS (Apple Silicon and Intel), Windows x64 and Linux x64.
