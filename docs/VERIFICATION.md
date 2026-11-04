@@ -14,6 +14,19 @@ three theme states and overview/materials/details, including library refresh aft
 tests cover success, warnings, failure and stop, plus constrained-window recovery, hiding/showing and
 language-change reconstruction. Direct installed-package evidence is recorded separately below when complete.
 
+The complete local collection passed **302 tests**, both as one pytest session and in isolated modules.
+The [four-platform build](https://github.com/schroedernils/ilias-sync/actions/runs/41810759330) passed:
+macOS arm64/Intel **302 passed** each, Windows **295 passed / 7 platform skips**, Linux **299 passed /
+3 platform skips**. All packaged offline self-tests passed. Source is
+`418b0a08711b7e1a7492a8bec41e36b53657b4fc`; installed macOS build is `418b0a08711b-8109a828caad`.
+
+That downloaded CI package was installed in `/Applications/IliasSync.app`, passed its offline self-test
+and strict ad-hoc signature verification, and was checked by native dragging. The sidebar was narrowed
+from the previous setting; a real configured-university sync completed successfully with **75 unchanged
+files** and kept the chosen divider position. This single-account run is not a performance benchmark or
+general compatibility proof. Settings and the native schedule remained byte-identical to the pre-install
+snapshot; the previous app bundle is retained privately for rollback.
+
 The temporary sidebar probe uses synthetic files and an offline simulated sync. It is not an account
 or university compatibility test and is not part of the released app.
 
