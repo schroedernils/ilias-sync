@@ -98,9 +98,16 @@ def main():
             shutil.copy2(icons / "PNG/Dark/IliasSync-Dark-256.png", dist / "IliasSync/IliasSync.png")
         fmt = "zip" if sys.platform == "win32" else "gztar"
         package = Path(shutil.make_archive(str(dist / prefix), fmt, root_dir=dist, base_dir="IliasSync"))
-    digest = hashlib.sha256(package.read_bytes()).hexdigest()
-    (dist / (package.name + ".sha256")).write_text(digest + "  " + package.name + "\n", encoding="utf-8")
-    print(package)
+    packages = [package]
+    from installers import debian_package, windows_installer
+    if sys.platform == 'win32':
+        packages.append(windows_installer(ROOT, __version__))
+    elif sys.platform.startswith('linux'):
+        packages.append(debian_package(ROOT, __version__, arch))
+    for package in packages:
+        digest = hashlib.sha256(package.read_bytes()).hexdigest()
+        (dist / (package.name + ".sha256")).write_text(digest + "  " + package.name + "\n", encoding="utf-8")
+        print(package)
 
 
 if __name__ == "__main__":

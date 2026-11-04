@@ -6,7 +6,7 @@ import pytest
 from PySide6.QtCore import QPoint, Qt
 from PySide6.QtWidgets import QApplication, QDialog
 
-from ilias_sync.gui import Dropdown, MainWindow, SettingsDialog
+from ilias_sync.gui import Dropdown, MainWindow, SettingsDialog, SourceDialog
 from ilias_sync.motion import MotionMenu
 from ilias_sync.storage import Settings
 from ilias_sync.theme import DARK, LIGHT, Theme, popup_color
@@ -22,12 +22,13 @@ def test_non_cocoa_window_dialog_and_popups_are_opaque(mode, colors, source):
         settings.save_source(source)
         main = MainWindow()
         preferences = SettingsDialog(settings, main)
+        setup = SourceDialog(settings)
         dialog = QDialog(main)
         menu = MotionMenu(main)
         menu.addAction('Example menu item')
         dropdown = Dropdown(dialog)
         dropdown.addItems(['First', 'Second'])
-        windows = [main, preferences, dialog]
+        windows = [main, preferences, setup, dialog]
         try:
             for window in windows:
                 window.show()

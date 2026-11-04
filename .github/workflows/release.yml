@@ -3,7 +3,7 @@ on:
   workflow_dispatch:
     inputs:
       run_id:
-        description: Successful Test and package run for all four desktop packages
+        description: Successful Test and package run for all four desktop targets
         required: true
 permissions:
   contents: write
@@ -59,7 +59,8 @@ jobs:
           assert re.fullmatch(r'\d+\.\d+\.\d+', version), 'Stable semantic version required'
           root = Path('release-assets')
           names = {f'IliasSync-{version}-{name}' for name in
-                   ['macOS-arm64.dmg', 'macOS-x64.dmg', 'Windows-x64.zip', 'Linux-x64.tar.gz']}
+                   ['macOS-arm64.dmg', 'macOS-x64.dmg', 'Windows-x64-Setup.exe', 'Windows-x64.zip',
+                    'Linux-x64.deb', 'Linux-x64.tar.gz']}
           assert {p.name for p in root.iterdir()} == names | {name + '.sha256' for name in names}
           lines = []
           for name in sorted(names):
