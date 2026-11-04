@@ -600,6 +600,7 @@ class SyncPanel(QFrame):
         row.setSpacing(10 if compact else 14)
         self.mark = StatusMark(compact=compact)
         row.addWidget(self.mark, alignment=Qt.AlignmentFlag.AlignVCenter)
+        text_inset = self.mark.width() + row.spacing()
         text = QVBoxLayout()
         text.setSpacing(1)
         self.title = ElidedLabel() if compact else QLabel()
@@ -627,7 +628,7 @@ class SyncPanel(QFrame):
             self.schedule.setFixedHeight(self.schedule.fontMetrics().height() + 2)
         facts = QHBoxLayout()
         facts.setSpacing(18)
-        facts.setContentsMargins(26 if compact else 42, 0, 0, 0)
+        facts.setContentsMargins(text_inset, 0, 0, 0)
         self.meta.setSizePolicy(QSizePolicy.Policy.Maximum, QSizePolicy.Policy.Preferred)
         self.schedule.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Preferred)
         facts.addWidget(self.meta, 0)
@@ -645,9 +646,14 @@ class SyncPanel(QFrame):
         if compact:
             row.addWidget(self.disclosure)
         outer.addLayout(row)
+        if compact:
+            detail_row = QHBoxLayout()
+            detail_row.setContentsMargins(text_inset, 0, 0, 0)
+            detail_row.addWidget(self.detail)
+            outer.addLayout(detail_row)
         self.exception_host = QWidget()
         exception_row = QHBoxLayout(self.exception_host)
-        exception_row.setContentsMargins(26 if compact else 42, 0, 0, 0)
+        exception_row.setContentsMargins(text_inset, 0, 0, 0)
         exception_row.setSpacing(8)
         self.exception = QLabel()
         self.exception.setObjectName('subtitle')
@@ -679,8 +685,6 @@ class SyncPanel(QFrame):
         else:
             outer.addWidget(self.progress)
         outer.addLayout(facts)
-        if compact:
-            outer.addWidget(self.detail)
         self.report_host = QScrollArea()
         self.report_host.setWidgetResizable(True)
         self.report_host.setFrameShape(QFrame.Shape.NoFrame)
@@ -716,6 +720,9 @@ class SyncPanel(QFrame):
                 widget.style().unpolish(widget)
                 widget.style().polish(widget)
         self.mark.set_tone(tone)
+        if self.compact:
+            self.layout().setSpacing(6 if tone == 'error' else 10)
+            self.progress_slot.setVisible(busy or tone != 'error')
         if not busy:
             self.progress.setRange(0, 0)
             self.progress.setValue(0)
