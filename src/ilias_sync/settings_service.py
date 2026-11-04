@@ -10,7 +10,7 @@ class SettingsStorageError(RuntimeError):
     pass
 
 
-def apply_settings(settings, candidate, *, install, uninstall):
+def apply_settings(settings, candidate, *, install, uninstall, schedule_is_current=None):
     from .storage import atomic_write
     previous = deepcopy(settings.value)
     try:
@@ -34,7 +34,8 @@ def apply_settings(settings, candidate, *, install, uninstall):
     native_attempted = False
     try:
         settings.save()
-        if changed:
+        repair = candidate['scheduled'] and not changed and schedule_is_current is not None and not schedule_is_current(candidate)
+        if changed or repair:
             native_attempted = True
             schedule(candidate)
     except Exception:

@@ -5,6 +5,7 @@ import subprocess
 import sys
 import tempfile
 import getpass
+import re
 from datetime import date
 from xml.etree import ElementTree as ET
 from pathlib import Path
@@ -14,10 +15,124 @@ from .storage import atomic_write
 LABEL = "org.iliassync.desktop"
 
 
+def saved_schedule(value):
+    """Preserve the chosen calendar; never silently fall back to an interval."""
+    mode = value.get('schedule_mode', 'interval')
+    if mode not in {'interval', 'times', 'weekly'}:
+        raise ValueError('Choose a valid schedule mode.')
+    options = ({'weekly': value.get('weekly_times', {})} if mode == 'weekly' else
+               {'times': value.get('sync_times', [])} if mode == 'times' else {})
+    hours = value['interval_hours']
+    if hours not in (1, 3, 6, 12, 24):
+        raise ValueError('Choose 1, 3, 6, 12 or 24 hours.')
+    return hours, options
+
+
+def ensure_schedule(value):
+    """Repair only an enabled saved schedule, once at startup, without changing it."""
+    if not value.get('scheduled') or registration_matches(value):
+        return False
+    hours, options = saved_schedule(value)
+    install(hours, **options)
+    return True
+
+
 def command(*args):
     if getattr(sys, "frozen", False):
         return [sys.executable, *args]
     return [sys.executable, "-m", "ilias_sync", *args]
+
+
+def _mac_job(cmd, hours, times, weekly):
+    data = {'Label': LABEL, 'ProgramArguments': cmd, 'StartInterval': hours * 3600,
+            'RunAtLoad': True, 'ProcessType': 'Background', 'LowPriorityIO': True, 'Nice': 10,
+            'ThrottleInterval': 300}
+    if times or weekly:
+        data.pop('StartInterval')
+        data['RunAtLoad'] = False
+        data['ThrottleInterval'] = 10
+        data['StartCalendarInterval'] = ([{'Weekday': (int(day) + 1) % 7, 'Hour': int(value[:2]), 'Minute': int(value[3:])}
+            for day, values in weekly.items() for value in values] if weekly else
+            [{'Hour': int(value[:2]), 'Minute': int(value[3:])} for value in times])
+    return data
+
+
+def _linux_units(cmd, hours, times, weekly):
+    escaped = ' '.join('"' + c.replace('\\', '\\\\').replace('"', '\\"').replace('%', '%%') + '"' for c in cmd)
+    service = f'[Unit]\nDescription=IliasSync downloads\n[Service]\nType=oneshot\nExecStart={escaped}\nNice=10\n'
+    calendars = ([f'{("Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun")[int(day)]} *-*-* {value}:00'
+                  for day, values in weekly.items() for value in values] if weekly else
+                 [f'*-*-* {value}:00' for value in times or []])
+    triggers = (''.join(f'OnCalendar={value}\n' for value in calendars) + 'AccuracySec=1s\nRandomizedDelaySec=0\n'
+                if times or weekly else f'OnBootSec=2min\nOnUnitActiveSec={hours}h\nRandomizedDelaySec=5min\n')
+    timer = f'[Unit]\nDescription=IliasSync schedule\n[Timer]\n{triggers}[Install]\nWantedBy=timers.target\n'
+    return service, timer
+
+
+def _query(args):
+    return subprocess.run(args, capture_output=True, timeout=10)
+
+
+def registration_matches(value):
+    """Inspect this user's job and current executable, rather than a version marker."""
+    if not value.get('scheduled'):
+        return True
+    hours, options = saved_schedule(value)
+    from .policy import normalize_times, normalize_weekly
+    times = normalize_times(options['times']) if 'times' in options else None
+    weekly = normalize_weekly(options['weekly']) if 'weekly' in options else None
+    cmd = command('--sync', *(['--scheduled-time'] if times or weekly else []))
+    try:
+        if sys.platform == 'darwin':
+            target = Path.home() / 'Library/LaunchAgents' / (LABEL + '.plist')
+            if not target.exists() or plistlib.loads(target.read_bytes()) != _mac_job(cmd, hours, times, weekly):
+                return False
+            return _query(['launchctl', 'print', f'gui/{os.getuid()}/{LABEL}']).returncode == 0
+        if sys.platform == 'win32':
+            result = _query(['schtasks', '/Query', '/TN', 'IliasSync', '/XML'])
+            return result.returncode == 0 and _windows_matches(result.stdout, cmd, hours, times, weekly)
+        unit = Path.home() / '.config/systemd/user'
+        for suffix, expected in zip(('.service', '.timer'), _linux_units(cmd, hours, times, weekly)):
+            target = unit / (LABEL + suffix)
+            if not target.exists() or target.read_text() != expected:
+                return False
+        return all(_query(['systemctl', '--user', action, '--quiet', LABEL + '.timer']).returncode == 0
+                   for action in ('is-enabled', 'is-active'))
+    except (OSError, ValueError, ET.ParseError, subprocess.SubprocessError):
+        return False
+
+
+def _windows_matches(xml, cmd, hours, times, weekly):
+    task = ET.fromstring(xml)
+    ns = {'t': 'http://schemas.microsoft.com/windows/2004/02/mit/task'}
+    action = task.find('t:Actions/t:Exec', ns)
+    if (action is None or (action.findtext('t:Command', '', ns)).casefold() != cmd[0].casefold() or
+            action.findtext('t:Arguments', '', ns) != subprocess.list2cmdline(cmd[1:])):
+        return False
+    if task.findtext('t:Settings/t:Enabled', 'true', ns) == 'false':
+        return False
+    trigger_host = task.find('t:Triggers', ns)
+    triggers = list(trigger_host) if trigger_host is not None else []
+    if not triggers or any(trigger.findtext('t:Enabled', 'true', ns) == 'false' for trigger in triggers):
+        return False
+    if not times and not weekly:
+        if len(triggers) != 1:
+            return False
+        interval = triggers[0].findtext('t:Repetition/t:Interval', '', ns)
+        match = re.fullmatch(r'P(?:(\d+)D)?T(?:(\d+)H)?(?:(\d+)M)?(?:(\d+)S)?', interval)
+        return bool(match and sum(int(n or 0) * factor for n, factor in zip(match.groups(), (86400, 3600, 60, 1))) == hours * 3600)
+    desired = windows_calendar_xml(cmd, times, weekly=weekly)
+    expected = ET.fromstring(desired).findall('t:Triggers/t:CalendarTrigger', ns)
+    def calendar(trigger):
+        boundary = trigger.findtext('t:StartBoundary', '', ns)
+        schedule = trigger.find('t:ScheduleByWeek' if weekly else 't:ScheduleByDay', ns)
+        if schedule is None:
+            return ('', '', ())
+        period = schedule.findtext('t:WeeksInterval' if weekly else 't:DaysInterval', '', ns)
+        days = schedule.find('t:DaysOfWeek', ns)
+        return (boundary.partition('T')[2][:8], period,
+                tuple(sorted(day.tag.rpartition('}')[2] for day in days)) if days is not None else ())
+    return sorted(calendar(trigger) for trigger in triggers) == sorted(calendar(trigger) for trigger in expected)
 
 
 def install(hours: int, *, times=None, weekly=None):
@@ -35,16 +150,7 @@ def install(hours: int, *, times=None, weekly=None):
     cmd = command("--sync", *(['--scheduled-time'] if calendar else []))
     if sys.platform == "darwin":
         target = Path.home() / "Library/LaunchAgents" / (LABEL + ".plist")
-        data = {"Label": LABEL, "ProgramArguments": cmd, "StartInterval": hours * 3600,
-                "RunAtLoad": True, "ProcessType": "Background", "LowPriorityIO": True, "Nice": 10,
-                "ThrottleInterval": 300}
-        if calendar:
-            data.pop('StartInterval')
-            data['RunAtLoad'] = False
-            data['ThrottleInterval'] = 10
-            data['StartCalendarInterval'] = ([{'Weekday': (int(day) + 1) % 7, 'Hour': int(value[:2]), 'Minute': int(value[3:])}
-                for day, values in weekly.items() for value in values] if weekly else
-                [{'Hour': int(value[:2]), 'Minute': int(value[3:])} for value in times])
+        data = _mac_job(cmd, hours, times, weekly)
         domain = f"gui/{os.getuid()}"
         previous = target.read_bytes() if target.exists() else None
         subprocess.run(["launchctl", "bootout", domain + "/" + LABEL], capture_output=True)
@@ -73,17 +179,8 @@ def install(hours: int, *, times=None, weekly=None):
         return "Windows Task Scheduler / IliasSync (current user)"
     unit = Path.home() / ".config/systemd/user"
     unit.mkdir(parents=True, exist_ok=True)
-    # systemd ExecStart has its own quoting rules; no shell evaluation or field-code expansion.
-    escaped = " ".join('"' + c.replace('\\', '\\\\').replace('"', '\\"').replace('%', '%%') + '"' for c in cmd)
-    atomic_write(unit / (LABEL + ".service"),
-                 f"[Unit]\nDescription=IliasSync downloads\n[Service]\nType=oneshot\nExecStart={escaped}\nNice=10\n".encode())
-    calendars = ([f'{("Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun")[int(day)]} *-*-* {value}:00'
-                  for day, values in weekly.items() for value in values] if weekly else
-                 [f'*-*-* {value}:00' for value in times or []])
-    triggers = (''.join(f'OnCalendar={value}\n' for value in calendars) + 'AccuracySec=1s\nRandomizedDelaySec=0\n'
-                if calendar else f'OnBootSec=2min\nOnUnitActiveSec={hours}h\nRandomizedDelaySec=5min\n')
-    atomic_write(unit / (LABEL + ".timer"),
-                 f"[Unit]\nDescription=IliasSync schedule\n[Timer]\n{triggers}[Install]\nWantedBy=timers.target\n".encode())
+    for suffix, text in zip(('.service', '.timer'), _linux_units(cmd, hours, times, weekly)):
+        atomic_write(unit / (LABEL + suffix), text.encode())
     subprocess.run(["systemctl", "--user", "daemon-reload"], check=True, capture_output=True)
     subprocess.run(["systemctl", "--user", "enable", "--now", LABEL + ".timer"], check=True, capture_output=True)
     return str(unit / (LABEL + ".timer"))

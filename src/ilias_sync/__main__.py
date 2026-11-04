@@ -209,12 +209,22 @@ def main():
     parser.add_argument("--profile", help="Source UUID; a manual run bypasses the due-time and battery policy.")
     parser.add_argument("--probe", help="Detect the client ID at an HTTPS installation URL.")
     parser.add_argument("--self-test", action="store_true", help="Offline packaged-runtime smoke test.")
+    parser.add_argument('--repair-schedule', action='store_true', help=argparse.SUPPRESS)
     parser.add_argument("--render", help=argparse.SUPPRESS)
     parser.add_argument("--event-file", help=argparse.SUPPRESS)
     args = parser.parse_args()
     EVENT_FILE = args.event_file
     if args.self_test:
         return self_test()
+    if args.repair_schedule:
+        from .scheduler import ensure_schedule
+        try:
+            repaired = ensure_schedule(Settings().value)
+            emit({'event': 'schedule', 'ok': True, 'repaired': repaired})
+            return 0
+        except Exception:
+            emit({'event': 'schedule', 'ok': False, 'message': 'The saved schedule could not be restored. Your times are kept.'})
+            return 1
     if args.sync or args.discover or args.probe:
         try:
             return asyncio.run(worker(args))

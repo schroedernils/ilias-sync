@@ -1,6 +1,12 @@
 """Small explicit UI catalog; file names and server-provided course names stay intact."""
 LANGUAGE = "de"
 DE = {
+    'Choose a valid schedule mode.': 'Wähle einen gültigen Zeitplanmodus.',
+    'Schedule needs attention': 'Zeitplan prüfen',
+    'Automatic sync needs attention': 'Automatische Synchronisierung prüfen',
+    'Review schedule': 'Zeitplan prüfen',
+    'Your saved schedule could not be restored. Review the schedule and save to try again. Your times are kept.':
+        'Dein gespeicherter Zeitplan konnte nicht wiederhergestellt werden. Prüfe den Zeitplan und speichere ihn erneut. Deine Uhrzeiten bleiben erhalten.',
     'Pause this run; continue it later.': 'Unterbricht diesen Lauf. Du kannst ihn später fortsetzen.',
     'Continue the paused sync.': 'Setzt den pausierten Lauf fort.',
     'Checks the courses selected for synchronization.': 'Prüft die zur Synchronisierung ausgewählten Kurse.',

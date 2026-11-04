@@ -30,7 +30,7 @@ from .motion import FadeButton, MotionMenu, PopupChipDelegate, Switch, SyncClust
 from .control import active_run, send_command
 from .theme import DARK, LIGHT, Theme, popup_color, uses_native_backdrop
 from .i18n import message, set_language, t
-from .scheduler import command, install, uninstall
+from .scheduler import command, ensure_schedule, install, registration_matches, uninstall
 from .security import import_session, store_password
 from .storage import Settings, Source, data_dir, exclude_files, excluded_files, read_json, write_json, source_scope
 from .library_widgets import MaterialDelegate, MaterialTable, SyncPanel, ElidedLabel, LibraryNavigation
@@ -1465,7 +1465,8 @@ class SettingsDialog(QDialog):
             candidate = {**self.settings.value, 'interval_hours': self.hours.currentData(), 'battery_saver': self.battery.isChecked(),
                          'language': self.language.currentData(), 'appearance': self.appearance.currentData(),
                          'schedule_mode': mode, 'weekly_times': week, 'scheduled': self.enabled.isChecked()}
-            apply_settings(self.settings, candidate, install=install, uninstall=uninstall)
+            apply_settings(self.settings, candidate, install=install, uninstall=uninstall,
+                           schedule_is_current=registration_matches)
             self.accept()
         except ValueError as exc:
             self.error.setText(message(str(exc)))
@@ -1538,6 +1539,7 @@ class MainWindow(QMainWindow):
     def __init__(self):
         super().__init__()
         self.settings = Settings()
+        self.schedule_error = ''
         self.view_state = read_json(data_dir() / 'view-state.json', {})
         set_language(self.settings.value.get("language", "de"))
         self.process = None
@@ -1928,6 +1930,9 @@ class MainWindow(QMainWindow):
             brief = schedule_brief(self.settings.value, next(iter(relevant.values()))['status'])
         else:
             brief = t('Per university')
+        if self.schedule_error:
+            brief = t('Schedule needs attention')
+            full = self.schedule_error
         self.sync_panel.schedule.setText(brief)
         self.sync_panel.schedule.setAccessibleName(full)
         set_hint(self.sync_panel.schedule, t('Automatic sync'), full)
@@ -2282,6 +2287,8 @@ class MainWindow(QMainWindow):
         elif self.ui_error:
             self.show_local_error(self.ui_error, kind=self.ui_error_kind, source_id=self.ui_error_source,
                                   error_status=self.ui_error_status)
+        elif self.schedule_error:
+            self.show_local_error(self.schedule_error, kind='schedule')
 
     def render_status(self):
         from .storage import source_scope
@@ -2622,10 +2629,14 @@ class MainWindow(QMainWindow):
         self.recovery_source = self.ui_error_source
         self.recovery_plan = recovery_plan(self.ui_error_status)
         summary = sync_summary(self.ui_error_status, None) if error_status else None
-        self.sync_panel.set_state(summary.title if summary else t('Something needs attention'), message(text),
+        title = t('Automatic sync needs attention') if kind == 'schedule' else summary.title if summary else t('Something needs attention')
+        self.sync_panel.set_state(title, message(text),
                                   summary.tone if summary else 'error')
-        self.recovery_button.setVisible(bool(self.ui_error_source))
-        if self.ui_error_kind == 'open':
+        self.recovery_button.setVisible(bool(self.ui_error_source) or kind == 'schedule')
+        if kind == 'schedule':
+            self.recovery_button.setText(t('Review schedule'))
+            self.recovery_button.setToolTip('')
+        elif self.ui_error_kind == 'open':
             self.recovery_button.setText(t('Open containing folder'))
             set_hint(self.recovery_button, self.recovery_button.text(), t('The file was kept. Open its folder to choose another application.'))
         elif self.ui_error_kind == 'missing':
@@ -2638,6 +2649,9 @@ class MainWindow(QMainWindow):
         self.refresh_controls()
 
     def recover(self):
+        if self.ui_error_kind == 'schedule':
+            self.background(1)
+            return
         if self.ui_error and self.ui_error_kind == 'open':
             from .storage import safe_path
             entry = self.ui_error_entry
@@ -3039,6 +3053,11 @@ class MainWindow(QMainWindow):
         dialog = SettingsDialog(self.settings, self)
         dialog.tabs.setCurrentIndex(tab if isinstance(tab, int) else 0)
         if dialog.exec():
+            self.schedule_error = ''
+            if self.ui_error_kind == 'schedule':
+                self.ui_error = ''
+                self.ui_error_kind = None
+                self.ui_error_status = None
             self.refresh()
             if previous_language != self.settings.value.get("language", "de"):
                 self.save_view_state()
@@ -3049,6 +3068,14 @@ class MainWindow(QMainWindow):
                 QApplication.instance().main_window = replacement
                 replacement.show()
                 self.close()
+
+    def restore_schedule(self):
+        try:
+            ensure_schedule(self.settings.value)
+        except Exception:
+            self.schedule_error = t('Your saved schedule could not be restored. Review the schedule and save to try again. Your times are kept.')
+            self.show_local_error(self.schedule_error, kind='schedule')
+            self._publish_schedule(self.ui_error, self.ui_error)
 
     def schedule_text(self):
         if not self.settings.value["scheduled"]:
@@ -3098,6 +3125,8 @@ def run(args):
     window = MainWindow()
     application.main_window = window
     window.show()
+    if not args.render:
+        QTimer.singleShot(0, window.restore_schedule)
     if args.render:
         QTimer.singleShot(200, lambda: (window.grab().save(args.render), application.quit()))
     return application.exec()
