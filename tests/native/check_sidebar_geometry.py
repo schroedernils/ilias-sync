@@ -53,6 +53,10 @@ with tempfile.TemporaryDirectory(prefix='ilias-sidebar-state-') as temporary:
                     assert right.x() == left.width() + window.split.handleWidth()
                     assert right.geometry().right() + 1 == window.split.width()
                     assert window.split.sizes() == [left.width(), right.width()]
+                    if tab == 0:
+                        table = window.recent_files
+                        assert table.horizontalHeader().length() <= table.viewport().width(), (
+                            table.horizontalHeader().length(), table.viewport().width())
                     chosen_width = left.width()
                     window.refresh()
                     app.processEvents()

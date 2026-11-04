@@ -32,7 +32,8 @@ def test_hover_transition_repaints_background_without_changing_selection():
     window.resize(300, 300)
     layout = QVBoxLayout(window)
     topics = HelpTopicList()
-    topics.addItems([f'Topic {index}' for index in range(20)])
+    # Ensure actual overflow even with Windows' smaller default test font.
+    topics.addItems([f'Topic {index}' for index in range(100)])
     layout.addWidget(topics)
     window.show()
     app.processEvents()
@@ -52,6 +53,7 @@ def test_hover_transition_repaints_background_without_changing_selection():
         assert topics.currentRow() == 2
         assert any(region.contains(window.rect()) for region in window.paint_regions)
         window.paint_regions.clear()
+        assert topics.verticalScrollBar().maximum() > topics.verticalScrollBar().value()
         topics.verticalScrollBar().setValue(topics.verticalScrollBar().maximum())
         app.processEvents()
         assert topics._hovered_row == -1
