@@ -280,6 +280,13 @@ class Theme(QObject):
     def eventFilter(self, watched, event):
         if isinstance(watched, QWidget) and self._can_veil(watched):
             if event.type() == QEvent.Type.Polish:
+                if self.app.platformName() == 'cocoa':
+                    # Qt must own the client-area geometry before Cocoa creates
+                    # the window. Changing NSWindow's style mask behind Qt's back
+                    # makes native resize notifications restore stale pane frames.
+                    hints = Qt.WindowType.ExpandedClientAreaHint | Qt.WindowType.NoTitleBarBackgroundHint
+                    if watched.windowFlags() & hints != hints:
+                        watched.setWindowFlags(watched.windowFlags() | hints)
                 watched.setAttribute(Qt.WidgetAttribute.WA_TranslucentBackground, True)
             elif event.type() == QEvent.Type.Show and watched.testAttribute(Qt.WidgetAttribute.WA_TranslucentBackground):
                 self._blur(watched)

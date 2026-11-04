@@ -3039,6 +3039,7 @@ class MainWindow(QMainWindow):
         if dialog.exec():
             self.refresh()
             if previous_language != self.settings.value.get("language", "de"):
+                self.save_view_state()
                 replacement = MainWindow()
                 replacement.resize(self.size())
                 replacement.populate(self.selected().id if self.selected() else None)
@@ -3060,17 +3061,20 @@ class MainWindow(QMainWindow):
     def about(self):
         HelpDialog(self).exec()
 
+    def save_view_state(self):
+        source = self.selected()
+        self.view_state.update(size=[self.width(), self.height()], source=source.id if source else None,
+                               navigation=list(self.sources.scope()))
+        if self.libraries:
+            self.view_state.setdefault('views', {})['/'.join(self.sources.scope())] = self.library_view.currentData()
+        write_json(data_dir() / 'view-state.json', self.view_state)
+
     def closeEvent(self, event):
         if self.process:
             QMessageBox.information(self, t("A download is running"), t("Wait for the download to finish before closing. You can minimize this window."))
             event.ignore()
         else:
-            source = self.selected()
-            self.view_state.update(size=[self.width(), self.height()], source=source.id if source else None,
-                                   navigation=list(self.sources.scope()))
-            if self.libraries:
-                self.view_state.setdefault('views', {})['/'.join(self.sources.scope())] = self.library_view.currentData()
-            write_json(data_dir() / 'view-state.json', self.view_state)
+            self.save_view_state()
             self.event_path.unlink(missing_ok=True)
             event.accept()
 

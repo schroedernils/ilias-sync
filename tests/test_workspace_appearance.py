@@ -47,7 +47,11 @@ def test_dragging_sidebar_keeps_content_inside_window(workspace, size):
             app.processEvents()
             assert window.size().width() == size[0]
             assert 200 <= window.sidebar.width() <= 480
-            assert window.split.widget(1).width() >= 500
+            right = window.split.widget(1)
+            assert right.width() >= 500
+            assert right.x() == window.sidebar.geometry().right() + 1 + window.split.handleWidth()
+            assert right.geometry().right() + 1 == window.split.width()
+            assert window.split.sizes() == [window.sidebar.width(), right.width()]
             for control in [window.file_search, window.sync_button, window.management_button, window.workspace]:
                 point = control.mapTo(window, control.rect().topLeft())
                 assert 0 <= point.x() < window.width()
@@ -93,3 +97,63 @@ def test_popups_use_a_readable_surface_in_both_themes(workspace):
         color = popup_color(app.palette())
         assert color.alphaF() >= 0.96
         assert color.name() == colors['elevated']
+
+
+@pytest.mark.parametrize('state,exit_code', [
+    ('Up to date', 0), ('Completed with warnings', 0), ('Needs attention', 1), ('Stopped', 0),
+])
+def test_sync_completion_keeps_chosen_sidebar_width(workspace, source, state, exit_code):
+    from unittest.mock import Mock, patch
+    from ilias_sync.storage import data_dir, source_scope, write_json
+    app, window = workspace
+    window.split.moveSplitter(420, 1)
+    app.processEvents()
+    assert window.sidebar.width() == 420
+    window.job = ('sync', source)
+    window.process = Mock()
+    write_json(data_dir()/'sources'/source.id/'status.json', {
+        'state': state, 'started': 100, 'finished': 101, 'scope': source_scope(source),
+        'result': {'counts': {'unchanged': 1}, 'errors': int(bool(exit_code))},
+    })
+    with patch.object(window, 'read_output'):
+        window.finished(exit_code, None)
+    app.processEvents()
+    assert window.sidebar.width() == 420
+    assert window.view_state['sidebar_width'] == 420
+    window.refresh()
+    window.populate(source.id)
+    app.processEvents()
+    assert window.sidebar.width() == 420
+    window.resize(820, 560)
+    app.processEvents()
+    assert window.sidebar.width() < 420
+    window.resize(1280, 800)
+    app.processEvents()
+    assert window.sidebar.width() == 420
+    window.toggle_sidebar()
+    window.toggle_sidebar()
+    app.processEvents()
+    assert window.sidebar.width() == 420
+
+
+def test_language_change_keeps_sidebar_width_in_replacement_window(workspace):
+    from unittest.mock import patch
+    app, window = workspace
+    window.split.moveSplitter(420, 1)
+    app.processEvents()
+
+    def save_language():
+        window.settings.value['language'] = 'en'
+        return True
+
+    with patch('ilias_sync.gui.SettingsDialog') as dialog:
+        dialog.return_value.exec.side_effect = save_language
+        window.background()
+    app.processEvents()
+    replacement = app.main_window
+    try:
+        assert replacement is not window
+        assert replacement.sidebar.width() == 420
+        assert replacement.view_state['sidebar_width'] == 420
+    finally:
+        replacement.close()

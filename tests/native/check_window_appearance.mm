@@ -50,7 +50,13 @@ int main()
             CHECK(!window.visible);
             CHECK(NSApp.appearance == applicationAppearance);
         }
+        NSWindowStyleMask styleMask = window.styleMask;
+        NSView *parent = view.superview;
+        BOOL layerBacked = view.wantsLayer;
         CHECK(ilias_blur_window(view, 24, 24, 24) == 1);
+        CHECK(window.styleMask == styleMask);
+        CHECK(view.superview == parent);
+        CHECK(view.wantsLayer == layerBacked);
         window.styleChanges = 0;
         NSRect frame = window.frame;
         for (int index = 0; index < 200; ++index)

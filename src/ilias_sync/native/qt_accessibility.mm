@@ -62,8 +62,8 @@ extern "C" int ilias_blur_window(void *nativeView, int red, int green, int blue)
         window.backgroundColor = [NSColor clearColor];
         window.titlebarAppearsTransparent = YES;
         window.titleVisibility = NSWindowTitleHidden;
-        if (!(window.styleMask & NSWindowStyleMaskFullSizeContentView))
-            window.styleMask = window.styleMask | NSWindowStyleMaskFullSizeContentView;
+        // Client-area flags and Qt's view/layer hierarchy belong to Qt. Only
+        // insert our own backdrop views below it; never reinsert the Qt view.
         // Keep Qt's view in place. A child of it paints over the interface, so the
         // wash sits beside it, in the frame behind the content.
         NSView *host = qtView.superview;
@@ -101,9 +101,6 @@ extern "C" int ilias_blur_window(void *nativeView, int red, int green, int blue)
         CGColorRef fill = CGColorCreateGenericRGB(red / 255.0, green / 255.0, blue / 255.0, dark ? 0.58 : 0.66);
         tint.layer.backgroundColor = fill;
         CGColorRelease(fill);
-        [host addSubview:qtView positioned:NSWindowAbove relativeTo:tint];
-        qtView.wantsLayer = YES;
-        qtView.layer.opaque = NO;
         return 1;
     }
 }
