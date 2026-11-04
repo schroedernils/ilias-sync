@@ -1,5 +1,19 @@
 # Verification boundaries
 
+## Linux surface rendering — Ubuntu 26.04 ARM64
+
+The former stylesheet requested translucent surfaces without a native backdrop on Linux. The
+updated theme uses opaque window, dialog and popup surfaces outside Cocoa and reserves space for
+overlaid title-bar controls only on Cocoa. A before/after check on the same composited X11 test
+display changed the background behind the app: the sampled main-window and settings colors
+changed in 1.0.1 and stayed identical in the corrected build, in both color schemes.
+
+Main window, settings, dropdowns and the university menu were also checked in a logged-in
+Ubuntu 26.04 GNOME/Wayland session using synthetic materials. The full local suite passed on
+macOS (**304 passed**) and in the Ubuntu ARM64 guest (**301 passed, 3 platform skips**). The
+opaque-surface regressions passed on the guest's X11 and Wayland backends. This does not verify
+a Windows desktop or publish a new release.
+
 ## Sidebar correction — 1.0.1
 
 The 1.0.0 sidebar defect was reproduced by native dragging in the installed macOS app and an isolated
