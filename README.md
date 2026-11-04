@@ -16,10 +16,7 @@
   </p>
 </div>
 
-<picture>
-  <source media="(prefers-color-scheme: dark)" srcset="docs/images/app-dark.png">
-  <img src="docs/images/app-light.png" alt="IliasSync mit Hochschul- und Kursnavigation, drei zuletzt aktualisierten Materialien und gemeinsamem Synchronisierungsbereich.">
-</picture>
+<img src="docs/images/app-dark.png" alt="IliasSync im Darkmode mit Hochschul- und Kursnavigation, drei zuletzt aktualisierten Materialien und gemeinsamem Synchronisierungsbereich.">
 <p align="center"><sub>Aktuelle Produktoberfläche mit synthetischen Beispieldaten. Keine privaten Konten oder Kursunterlagen.</sub></p>
 
 IliasSync hält die Materialien deiner ausgewählten ILIAS-Kurse in deinen eigenen Ordnern bereit. Du findest neue Skripte und Übungsblätter direkt in der App oder öffnest sie wie gewohnt im Finder beziehungsweise Dateimanager. Die Synchronisierung läuft auf Wunsch nach deinem Wochenplan.
