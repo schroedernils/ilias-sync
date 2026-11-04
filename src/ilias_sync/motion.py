@@ -10,6 +10,7 @@ from PySide6.QtWidgets import (QApplication, QCheckBox, QGraphicsOpacityEffect, 
 
 from .i18n import t
 from .control_colors import pause_colors
+from .theme import popup_color, uses_native_backdrop
 
 def popup(menu, anchor):
     """Open a menu from a control without replaying that control's hover."""
@@ -272,8 +273,10 @@ class MotionMenu(QMenu):
 
     def __init__(self, *args):
         super().__init__(*args)
-        self.setAttribute(Qt.WidgetAttribute.WA_TranslucentBackground, True)
-        self.setWindowFlag(Qt.WindowType.NoDropShadowWindowHint, True)
+        self._use_frost = uses_native_backdrop(QApplication.instance())
+        if self._use_frost:
+            self.setAttribute(Qt.WidgetAttribute.WA_TranslucentBackground, True)
+            self.setWindowFlag(Qt.WindowType.NoDropShadowWindowHint, True)
         self._showing = False
         self._motion = None
         self._rest = QPoint()
@@ -287,7 +290,7 @@ class MotionMenu(QMenu):
 
     def showEvent(self, event):
         super().showEvent(event)
-        if self._showing:
+        if not self._use_frost or self._showing:
             return
         self._showing = True
         self._rest = self.pos()
@@ -298,9 +301,11 @@ class MotionMenu(QMenu):
         self._showing = False
 
     def paintEvent(self, event):
+        if not self._use_frost:
+            super().paintEvent(event)
+            return
         painter = QPainter(self)
         painter.setRenderHint(QPainter.RenderHint.Antialiasing)
-        from .theme import popup_color
         color = popup_color(QApplication.palette())
         painter.setPen(Qt.PenStyle.NoPen)
         painter.setBrush(color)
@@ -311,7 +316,7 @@ class MotionMenu(QMenu):
     def hideEvent(self, event):
         if self._motion:
             self._motion.stop()
-        self.setWindowOpacity(1)
+            self.setWindowOpacity(1)
         super().hideEvent(event)
 
     def _run(self, start, end, duration, done=None):

@@ -9,13 +9,14 @@ from ilias_sync.theme import DARK, LIGHT, Theme
 
 def test_open_windows_receive_new_native_tint_after_stylesheet_changes():
     app = QApplication.instance() or QApplication([])
-    app.theme = Theme(app, 'light')
+    with patch('ilias_sync.theme.uses_native_backdrop', return_value=True):
+        app.theme = Theme(app, 'light')
     windows = [QDialog(), QDialog()]
     try:
         with patch('ilias_sync.native_compat.blur_window') as blur:
             for window in windows:
-                window.setAttribute(Qt.WidgetAttribute.WA_TranslucentBackground)
                 window.show()
+                assert window.testAttribute(Qt.WidgetAttribute.WA_TranslucentBackground)
             app.processEvents()
             for mode, colors in [('dark', DARK), ('light', LIGHT), ('dark', DARK)]:
                 blur.reset_mock()

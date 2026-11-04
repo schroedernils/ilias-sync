@@ -19,9 +19,13 @@ DARK = dict(window='#181818', surface='#181818', elevated='#1e1e1e', inset='#202
             on_accent='#141414', selection='#313131', selected_text='#f0f0f0', disabled='#818181', error='#e34671',
             success='#3fa266', warning='#f1b467', sidebar='#141414', input_border='#818181')
 
-# One see-through weight for every surface. The blur behind it stays smooth.
+# Frosted surfaces rely on the native Cocoa backdrop.
 FROST = 0.76
 MENU_OPACITY = 0.97
+
+
+def uses_native_backdrop(application):
+    return application is not None and application.platformName() == 'cocoa'
 
 
 def is_dark(palette):
@@ -31,12 +35,15 @@ def is_dark(palette):
 
 def popup_color(palette):
     color = palette.color(QPalette.ColorRole.ToolTipBase)
-    high_contrast = getattr(getattr(QApplication.instance(), 'theme', None), 'high_contrast', False)
-    color.setAlphaF(1.0 if high_contrast else MENU_OPACITY)
+    app = QApplication.instance()
+    high_contrast = getattr(getattr(app, '_ilias_theme_manager', None), 'high_contrast', False)
+    color.setAlphaF(MENU_OPACITY if uses_native_backdrop(app) and not high_contrast else 1.0)
     return color
 
 
-def _frost(hex_color, alpha=0.99):
+def _frost(hex_color, alpha):
+    if alpha == 1:
+        return hex_color
     color = QColor(hex_color)
     return f'rgba({color.red()}, {color.green()}, {color.blue()}, {alpha:.2f})'
 
@@ -50,13 +57,14 @@ def _lift(hex_color, amount):
     return QColor(channel(color.red()), channel(color.green()), channel(color.blue())).name()
 
 
-def stylesheet(c, frost=FROST):
+def stylesheet(c, frost=1):
     check = Path(__file__).parent / 'assets/icons/actions' / ('check-dark.svg' if QColor(c['on_accent']).lightness() < 128 else 'check-light.svg')
     pane = _frost(c['window'], frost)
     rail = _frost(_lift(c['window'], 12) if QColor(c['text']).lightness() > 128 else c['sidebar'], frost)
     card = _frost(c.get('card', _lift(c['window'], 18)), frost)
     field = c.get('field', _lift(c['window'], 28))
     sheet = _frost(c['elevated'], 1 if frost == 1 else MENU_OPACITY)
+    tooltip_opacity = 255 if frost == 1 else 250
     accent = QColor(c['accent'])
     accent_hover = c.get('accent_hover') or (accent.lighter(110) if accent.lightness() > 128 else accent.darker(110)).name()
     accent_pressed = (accent.darker(112) if accent.lightness() > 128 else accent.darker(125)).name()
@@ -78,7 +86,7 @@ QWidget {{ color: {c['text']}; font-size: 14px; }}
 QDialog {{ background: {pane}; }}
 QWidget#dialogBody, QDialog QScrollArea, QDialog QScrollArea > QWidget > QWidget {{ background: transparent; }}
 QMainWindow, QWidget#page {{ background: {pane}; }}
-QMainWindow > QWidget {{ background: {pane}; }}
+QWidget#mainSurface {{ background: {pane}; }}
 QWidget#formPane, QFrame#surface {{ background: {pane}; border: none; border-radius: 0; }}
 QFrame#surface QLabel, QWidget#formPane QLabel {{ background: transparent; border: none; }}
 QScrollArea, QScrollArea > QWidget > QWidget {{ background: {pane}; border: none; }}
@@ -254,7 +262,7 @@ QScrollBar:horizontal {{ background: transparent; height: 10px; margin: 2px 4px;
 QScrollBar::handle:vertical, QScrollBar::handle:horizontal {{ background: {c['border']}; border-radius: 4px; min-height: 32px; min-width: 32px; }}
 QScrollBar::handle:vertical:hover, QScrollBar::handle:horizontal:hover {{ background: {c['muted']}; }}
 QScrollBar::add-line, QScrollBar::sub-line, QScrollBar::add-page, QScrollBar::sub-page {{ background: transparent; height: 0; width: 0; }}
-QToolTip {{ background: {elevated}; color: {c['text']}; border: 1px solid {c['border']}; border-radius: 9px; padding: 9px 11px; font-size: 12px; font-weight: 400; opacity: 250; }}
+QToolTip {{ background: {elevated}; color: {c['text']}; border: 1px solid {c['border']}; border-radius: 9px; padding: 9px 11px; font-size: 12px; font-weight: 400; opacity: {tooltip_opacity}; }}
 """
 
 
@@ -269,6 +277,7 @@ class Theme(QObject):
         application._ilias_theme_manager = self
         self._active = True
         self.mode = mode
+        self.native_backdrop = uses_native_backdrop(application)
         self.app.setStyle('Fusion')
         self.hints = self.app.styleHints()
         self.accessibility = self.hints.accessibility()
@@ -278,15 +287,13 @@ class Theme(QObject):
         self.apply()
 
     def eventFilter(self, watched, event):
-        if isinstance(watched, QWidget) and self._can_veil(watched):
+        if self.native_backdrop and self._can_veil(watched):
             if event.type() == QEvent.Type.Polish:
-                if self.app.platformName() == 'cocoa':
-                    # Qt must own the client-area geometry before Cocoa creates
-                    # the window. Changing NSWindow's style mask behind Qt's back
-                    # makes native resize notifications restore stale pane frames.
-                    hints = Qt.WindowType.ExpandedClientAreaHint | Qt.WindowType.NoTitleBarBackgroundHint
-                    if watched.windowFlags() & hints != hints:
-                        watched.setWindowFlags(watched.windowFlags() | hints)
+                # Set client-area flags before Cocoa creates the window so Qt
+                # can keep the pane frames in sync during a resize.
+                hints = Qt.WindowType.ExpandedClientAreaHint | Qt.WindowType.NoTitleBarBackgroundHint
+                if watched.windowFlags() & hints != hints:
+                    watched.setWindowFlags(watched.windowFlags() | hints)
                 watched.setAttribute(Qt.WidgetAttribute.WA_TranslucentBackground, True)
             elif event.type() == QEvent.Type.Show and watched.testAttribute(Qt.WidgetAttribute.WA_TranslucentBackground):
                 self._blur(watched)
@@ -311,6 +318,9 @@ class Theme(QObject):
         scheme = scheme if isinstance(scheme, Qt.ColorScheme) else self.app.styleHints().colorScheme()
         dark = self.mode == 'dark' or (self.mode == 'system' and scheme == Qt.ColorScheme.Dark)
         c = DARK if dark else LIGHT
+        if not self.native_backdrop:
+            # Keep inactive tabs and sync metadata legible on solid surfaces.
+            c = dict(c, faint='#919191' if dark else c['muted'])
         self.high_contrast = self.accessibility.contrastPreference() == Qt.ContrastPreference.HighContrast
         if self.high_contrast:
             system = self.app.style().standardPalette()
@@ -330,12 +340,13 @@ class Theme(QObject):
                 color = c['disabled'] if group == QPalette.ColorGroup.Disabled and role in {'Text','WindowText','ButtonText'} else c[key]
                 palette.setColor(group, getattr(QPalette.ColorRole, role), QColor(color))
         self.app.setPalette(palette)
-        sheet = stylesheet(c, 1 if self.high_contrast else FROST)
+        sheet = stylesheet(c, FROST if self.native_backdrop and not self.high_contrast else 1)
         scale = max(1.0, QFontInfo(self.app.font()).pixelSize() / 14)
         sheet = re.sub(r'font-size: (\d+)px', lambda match: f'font-size: {round(int(match[1]) * scale)}px', sheet)
         self.app.setStyleSheet(sheet)
         self.dark = dark
-        for widget in self.app.topLevelWidgets():
-            if self._can_veil(widget) and widget.testAttribute(Qt.WidgetAttribute.WA_TranslucentBackground):
-                self._blur(widget)
-                widget.update()
+        if self.native_backdrop:
+            for widget in self.app.topLevelWidgets():
+                if self._can_veil(widget) and widget.testAttribute(Qt.WidgetAttribute.WA_TranslucentBackground):
+                    self._blur(widget)
+                    widget.update()

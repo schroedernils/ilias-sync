@@ -28,7 +28,7 @@ from .scrolling import TranslucentScrollArea
 from .branding import BrandMark, app_icon, paint_action
 from .motion import FadeButton, MotionMenu, PopupChipDelegate, Switch, SyncCluster, clip_round, popup
 from .control import active_run, send_command
-from .theme import DARK, LIGHT, Theme, popup_color, stylesheet
+from .theme import DARK, LIGHT, Theme, popup_color, uses_native_backdrop
 from .i18n import message, set_language, t
 from .scheduler import command, install, uninstall
 from .security import import_session, store_password
@@ -38,9 +38,6 @@ from .library import load_library, course_key, source_summary, library_summary
 from .recovery import recovery_plan
 from .presentation import (file_size, is_course_info, local_time, sync_summary, schedule_expectation, schedule_brief,
                           brief_sync_time, filtered_result, warning_facts, progress_copy, file_context)
-
-STYLE = stylesheet(LIGHT)
-
 
 def label(text, name=None):
     item = QLabel(t(text))
@@ -403,6 +400,8 @@ class Dropdown(QComboBox):
 
     def showPopup(self):
         super().showPopup()
+        if not uses_native_backdrop(QApplication.instance()):
+            return
         popup = self.view().window()
         popup.setAttribute(Qt.WidgetAttribute.WA_TranslucentBackground, True)
         color = popup_color(QApplication.palette())
@@ -1206,6 +1205,8 @@ class FolderMappingDialog(QDialog):
 
 
 def paint_window_background(widget):
+    if not widget.testAttribute(Qt.WidgetAttribute.WA_TranslucentBackground):
+        return
     painter = QPainter(widget)
     # Clear moved/invalidated regions before repainting translucent surfaces.
     painter.setCompositionMode(QPainter.CompositionMode.CompositionMode_Source)
@@ -1536,7 +1537,6 @@ class HelpDialog(QDialog):
 class MainWindow(QMainWindow):
     def __init__(self):
         super().__init__()
-        self.setAttribute(Qt.WidgetAttribute.WA_TranslucentBackground, True)
         self.settings = Settings()
         self.view_state = read_json(data_dir() / 'view-state.json', {})
         set_language(self.settings.value.get("language", "de"))
@@ -1568,10 +1568,14 @@ class MainWindow(QMainWindow):
         self.ui_error_status = None
         self.repair_checks = {}
         container = QWidget()
+        container.setObjectName('mainSurface')
         page = QVBoxLayout(container)
         page.setContentsMargins(0, 0, 0, 0)
         split = QSplitter()
         split.setChildrenCollapsible(False)
+        # Standard title bars sit outside the client area. Only Cocoa's
+        # expanded client area needs room for the overlaid title-bar controls.
+        top_inset = 38 if uses_native_backdrop(QApplication.instance()) else 16
         left = QFrame()
         left.setObjectName('sidebar')
         left.setMinimumWidth(200)
@@ -1579,7 +1583,7 @@ class MainWindow(QMainWindow):
         left.setSizePolicy(QSizePolicy.Policy.Preferred, QSizePolicy.Policy.Expanding)
         self.sidebar = left
         sidebar = QVBoxLayout(left)
-        sidebar.setContentsMargins(8, 38, 8, 12)
+        sidebar.setContentsMargins(8, top_inset, 8, 12)
         sidebar.setSpacing(2)
         brand = QHBoxLayout()
         brand.setContentsMargins(10, 4, 10, 8)
@@ -1611,7 +1615,7 @@ class MainWindow(QMainWindow):
         body = QWidget()
         content = QVBoxLayout(body)
         self.content_layout = content
-        content.setContentsMargins(22, 38, 22, 0)
+        content.setContentsMargins(22, top_inset, 22, 0)
         content.setSpacing(8)
         self.empty_lead = QWidget()
         self.empty_lead.hide()
@@ -2092,13 +2096,11 @@ class MainWindow(QMainWindow):
 
     def showEvent(self, event):
         super().showEvent(event)
-        if getattr(self, '_backdrop', False):
+        if getattr(self, '_notification_status_checked', False):
             return
-        self._backdrop = True
-        from .native_compat import blur_window
+        self._notification_status_checked = True
         from .notifications import permission
         permission()
-        blur_window(int(self.winId()), self.palette().color(QPalette.ColorRole.Window).name())
 
     def request_sync(self):
         if self.process or self.run_info:
@@ -2388,7 +2390,7 @@ class MainWindow(QMainWindow):
         super().resizeEvent(event)
         self.adapt_columns()
         QTimer.singleShot(0, self.adapt_columns)
-        if getattr(self, '_backdrop', False):
+        if self.isVisible() and self.testAttribute(Qt.WidgetAttribute.WA_TranslucentBackground):
             from .native_compat import blur_window
             blur_window(int(self.winId()), self.palette().color(QPalette.ColorRole.Window).name())
 
