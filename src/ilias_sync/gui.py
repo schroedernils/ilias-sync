@@ -2936,7 +2936,7 @@ class MainWindow(QMainWindow):
         self.add_button.setEnabled(not busy)
         self.settings_button.setEnabled(not busy)
         self.recovery_button.setEnabled(not busy)
-        if getattr(self, 'recovery_plan', None) and self.recovery_plan.action == 'retry':
+        if self.ui_error_kind != 'schedule' and getattr(self, 'recovery_plan', None) and self.recovery_plan.action == 'retry':
             self.recovery_button.hide()
         self.stop_button.setEnabled(busy and not (self.run_info and self.run_info["state"] == "stopping"))
 

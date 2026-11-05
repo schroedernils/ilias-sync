@@ -110,6 +110,16 @@ def test_disabled_automation_is_never_reenabled(settings):
     install.assert_not_called()
 
 
+def test_windows_native_console_xml_declares_utf16_but_is_not_utf16():
+    cmd = [r'C:\App\IliasSync.exe', '--sync', '--scheduled-time']
+    task, ns = windows_task(cmd, 'weekly')
+    # Actual schtasks output has this mismatched declaration and CRCRLF lines.
+    console = ('<?xml version="1.0" encoding="UTF-16"?>\r\r\n' + ET.tostring(task, encoding='unicode')).encode()
+    assert scheduler._windows_matches(console, cmd, 6, None, {'0': ['10:30'], '6': ['12:00']})
+    assert scheduler._windows_matches(ET.tostring(task, encoding='utf-16'), cmd, 6, None,
+                                      {'0': ['10:30'], '6': ['12:00']})
+
+
 def test_unchanged_settings_save_reinstalls_missing_schedule_and_keeps_times(settings):
     from ilias_sync.settings_service import apply_settings
     original = settings.path.read_bytes()
@@ -151,6 +161,7 @@ def test_schedule_repair_failure_guides_to_settings_without_discarding_calendar(
     app.processEvents()
     assert window.ui_error_kind == 'schedule'
     assert window.recovery_button.text() == 'Zeitplan prüfen'
+    assert window.recovery_button.isVisible()
     with patch.object(window, 'background') as open_settings:
         window.recover()
         open_settings.assert_called_once_with(1)

@@ -1,6 +1,6 @@
 # Changelog
 
-## 1.0.3 — 2026-11-04
+## 1.0.3 — 2026-11-05
 
 - Restore missing OS scheduling registrations automatically at app startup, using the saved interval, daily times or weekly plan unchanged.
 - Reconnect automatic sync to the current executable after moving or reinstalling the app; leave intact timers and deliberately disabled automation alone.

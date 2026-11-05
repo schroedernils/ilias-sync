@@ -103,6 +103,16 @@ def registration_matches(value):
 
 
 def _windows_matches(xml, cmd, hours, times, weekly):
+    # schtasks writes console-codepage bytes even though its XML declaration
+    # says UTF-16. Decode that output before parsing, while accepting real
+    # UTF-16 exports (BOM or NUL bytes) unchanged.
+    if isinstance(xml, bytes) and b'\x00' not in xml[:100] and not xml.startswith((b'\xff\xfe', b'\xfe\xff')):
+        encoding = 'utf-8'
+        if os.name == 'nt':
+            import ctypes
+            kernel = ctypes.windll.kernel32
+            encoding = f'cp{kernel.GetConsoleOutputCP() or kernel.GetOEMCP()}'
+        xml = xml.decode(encoding)
     task = ET.fromstring(xml)
     ns = {'t': 'http://schemas.microsoft.com/windows/2004/02/mit/task'}
     action = task.find('t:Actions/t:Exec', ns)

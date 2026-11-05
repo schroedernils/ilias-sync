@@ -9,12 +9,16 @@ leaves matching registrations alone and reinstalls missing/stale jobs without ch
 the stored policy. An unchanged Save can also repair registration. Scheduler failures
 retain the saved times and expose a recovery action directly to Schedule settings.
 
-The complete local collection passed **321 tests** in 40 isolated modules, with Ruff
+The complete local collection passed **322 tests** in 40 isolated modules, with Ruff
 and whitespace checks. New regressions cover intervals, daily and weekly calendars,
 removed registrations, changed paths, disabled automation, unchanged Save and rollback.
 Native installer verification now asserts that an enabled saved weekly calendar stays
 byte-identical through install/reinstall/removal. Windows also exercises actual task
 creation and two repairs: the second must leave the intact registration alone.
+The first Windows installer run exposed console output with an incorrect UTF-16
+declaration; the parser now accepts the actual console encoding as well as true UTF-16.
+The exported task from an isolated Windows VM was recognized correctly after the fix.
+Compact dark/light recovery states were rendered and the direct recovery button checked.
 
 ## Apple Silicon and Rosetta — 4 November 2026
 
