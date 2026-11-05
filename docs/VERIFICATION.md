@@ -20,6 +20,21 @@ declaration; the parser now accepts the actual console encoding as well as true 
 The exported task from an isolated Windows VM was recognized correctly after the fix.
 Compact dark/light recovery states were rendered and the direct recovery button checked.
 
+The corrected [four-platform build](https://github.com/schroedernils/ilias-sync/actions/runs/42014094026)
+passed at `9c3446a49c2d215a3fe599bf9e8e108905f7353f`: macOS arm64 and Intel
+**322 passed** each, Windows **313 passed / 9 skips**, Linux **319 passed / 3 skips**.
+Windows and Linux installed-runtime, reinstall and uninstall checks retained the
+weekly calendar byte for byte. Windows task repair was also idempotent with the actual
+OS scheduler, rather than only mocked XML. The [publishing workflow](https://github.com/schroedernils/ilias-sync/actions/runs/42014960684)
+published [1.0.3](https://github.com/schroedernils/ilias-sync/releases/tag/v1.0.3) from that run.
+
+That exact arm64 package was installed on the Mac and passed its installed offline
+self-test and strict signature checks, build `9c3446a49c2d-58a470d0e331`. All 114 Mach-O
+files contain arm64. Opening the updated app retained the existing weekly calendar and
+launchd plist byte for byte; the matching OS registration remained active. The package
+hash was checked against the published six-package `SHA256SUMS`. No live sync was
+needed for this update check; account data and materials were left in place.
+
 ## Apple Silicon and Rosetta — 4 November 2026
 
 The reported macOS 28 warning was traced to an installed **1.0.1 x86_64** app on an
