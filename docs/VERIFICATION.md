@@ -1,5 +1,27 @@
 # Verification boundaries
 
+## Readable names and popup sizing — 1.0.4
+
+The report was traced to two independent mechanisms. The rounded Cocoa menu mask
+could retain an early, smaller geometry. Popup masks now follow resizing and the
+animation leaves Qt's screen-constrained position unchanged. Regression tests add
+actions after showing the popup and verify the final action bounds remain in its mask.
+
+Course IDs were already disabled in the reported configuration. The shown PDF name
+was an app-owned protection copy beside an untracked existing file, not the course-ID
+option. Protection copies now use readable numbered `(ILIAS)` suffixes. Tests retain
+untracked identical files and local edits, distinguish remote-object ownership, reuse
+publication intents and recover an interrupted legacy-name migration before cleanup.
+Same-named course numbers are persisted separately so later course discovery does not
+reassign existing directories. Previews remain read-only.
+
+The complete local suite passed **335 tests** in 41 isolated modules, alongside Ruff
+and whitespace checks. Release-specific package and native menu evidence follows
+when complete. No unattended original-file adoption or duplicate deletion is introduced.
+An isolated real Cocoa popup check also covered all four university actions. The
+captured menu shows every label in full after final sizing; no account or material
+data was used by that check.
+
 ## Schedule retention — 1.0.3
 
 Saved calendar settings already live outside the application bundle and installer payload.

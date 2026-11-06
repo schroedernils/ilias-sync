@@ -42,13 +42,13 @@ Python und Qt sind in den Paketen enthalten. Lade das passende Paket aus dem [ak
 
 | Computer | Download | Start |
 | --- | --- | --- |
-| **Mac mit Apple Silicon** | `IliasSync-1.0.3-macOS-arm64.dmg` | DMG öffnen, App nach Programme ziehen. |
-| **Mac mit Intel** | `IliasSync-1.0.3-macOS-x64.dmg` | DMG öffnen, App nach Programme ziehen. |
-| **Windows 10/11, x64** | `IliasSync-1.0.3-Windows-x64-Setup.exe` | Installationsassistent starten, danach IliasSync im Startmenü öffnen. |
-| **Ubuntu/Debian, x64** | `IliasSync-1.0.3-Linux-x64.deb` | Über die Paketverwaltung installieren, danach im App-Menü öffnen. |
-| **Andere Linux-Distributionen, x64** | `IliasSync-1.0.3-Linux-x64.tar.gz` | Entpacken; `install-desktop.sh` legt einen App-Menü-Eintrag an. |
+| **Mac mit Apple Silicon** | `IliasSync-1.0.4-macOS-arm64.dmg` | DMG öffnen, App nach Programme ziehen. |
+| **Mac mit Intel** | `IliasSync-1.0.4-macOS-x64.dmg` | DMG öffnen, App nach Programme ziehen. |
+| **Windows 10/11, x64** | `IliasSync-1.0.4-Windows-x64-Setup.exe` | Installationsassistent starten, danach IliasSync im Startmenü öffnen. |
+| **Ubuntu/Debian, x64** | `IliasSync-1.0.4-Linux-x64.deb` | Über die Paketverwaltung installieren, danach im App-Menü öffnen. |
+| **Andere Linux-Distributionen, x64** | `IliasSync-1.0.4-Linux-x64.tar.gz` | Entpacken; `install-desktop.sh` legt einen App-Menü-Eintrag an. |
 
-**Mac mit M-Chip:** Verwende das [native Apple-Silicon-Paket (arm64)](https://github.com/schroedernils/ilias-sync/releases/download/v1.0.3/IliasSync-1.0.3-macOS-arm64.dmg). Es benötigt kein Rosetta. Das separate Mac-Paket mit `x64` im Namen ist für Intel-Macs bestimmt. [Mac-Architektur und Rosetta →](docs/INSTALLATION.md#macos)
+**Mac mit M-Chip:** Verwende das [native Apple-Silicon-Paket (arm64)](https://github.com/schroedernils/ilias-sync/releases/download/v1.0.4/IliasSync-1.0.4-macOS-arm64.dmg). Es benötigt kein Rosetta. Das separate Mac-Paket mit `x64` im Namen ist für Intel-Macs bestimmt. [Mac-Architektur und Rosetta →](docs/INSTALLATION.md#macos)
 
 Für Windows bleibt ein portables ZIP verfügbar. **Dieses zuerst vollständig entpacken; die EXE direkt im ZIP zu starten funktioniert nicht.** Setup und DEB installieren alle mitgelieferten Laufzeitdateien gemeinsam. [Installation und Deinstallation →](docs/INSTALLATION.md)
 

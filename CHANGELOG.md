@@ -1,5 +1,12 @@
 # Changelog
 
+## 1.0.4 — 2026-11-06
+
+- Fix clipped macOS popup menus by updating their rounded mask after final sizing and preserving Qt's screen-constrained position.
+- Keep course IDs disabled by default; explain the option under Folder mapping.
+- Use stable, readable numbers for same-named courses and readable `(ILIAS)` suffixes for necessary protection copies instead of hashes.
+- Migrate untouched, app-owned legacy hash filenames safely at the next sync, with a journal for interrupted migrations. Existing originals, local edits and distinct object ownership remain protected.
+
 ## 1.0.3 — 2026-11-05
 
 - Restore missing OS scheduling registrations automatically at app startup, using the saved interval, daily times or weekly plan unchanged.

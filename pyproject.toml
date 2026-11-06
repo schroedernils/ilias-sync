@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "ilias-sync-desktop"
-version = "1.0.3"
+version = "1.0.4"
 description = "Quiet, local-first ILIAS synchronization for macOS, Windows and Linux"
 readme = "README.md"
 requires-python = ">=3.12,<3.14"
