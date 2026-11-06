@@ -1,9 +1,8 @@
 """Human folder names; stable server identities remain in private metadata."""
-import hashlib
 from dataclasses import replace
 from pathlib import Path
 
-from .storage import clean_name, FolderCollisionError
+from .storage import clean_name, data_dir, FolderCollisionError, read_json, write_json
 
 
 def validate_names(names):
@@ -16,16 +15,50 @@ def validate_names(names):
             raise ValueError('Use a folder name without path separators or special characters.')
 
 
-def course_folders(source, courses):
+def course_folders(source, courses, *, persist=False):
     names = {course['id']: source.folder_names.get('course/' + course['id'], clean_name(
                  'Course' if course['name'] == 'Course ' + course['id'] else course['name'], 55))
              for course in courses}
-    counts = {}
-    for name in names.values():
-        counts[name.casefold()] = counts.get(name.casefold(), 0) + 1
-    return {identity: name + (f' [{identity}]' if source.include_course_ids else
-                             ' [' + hashlib.sha256(identity.encode()).hexdigest()[:6] + ']'
-                             if counts[name.casefold()] > 1 else '') for identity, name in names.items()}
+    if source.include_course_ids:
+        return {identity: name + f' [{identity}]' for identity, name in names.items()}
+    path = data_dir() / 'sources' / source.id / 'course-folder-names.json'
+    saved = read_json(path, {})
+    saved = saved if isinstance(saved, dict) else {}
+    result = {}
+    reserved = {name.casefold() for name in names.values()}
+    used = set()
+    # Retain established numbers, including deselected courses. A newly joined
+    # namesake must not take another course's existing local directory.
+    for identity, entry in saved.items():
+        if not isinstance(entry, dict) or not isinstance(entry.get('folder'), str):
+            continue
+        name = entry['folder']
+        if clean_name(name, 120) != name:
+            continue
+        if identity in names and entry.get('base') != names[identity]:
+            continue
+        if name.casefold() in used:
+            continue
+        used.add(name.casefold())
+        if identity in names:
+            result[identity] = name
+    for identity in sorted(names):
+        if identity in result:
+            continue
+        name = names[identity]
+        candidate = name
+        number = 2
+        while candidate.casefold() in used or (candidate != name and candidate.casefold() in reserved):
+            candidate = f'{name} ({number})'
+            number += 1
+        result[identity] = candidate
+        used.add(candidate.casefold())
+    if persist:
+        updated = {**saved, **{identity: {'base': names[identity], 'folder': folder}
+                              for identity, folder in result.items()}}
+        if updated != saved:
+            write_json(path, updated)
+    return result
 
 
 def named_path(source, logical, proposed):

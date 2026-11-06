@@ -91,7 +91,9 @@ def info_sections():
          "Das Umbenennen eines verwalteten Ordners nimmt dagegen dessen lokale Inhalte mit. "
          "Abbrechen verwirft ungespeicherte Änderungen.\n\n"
          "Bei erkannten eigenen Bearbeitungen bleibt deine Datei erhalten; die neue Serverfassung bekommt "
-         "eine separate ILIAS-Kopie. Ersetzte frühere Inhalte liegen unter Versions im jeweiligen Zielordner. "
+         "eine separate ILIAS-Kopie mit dem lesbaren Namenszusatz (ILIAS). Das gilt auch für vorhandene Dateien, "
+         "die nach einem vollständigen Reset nicht mehr zugeordnet sind. Unter Ordner zuordnen kannst du Kurs-IDs "
+         "im Ordnernamen einschalten; standardmäßig sind sie aus. Ersetzte frühere Inhalte liegen unter Versions im jeweiligen Zielordner. "
          "Kopiere eine gewünschte Fassung zur Wiederherstellung in einen separaten Ordner. "
          "Versionen und verschwundene Serverdateien werden nicht automatisch gelöscht."
          if de else
@@ -100,7 +102,9 @@ def info_sections():
          "The preview shows the selected item's effective destination.\n\n"
          "A new destination creates new copies on the next sync; existing copies at the old location remain. "
          "Renaming a managed folder instead moves its local contents with it. Cancel discards unsaved changes.\n\n"
-         "When local edits are detected, your file is kept and the new server version gets a separate ILIAS copy. "
+         "When local edits are detected, your file is kept and the new server version gets a separate copy with "
+         "a readable (ILIAS) filename suffix. This also protects files no longer tracked after a complete reset. "
+         "Folder mapping lets you enable course IDs in folder names; they are off by default. "
          "Replaced earlier contents are stored under Versions in the relevant destination. "
          "To recover a version, copy it into a separate folder. Versions and files removed from ILIAS "
          "are not automatically deleted."),

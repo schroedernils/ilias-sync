@@ -44,6 +44,35 @@ def test_colliding_course_names_are_stable_without_exposing_server_ids(source):
     assert len(set(names.values())) == 2
     assert all('crs-' not in name for name in names.values())
     assert names == course_folders(source, list(reversed(rows)))
+    assert names == {'crs-1': 'Vorlesung', 'crs-2': 'Vorlesung (2)'}
+
+
+def test_numbered_course_names_do_not_collide_with_real_titles(source):
+    rows = [{'id': 'crs-1', 'name': 'Vorlesung'}, {'id': 'crs-2', 'name': 'Vorlesung'},
+            {'id': 'crs-3', 'name': 'Vorlesung (2)'}]
+    assert course_folders(source, rows) == {'crs-1': 'Vorlesung', 'crs-2': 'Vorlesung (3)',
+                                          'crs-3': 'Vorlesung (2)'}
+
+
+def test_namesake_joined_later_does_not_take_an_established_course_folder(source):
+    initial = [{'id': 'crs-2', 'name': 'Vorlesung'}, {'id': 'crs-3', 'name': 'Vorlesung'}]
+    names = course_folders(source, initial, persist=True)
+    added = {'id': 'crs-1', 'name': 'Vorlesung'}
+    assert course_folders(source, [added, *initial]) == {**names, 'crs-1': 'Vorlesung (3)'}
+    assert course_folders(source, [added], persist=True) == {'crs-1': 'Vorlesung (3)'}
+    assert course_folders(source, initial) == names
+
+
+def test_naming_preview_is_read_only_and_alias_changes_are_not_blocked_by_saved_numbers(source):
+    rows = [{'id': 'crs-1', 'name': 'Vorlesung'}]
+    saved = data_dir() / 'sources' / source.id / 'course-folder-names.json'
+    assert course_folders(source, rows) == {'crs-1': 'Vorlesung'}
+    assert not saved.exists()
+    course_folders(source, rows, persist=True)
+    source.folder_names['course/crs-1'] = 'Mein Kurs'
+    before = saved.read_bytes()
+    assert course_folders(source, rows) == {'crs-1': 'Mein Kurs'}
+    assert saved.read_bytes() == before
 
 
 def test_multiple_remote_links_keep_established_folder_and_allow_alias_reset(source, tmp_path):

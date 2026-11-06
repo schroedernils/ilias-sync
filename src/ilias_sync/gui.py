@@ -1006,6 +1006,9 @@ class FolderMappingDialog(QDialog):
         self.editor_layout.addWidget(self.mapping_effect)
         self.editor_layout.addStretch()
         layout.addWidget(self.show_ids)
+        naming_note = label('Course IDs are off by default. Files keep their original names. If a local file must be protected, the separate download uses a readable “(ILIAS)” suffix.', 'subtitle')
+        naming_note.setAccessibleName(naming_note.text())
+        layout.addWidget(naming_note)
         if not entries:
             self.editor_layout.addWidget(label('Course contents appear after the first sync.', 'subtitle'))
         layout.addWidget(label('Destination changes create new copies at the next sync. Existing copies are kept. Name changes rename the managed folder and its local contents.', 'subtitle'))

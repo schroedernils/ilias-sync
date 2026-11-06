@@ -273,6 +273,75 @@ class Archive:
         pending = read_json(self.rename_path, None)
         if pending:
             self._finish_folder_rename(pending)
+        self.file_rename_path = state / 'file-rename.json'
+        pending = read_json(self.file_rename_path, None)
+        if pending:
+            self._finish_file_rename(pending)
+
+    def _copy_name(self, identity, target, digest):
+        """Keep unrelated/local files separate without exposing private IDs."""
+        root = self.destination.resolve()
+        previous_intent = self.journal.get(identity, {})
+        old = self.manifest['files'].get(identity, {})
+        for index in range(1, 10000):
+            suffix = ' (ILIAS)' if index == 1 else f' (ILIAS {index})'
+            candidate = target.with_name(target.stem + suffix + target.suffix)
+            relative = candidate.relative_to(root).as_posix()
+            candidate = safe_path(root, relative)
+            if any(key != identity and row['path'].casefold() == relative.casefold() and
+                   Path(row.get('root', self.destination)).resolve() == root
+                   for key, row in self.manifest['files'].items()):
+                continue
+            owned = (old.get('path') == relative and Path(old.get('root', root)).resolve() == root) or (
+                previous_intent == {'path': relative, 'sha256': digest, 'root': str(root)})
+            if not candidate.exists() or (owned and candidate.is_file() and sha256(candidate) == digest):
+                return candidate
+        raise OSError('No free filename is available for the separate download.')
+
+    def _readable_copy_name(self, identity):
+        """Migrate only the app's own unedited legacy hash names, recoverably."""
+        old = self.manifest['files'].get(identity)
+        if not old:
+            return
+        path = safe_path(self.destination, old['path'])
+        marker = hashlib.sha256(identity.encode()).hexdigest()[:8]
+        stem = re.sub(r' \[ILIAS ' + marker + r'-[a-f0-9]{8}\]$', '', path.stem)
+        if stem == path.stem or not path.is_file() or sha256(path) != old['sha256']:
+            return
+        plain = path.with_name(stem + path.suffix)
+        plain_relative = plain.relative_to(self.destination.resolve()).as_posix()
+        another_owner = any(key != identity and row['path'].casefold() == plain_relative.casefold() and
+                            Path(row.get('root', self.destination)).resolve() == self.destination.resolve()
+                            for key, row in self.manifest['files'].items())
+        target = plain if not plain.exists() and not another_owner else self._copy_name(identity, plain, old['sha256'])
+        pending = {'identity': identity, 'root': str(self.destination.resolve()), 'old': old['path'],
+                   'new': target.relative_to(self.destination.resolve()).as_posix(), 'sha256': old['sha256']}
+        write_json(self.file_rename_path, pending)
+        self._finish_file_rename(pending)
+
+    def _finish_file_rename(self, pending):
+        identity, root, digest = pending['identity'], Path(pending['root']), pending['sha256']
+        before, after = safe_path(root, pending['old']), safe_path(root, pending['new'])
+        if not after.exists():
+            if not before.is_file() or sha256(before) != digest:
+                raise OSError('The filename change could not be recovered. Existing files were kept.')
+            copy_file(before, after)
+        if not after.is_file() or sha256(after) != digest:
+            raise OSError('The filename change has unexpected contents. Existing files were kept.')
+        entry = self.manifest['files'][identity]
+        if entry['path'] not in {pending['old'], pending['new']}:
+            raise OSError('The filename changed during recovery. Existing files were kept.')
+        entry['path'] = pending['new']
+        entry['target_stat'] = [after.stat().st_size, after.stat().st_mtime_ns]
+        write_json(self.path, self.manifest)
+        if identity in self.journal:
+            self.journal[identity] = {'path': pending['new'], 'sha256': digest, 'root': str(root.resolve())}
+            write_json(self.journal_path, self.journal)
+        # Commit the new tracked location first. A concurrent local edit is
+        # retained at the previous name instead of being removed.
+        if before.is_file() and sha256(before) == digest:
+            before.unlink()
+        self.file_rename_path.unlink(missing_ok=True)
 
     def rename_folder(self, root, old, new):
         if old == new:
@@ -341,6 +410,7 @@ class Archive:
             self.destination = original_destination
 
     def _publish(self, identity: str, raw: Path, proposed: str):
+        self._readable_copy_name(identity)
         old = self.manifest["files"].get(identity)
         relative = old["path"] if old else proposed
         target = safe_path(self.destination, relative)
@@ -365,8 +435,9 @@ class Archive:
                 copy_file(raw, target, replace=True)
                 action = "updated"
             else:
-                marker = hashlib.sha256(identity.encode()).hexdigest()[:8]
-                target = target.with_name(f"{target.stem} [ILIAS {marker}-{digest[:8]}]{target.suffix}")
+                # Base all further protection copies on the original name,
+                # rather than appending nested suffixes to earlier copies.
+                target = self._copy_name(identity, safe_path(self.destination, proposed), digest)
                 relative = target.relative_to(self.destination.resolve()).as_posix()
                 action = "conflict"
                 if not target.exists():

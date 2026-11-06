@@ -31,9 +31,24 @@ Zur Wiederherstellung kopierst du die gewünschte Version in einen separaten
 Ordner. Versionen sind normale Dateien und werden nicht automatisch bereinigt.
 Der Speicherbedarf kann daher wachsen.
 
-Bei erkannten lokalen Bearbeitungen wird die neue Serverversion separat mit
-`[ILIAS …]` im Namen abgelegt. Unterschiedliche ILIAS-Objekte werden nicht allein
-wegen gleicher Dateinamen oder gleicher Inhalte zusammengelegt.
+Normale Downloads behalten ihren Dateinamen. Liegt dort schon eine nicht zugeordnete
+oder lokal bearbeitete Datei, wird die Serverversion separat als `Dateiname (ILIAS).pdf`
+abgelegt. Weitere notwendige Kopien heißen beispielsweise `Dateiname (ILIAS 2).pdf`.
+Das gilt auch für identische Dateien nach einem vollständigen Onboarding-Reset: Ohne
+die frühere Zuordnung darf die App eine vorhandene Datei nicht später überschreiben.
+Unterschiedliche ILIAS-Objekte werden nicht allein wegen gleicher Dateinamen oder
+gleicher Inhalte zusammengelegt.
+
+Ab 1.0.4 erhalten unveränderte, eindeutig von der App verwaltete Schutzkopien mit dem
+alten `[ILIAS …]`-Hashnamen beim nächsten Sync einen lesbaren Namen. Ist der normale
+Dateiname frei und nicht anderweitig zugeordnet, wird er verwendet; sonst bleibt der
+lesbare Zusatz `(ILIAS)`. Eigene Bearbeitungen und vorhandene Originaldateien bleiben
+unangetastet. Ein Wiederherstellungsjournal sichert die Umbenennung bei Unterbrechung ab.
+
+Unter **Hochschule verwalten (…) → Ordner zuordnen** ist **Kurs-IDs im Ordnernamen
+anzeigen** standardmäßig ausgeschaltet. Bei gleichnamigen Kursen unterscheiden
+lesbare Zusätze wie `(2)` die Ordner; die Zuordnung bleibt für spätere Läufe gespeichert.
+Die Option betrifft Kursordner, nicht den Schutz vorhandener Dateien.
 
 Ordnerregeln gelten ab dem nächsten Lauf. Eine spezifische Datei-Zuordnung geht
 vor einer Unterordner-Zuordnung, diese vor einer Kurs-Zuordnung. Kopien an alten

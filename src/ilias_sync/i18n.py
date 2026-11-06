@@ -1,6 +1,8 @@
 """Small explicit UI catalog; file names and server-provided course names stay intact."""
 LANGUAGE = "de"
 DE = {
+    'Course IDs are off by default. Files keep their original names. If a local file must be protected, the separate download uses a readable “(ILIAS)” suffix.':
+        'Kurs-IDs sind standardmäßig aus. Dateien behalten ihre ursprünglichen Namen. Muss eine lokale Datei geschützt werden, erhält die separate Downloadkopie den lesbaren Zusatz „(ILIAS)“.',
     'Choose a valid schedule mode.': 'Wähle einen gültigen Zeitplanmodus.',
     'Schedule needs attention': 'Zeitplan prüfen',
     'Automatic sync needs attention': 'Automatische Synchronisierung prüfen',

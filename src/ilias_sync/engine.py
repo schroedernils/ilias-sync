@@ -399,7 +399,7 @@ def make_crawler(source: Source, emit=lambda event: None, *, discover=False):
             roots = self.roots if source.automatic_courses else selected
             self.active_roots = roots
             from .naming import course_folders
-            self.course_folders = course_folders(source, roots)
+            self.course_folders = course_folders(source, roots, persist=True)
             if not roots:
                 raise CrawlError("No courses found. Add a direct course or folder link in source settings.")
             emit({'event': 'progress', 'message': 'Checking known content pages…'})
