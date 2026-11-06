@@ -22,6 +22,25 @@ An isolated real Cocoa popup check also covered all four university actions. The
 captured menu shows every label in full after final sizing; no account or material
 data was used by that check.
 
+The [four-platform 1.0.4 build](https://github.com/schroedernils/ilias-sync/actions/runs/42259119938)
+passed at `3856066eded6339e35023f0819588ece30fa93fd`: macOS arm64 and Intel **335 passed**
+each, Linux **332 passed / 3 skips**, Windows **326 passed / 9 skips**. Native installer
+round-trips also passed. The synthetic UI review rendered **101 states**; an additional
+real Cocoa MainWindow check opened the actual management action and captured all four
+menu rows inside the final rounded mask.
+
+The native Mac package was installed and passed strict signature verification and its
+installed offline self-test, build `3856066eded6-278649ab7a3b`. The reported library's
+62 unmodified, app-owned legacy protection copies were migrated under the sync lock
+without network downloads. Each new copy's hash was checked, existing plain-name
+originals were retained, and private metadata backups plus a migration receipt were kept.
+Settings and the app's launchd schedule stayed byte-identical. The app reopened the same
+library; the reported PDF now uses a readable `(ILIAS)` suffix.
+
+[Release 1.0.4](https://github.com/schroedernils/ilias-sync/releases/tag/v1.0.4) was published by
+the [verified publication workflow](https://github.com/schroedernils/ilias-sync/actions/runs/42260588129).
+The installed Mac DMG matches its entry in the published six-package `SHA256SUMS`.
+
 ## Schedule retention — 1.0.3
 
 Saved calendar settings already live outside the application bundle and installer payload.
