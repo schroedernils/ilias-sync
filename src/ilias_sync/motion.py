@@ -3,7 +3,7 @@
 Those surfaces fade a wash in 140ms and settle a press in about 120ms.
 Qt stylesheets cannot interpolate those states, so the widgets animate them.
 """
-from PySide6.QtCore import QEasingCurve, QEvent, QModelIndex, QObject, QPersistentModelIndex, QPoint, QRectF, QVariantAnimation, Qt
+from PySide6.QtCore import QEasingCurve, QEvent, QModelIndex, QObject, QPersistentModelIndex, QRectF, QVariantAnimation, Qt
 from PySide6.QtGui import QBitmap, QColor, QFont, QPainter, QPalette
 from PySide6.QtWidgets import (QApplication, QCheckBox, QGraphicsOpacityEffect, QMenu, QPushButton,
                               QStyle, QStyledItemDelegate, QStyleOptionViewItem, QWidget)
@@ -269,7 +269,7 @@ class FadeButton(QPushButton):
 
 
 class MotionMenu(QMenu):
-    """Opens from a 6px offset and fades in over 160ms, matching Cursor's menu arrival."""
+    """Fade in without moving Qt's screen-constrained popup geometry."""
 
     def __init__(self, *args):
         super().__init__(*args)
@@ -279,7 +279,6 @@ class MotionMenu(QMenu):
             self.setWindowFlag(Qt.WindowType.NoDropShadowWindowHint, True)
         self._showing = False
         self._motion = None
-        self._rest = QPoint()
 
     def addMenu(self, *args):
         if len(args) == 1 and isinstance(args[0], str):
@@ -293,12 +292,17 @@ class MotionMenu(QMenu):
         if not self._use_frost or self._showing:
             return
         self._showing = True
-        self._rest = self.pos()
-        self.move(self._rest + QPoint(0, 6))
         self.setWindowOpacity(0)
         clip_round(self, 12)
         self._run(0.0, 1.0, 160)
         self._showing = False
+
+    def resizeEvent(self, event):
+        super().resizeEvent(event)
+        # Cocoa can finalize a menu's size after Show. A mask from the small
+        # initial window would otherwise clip the actions that appear later.
+        if self._use_frost:
+            clip_round(self, 12)
 
     def paintEvent(self, event):
         if not self._use_frost:
@@ -327,12 +331,9 @@ class MotionMenu(QMenu):
         motion.setEasingCurve(QEasingCurve.Type.OutCubic)
         motion.setStartValue(float(start))
         motion.setEndValue(float(end))
-        rest = QPoint(self._rest)
-
         def step(value):
             amount = float(value)
             self.setWindowOpacity(amount)
-            self.move(rest + QPoint(0, round(6 * (1 - amount))))
 
         motion.valueChanged.connect(step)
         if done:
