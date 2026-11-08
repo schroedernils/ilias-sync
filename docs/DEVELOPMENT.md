@@ -42,4 +42,11 @@ und [Prüfgrenzen](VERIFICATION.md).
 
 ## Release erstellen
 
+Die vorbereitete Updater-Integration benötigt einen bewusst eingerichteten
+öffentlichen Prüfschlüssel unter `updates/public-key.txt`. Der private Schlüssel
+gehört ausschließlich in den freigegebenen Signierprozess, niemals in Quellcode,
+Build-Artefakte oder Logs. Paketierung und Veröffentlichung brechen ohne passende
+Konfiguration ab. Einrichtung, Freigabestand, signierte Updatefeeds und Prüfgrenzen
+stehen in [UPDATES.md](UPDATES.md).
+
 Version in `pyproject.toml` und `src/ilias_sync/__init__.py` gemeinsam erhöhen, Release-Notizen unter `docs/releases/<version>.md` ergänzen und alle Änderungen prüfen. Der Workflow **Test and package** baut auf vier nativen Zielen zwei DMGs, Windows-Setup und ZIP sowie Linux-DEB und TAR.GZ. Windows benötigt Inno Setup 6 (auf dem CI-Image vorhanden), Linux `dpkg-deb` und für die Installationsprüfung `desktop-file-validate`. Erst nach erfolgreichem Abschluss wird **Publish verified release** mit dessen Run-ID gestartet. Der Veröffentlichungsworkflow prüft Quelle, Version, alle vier Jobs und alle sechs Pakete mit ihren Prüfsummen. Kein Paket wird lokal für ein fremdes Betriebssystem vorgetäuscht.

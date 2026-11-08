@@ -21,18 +21,24 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
           RUN_ID: ${{ inputs.run_id }}
+          DEFAULT_BRANCH: ${{ github.event.repository.default_branch }}
         run: |
           [[ "$RUN_ID" =~ ^[0-9]+$ ]]
           gh api "repos/$GITHUB_REPOSITORY/actions/runs/$RUN_ID" > /tmp/source-run.json
           gh run view "$RUN_ID" --json jobs > /tmp/source-jobs.json
           python - <<'PY'
-          import json, os
+          import json, os, re
           from pathlib import Path
           run = json.loads(Path('/tmp/source-run.json').read_text())
           jobs = json.loads(Path('/tmp/source-jobs.json').read_text())['jobs']
           assert run['conclusion'] == 'success' and run['status'] == 'completed'
           assert run['path'] == '.github/workflows/build.yml'
+          assert os.environ['GITHUB_REPOSITORY'] == 'schroedernils/ilias-sync'
           assert run['repository']['full_name'] == os.environ['GITHUB_REPOSITORY']
+          assert run['head_repository']['full_name'] == os.environ['GITHUB_REPOSITORY']
+          assert run['event'] in {'push', 'workflow_dispatch'}, 'Pull-request builds cannot be signed'
+          assert run['head_branch'] == os.environ['DEFAULT_BRANCH'], 'Only default-branch builds may be signed'
+          assert re.fullmatch(r'[0-9a-f]{40}', run['head_sha']), 'Invalid source commit'
           expected = {'build (macos-15, macOS-arm64)', 'build (macos-15-intel, macOS-x64)',
                       'build (windows-2022, Windows-x64)', 'build (ubuntu-22.04, Linux-x64)'}
           assert {job['name'] for job in jobs if job['conclusion'] == 'success'} == expected
@@ -42,6 +48,11 @@ jobs:
       - uses: actions/checkout@v4
         with:
           ref: ${{ steps.source.outputs.sha }}
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Install update signer
+        run: python -m pip install cryptography==50.0.2
       - uses: actions/download-artifact@v4
         with:
           run-id: ${{ inputs.run_id }}
@@ -74,13 +85,41 @@ jobs:
           with open(os.environ['GITHUB_OUTPUT'], 'a') as out:
               out.write('version=' + version + '\n')
           PY
-      - name: Publish stable release
+      - name: Sign archives and generate update feeds
+        env:
+          UPDATE_SIGNING_KEY: ${{ secrets.UPDATE_SIGNING_KEY }}
+          VERSION: ${{ steps.package.outputs.version }}
+        run: |
+          python scripts/update_feeds.py --assets release-assets --version "$VERSION" \
+            --public-key updates/public-key.txt --release-notes "docs/releases/$VERSION.md"
+      - name: Create draft and upload all release assets
         env:
           GH_TOKEN: ${{ github.token }}
           SOURCE_SHA: ${{ steps.source.outputs.sha }}
           VERSION: ${{ steps.package.outputs.version }}
         run: |
           gh release create "v$VERSION" release-assets/* \
-            --target "$SOURCE_SHA" --latest \
+            --target "$SOURCE_SHA" --draft \
             --title "IliasSync $VERSION" \
             --notes-file "docs/releases/$VERSION.md"
+      - name: Verify uploaded draft before publishing
+        env:
+          GH_TOKEN: ${{ github.token }}
+          SOURCE_SHA: ${{ steps.source.outputs.sha }}
+          VERSION: ${{ steps.package.outputs.version }}
+        run: |
+          RELEASE_ID=$(gh release view "v$VERSION" --json databaseId --jq .databaseId)
+          [[ "$RELEASE_ID" =~ ^[0-9]+$ ]]
+          gh api "repos/$GITHUB_REPOSITORY/releases/$RELEASE_ID" > /tmp/draft-release.json
+          python - <<'PY'
+          import json, os
+          from pathlib import Path
+          from scripts.update_feeds import verify_uploaded_assets
+          verify_uploaded_assets(Path('release-assets'), os.environ['VERSION'], os.environ['SOURCE_SHA'],
+                                 json.loads(Path('/tmp/draft-release.json').read_text()))
+          PY
+      - name: Publish complete stable release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          VERSION: ${{ steps.package.outputs.version }}
+        run: gh release edit "v$VERSION" --draft=false --latest
