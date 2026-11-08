@@ -1,6 +1,45 @@
 """Small explicit UI catalog; file names and server-provided course names stay intact."""
 LANGUAGE = "de"
 DE = {
+    'Updates': 'Updates',
+    'Help': 'Hilfe',
+    'Update preferences could not be saved. Please try again.': 'Die Update-Einstellungen konnten nicht gespeichert werden. Versuche es erneut.',
+    'App updates': 'App-Updates',
+    'Check for app updates automatically? IliasSync will contact GitHub once a day while open. You can change this in Settings. Updates are installed manually.':
+        'Automatisch nach App-Updates suchen? Solange IliasSync geöffnet ist, wird GitHub einmal täglich geprüft. Du kannst dies in den Einstellungen ändern. Updates installierst du selbst.',
+    'App update preferences could not be saved. Check access to the application data folder.':
+        'Die Update-Einstellungen konnten nicht gespeichert werden. Prüfe den Zugriff auf den App-Datenordner.',
+    'App updates could not be checked. Check your connection and try again.':
+        'App-Updates konnten nicht geprüft werden. Prüfe deine Verbindung und versuche es erneut.',
+    'IliasSync is up to date.': 'IliasSync ist auf dem aktuellen Stand.',
+    'IliasSync {version} is available.': 'IliasSync {version} ist verfügbar.',
+    'IliasSync {version} is ready to install.': 'IliasSync {version} ist bereit zur Installation.',
+    'The download has been verified. Install update opens your system package manager. Confirm the installation there.':
+        'Der Download wurde geprüft. „Update installieren“ öffnet deine Paketverwaltung. Bestätige dort die Installation.',
+    'Download the update, then open your system package manager to install it.':
+        'Lade das Update herunter und installiere es anschließend über deine Paketverwaltung.',
+    'Open the release page to update this portable installation or choose a package supported by your system.':
+        'Öffne die Release-Seite, um diese portable Installation zu aktualisieren oder ein passendes Paket für dein System auszuwählen.',
+    'Download update': 'Update herunterladen', 'Install update': 'Update installieren',
+    'Open release': 'Release öffnen', 'Later': 'Später', 'Downloading update…': 'Update wird heruntergeladen …',
+    'The update download could not be verified. Check your connection and try again.':
+        'Der Update-Download konnte nicht geprüft werden. Prüfe deine Verbindung und versuche es erneut.',
+    'No supported package manager was found. Open the release page to install the update manually.':
+        'Keine unterstützte Paketverwaltung gefunden. Öffne die Release-Seite, um das Update selbst zu installieren.',
+    'The verified update is no longer available. Check for updates and download it again.':
+        'Das geprüfte Update ist nicht mehr verfügbar. Suche erneut nach Updates und lade es noch einmal herunter.',
+    'The package manager could not be opened. Open the release page to install the update manually.':
+        'Die Paketverwaltung konnte nicht geöffnet werden. Öffne die Release-Seite, um das Update selbst zu installieren.',
+    'Check for app updates': 'Nach App-Updates suchen',
+    'Check for app updates automatically': 'Automatisch nach App-Updates suchen',
+    'Download and install app updates automatically': 'App-Updates automatisch laden und installieren',
+    'Updates come from the official GitHub releases. Your materials, settings and schedule are kept.':
+        'Updates kommen aus den offiziellen GitHub-Releases. Deine Materialien, Einstellungen und dein Zeitplan bleiben erhalten.',
+    'Linux installation opens your package manager and may require authorization.':
+        'Unter Linux öffnet sich die Paketverwaltung. Für die Installation kann eine Freigabe erforderlich sein.',
+    'App updates are available in installed releases.': 'App-Updates stehen in den installierten Release-Versionen zur Verfügung.',
+    'App updates could not be initialized. Reinstall the latest release to repair them.':
+        'App-Updates konnten nicht gestartet werden. Installiere die aktuelle Release-Version erneut, um sie zu reparieren.',
     'Course IDs are off by default. Files keep their original names. If a local file must be protected, the separate download uses a readable “(ILIAS)” suffix.':
         'Kurs-IDs sind standardmäßig aus. Dateien behalten ihre ursprünglichen Namen. Muss eine lokale Datei geschützt werden, erhält die separate Downloadkopie den lesbaren Zusatz „(ILIAS)“.',
     'Choose a valid schedule mode.': 'Wähle einen gültigen Zeitplanmodus.',

@@ -1281,6 +1281,36 @@ class SettingsDialog(QDialog):
         form.addRow(timing_note)
         self.tabs.addTab(schedule, t('Schedule'))
         self.tabs.addTab(self.notifications_page(), t('Notifications'))
+        self.app_updates = getattr(parent, 'app_updates', None)
+        updates_page, update_form = self.page()
+        self.update_check = QCheckBox(t('Check for app updates automatically'))
+        self.update_download = QCheckBox(t('Download and install app updates automatically'))
+        supported = bool(self.app_updates and self.app_updates.supported)
+        self.update_check.setChecked(bool(supported and self.app_updates.auto_check))
+        self.update_check.setEnabled(supported)
+        self.update_download.setChecked(bool(supported and self.app_updates.auto_download))
+        self.update_download.setVisible(bool(supported and self.app_updates.supports_auto_download))
+        self.update_download.setEnabled(self.update_check.isChecked())
+        self.update_check.toggled.connect(self.update_download.setEnabled)
+        update_form.addRow(self.update_check)
+        update_form.addRow(self.update_download)
+        update_note = label('Updates come from the official GitHub releases. Your materials, settings and schedule are kept.', 'subtitle')
+        update_note.setWordWrap(True)
+        update_form.addRow(update_note)
+        if sys.platform == 'linux':
+            linux_note = label('Linux installation opens your package manager and may require authorization.', 'subtitle')
+            linux_note.setWordWrap(True)
+            update_form.addRow(linux_note)
+        if not supported:
+            unavailable = label('', 'subtitle')
+            unavailable.setText((self.app_updates.error if self.app_updates else '') or
+                                t('App updates are available in installed releases.'))
+            unavailable.setWordWrap(True)
+            update_form.addRow(unavailable)
+        check_button = button('Check for app updates', lambda: self.app_updates.check() if self.app_updates else None)
+        check_button.setEnabled(supported)
+        update_form.addRow(check_button)
+        self.tabs.addTab(updates_page, t('Updates'))
         outer.addWidget(self.schedule_preview)
         self.error = label('', 'error')
         self.error.hide()
@@ -1442,6 +1472,9 @@ class SettingsDialog(QDialog):
             elif index == 1:
                 height = 770 if weekly else 480
                 width = max(self.width(), 620) if weekly else self.width()
+            elif index == 3:
+                height = 510
+                width = max(self.width(), 590)
             else:
                 height = 390
                 width = self.width()
@@ -1461,6 +1494,7 @@ class SettingsDialog(QDialog):
     def save(self):
         from .policy import normalize_weekly
         from .settings_service import apply_settings, ScheduleRestoreError, SettingsStorageError
+        from .updates import UpdatePreferencesError
         week = self.week_plan.values()
         mode = self.schedule_mode.currentData()
         try:
@@ -1470,12 +1504,18 @@ class SettingsDialog(QDialog):
                          'schedule_mode': mode, 'weekly_times': week, 'scheduled': self.enabled.isChecked()}
             apply_settings(self.settings, candidate, install=install, uninstall=uninstall,
                            schedule_is_current=registration_matches)
+            if self.app_updates:
+                self.app_updates.save_preferences(self.update_check.isChecked(), self.update_download.isChecked())
             self.accept()
         except ValueError as exc:
             self.error.setText(message(str(exc)))
             self.error.show()
             self.tabs.setCurrentIndex(1)
             self.week_plan.rows[0]['add'].setFocus()
+        except UpdatePreferencesError as exc:
+            self.error.setText(str(exc))
+            self.error.show()
+            self.tabs.setCurrentIndex(3)
         except ScheduleRestoreError as exc:
             self.error.setText(message(str(exc)))
             self.error.show()
@@ -1854,7 +1894,14 @@ class MainWindow(QMainWindow):
         view_menu = self.menuBar().addMenu(t('View'))
         self.sidebar_action = view_menu.addAction(t('Hide sidebar'), self.toggle_sidebar)
         view_menu.addAction(t('Search materials'), self.focus_search, QKeySequence(QKeySequence.StandardKey.Find))
-        self.menuBar().addAction(about)
+        help_menu = self.menuBar().addMenu(t('Help'))
+        help_menu.addAction(about)
+        self.update_action = QAction(t('Check for app updates'), self)
+        self.update_action.triggered.connect(lambda: self.app_updates.check() if getattr(self, 'app_updates', None) else None)
+        if sys.platform == 'darwin':
+            self.update_action.setMenuRole(QAction.MenuRole.ApplicationSpecificRole)
+        self.update_action.setEnabled(False)
+        help_menu.addAction(self.update_action)
         self.timeout = QTimer(self)
         self.timeout.setSingleShot(True)
         self.timeout.timeout.connect(self.timeout_job)
@@ -2922,6 +2969,8 @@ class MainWindow(QMainWindow):
 
     def refresh_controls(self):
         busy = self.process is not None or self.run_info is not None
+        if getattr(self, 'app_updates', None):
+            self.app_updates.refresh_busy()
         self.sources.setEnabled(True)
         self.sync_button.setEnabled(not busy and bool(self.selected() or any(source.enabled for source in self.settings.sources())))
         self.sync_button.set_action()
@@ -3069,6 +3118,12 @@ class MainWindow(QMainWindow):
                 replacement.populate(self.selected().id if self.selected() else None)
                 replacement.sources.select_scope(*self.sources.scope())
                 QApplication.instance().main_window = replacement
+                if getattr(self, 'app_updates', None):
+                    replacement.app_updates = self.app_updates
+                    replacement.app_updates.window = replacement
+                    replacement.app_updates.setParent(replacement)
+                    replacement.update_action.setEnabled(replacement.app_updates.supported)
+                    self.app_updates = None
                 replacement.show()
                 self.close()
 
@@ -3102,7 +3157,9 @@ class MainWindow(QMainWindow):
         write_json(data_dir() / 'view-state.json', self.view_state)
 
     def closeEvent(self, event):
-        if self.process:
+        from .updates import synchronization_busy
+        updating = getattr(self, 'app_updates', None)
+        if self.process or (updating and updating.supported and synchronization_busy(self)):
             QMessageBox.information(self, t("A download is running"), t("Wait for the download to finish before closing. You can minimize this window."))
             event.ignore()
         else:
@@ -3127,9 +3184,14 @@ def run(args):
     application.theme = Theme(application, Settings().value.get("appearance", "system"))
     window = MainWindow()
     application.main_window = window
+    from .updates import UpdateController
+    window.app_updates = UpdateController(window)
+    window.update_action.setEnabled(window.app_updates.supported)
+    application.aboutToQuit.connect(window.app_updates.close)
     window.show()
     if not args.render:
         QTimer.singleShot(0, window.restore_schedule)
+        QTimer.singleShot(500, window.app_updates.start)
     if args.render:
         QTimer.singleShot(200, lambda: (window.grab().save(args.render), application.quit()))
     return application.exec()
