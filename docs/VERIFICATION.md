@@ -1,5 +1,43 @@
 # Verification boundaries
 
+## Signed app updates — 1.1.0
+
+The [four-platform build](https://github.com/schroedernils/ilias-sync/actions/runs/42478249110)
+passed at `55e32a81bc67bfdb6c4ccaf8929f984070764463`. The complete local collection
+passed **547 tests with zero skips**. Native CI results were macOS arm64 and Intel
+**543 passed / 4 skipped** each, Windows **436 passed / 111 skipped**, and Linux
+**540 passed / 7 skipped**. Windows excludes the 98 Linux/POSIX-only updater cases;
+the native Windows updater and installer are tested on Windows itself. Optional
+SDK and platform-specific checks account for the remaining skips.
+
+Both Mac jobs performed a real Sparkle update in an isolated app: read a signed
+feed, download the signed archive, verify it, replace the disposable old host,
+then run the installed application's offline self-test. A separate Apple-Silicon
+local probe passed the same flow. The test driver deliberately suppresses
+relaunch and quits its fixture host to complete Sparkle's install-on-quit path.
+
+Windows exercised the actual WinSparkle DLL, authenticated a downloaded Setup
+payload, handed it to the installer and checked the installed executable. Native
+Windows and Linux installer/reinstall/uninstall round-trips retained a weekly
+schedule and test material. Linux additionally verified the built DEB's size,
+SHA-256 and Ed25519 signature. Its graphical package-manager interaction is covered
+with controlled Qt handoff tests, not a physical Linux desktop walkthrough.
+
+The production signing key was provisioned with explicit owner authorization;
+only its public verification key is committed. [Release 1.1.0](https://github.com/schroedernils/ilias-sync/releases/tag/v1.1.0)
+was published by the [verified publication workflow](https://github.com/schroedernils/ilias-sync/actions/runs/42494846943),
+after all 24 uploaded packages, signature/checksum sidecars and feeds matched their
+local SHA-256 digests. Public latest-feed URLs were fetched without credentials;
+both Mac feed signatures, Linux metadata and the official arm64 DMG signature
+verified against the embedded public key. Every feed advertises 1.1.0.
+
+The official arm64 DMG passed strict code-signature and packaged-runtime checks
+locally, build `55e32a81bc67-a0be4d80c7d1`. German/dark and English/light synthetic
+Settings → Updates views were inspected. Replacement of the owner's installed
+1.0.4 and the final installed manual-check walkthrough await an unlocked Mac;
+these are not claimed by the CI evidence above. No notarization, Authenticode,
+universal university compatibility or spoken screen-reader certification follows.
+
 ## Readable names and popup sizing — 1.0.4
 
 The report was traced to two independent mechanisms. The rounded Cocoa menu mask
