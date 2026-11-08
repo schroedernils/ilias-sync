@@ -4,6 +4,7 @@ import base64
 from dataclasses import replace
 import hashlib
 import json
+import os
 import stat
 import time
 from types import SimpleNamespace
@@ -17,6 +18,8 @@ from PySide6.QtWidgets import QApplication, QMessageBox, QWidget
 
 from ilias_sync import linux_updates as updates
 from ilias_sync.storage import data_dir, read_json, write_json
+
+pytestmark = pytest.mark.skipif(os.name == 'nt', reason='Linux updater requires POSIX file protection; covered on Linux CI.')
 
 
 @pytest.fixture(scope='module')
