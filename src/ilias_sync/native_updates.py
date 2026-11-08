@@ -12,6 +12,9 @@ from pathlib import Path
 import sys
 import threading
 
+from filelock import FileLock, Timeout
+
+from .storage import data_dir
 
 _CAN_SHUTDOWN = ctypes.CFUNCTYPE(ctypes.c_int)
 _SHUTDOWN_REQUEST = ctypes.CFUNCTYPE(None)
@@ -55,6 +58,7 @@ class NativeUpdates:
         self._closed = threading.Event()
         self._busy = threading.Event()
         self._callbacks = ()
+        self._sync_lock_path = None
         self.shutdown_requested = shutdown_requested
         self.last_error = ''
         if not getattr(sys, 'frozen', False) or self._platform not in {'darwin', 'win32'}:
@@ -63,6 +67,7 @@ class NativeUpdates:
             self.last_error = 'An updater already owns the native SDK.'
             return
         try:
+            self._sync_lock_path = data_dir() / 'sync.lock'
             # PyInstaller sets __file__ below sys._MEIPASS, including in an app
             # bundle. Do not resolve a symlink out of the bundled asset tree.
             assets = Path(__file__).parent / 'assets/native'
@@ -121,8 +126,16 @@ class NativeUpdates:
         return message.decode('utf-8', errors='replace') if message else 'Sparkle is unavailable.'
 
     def _can_shutdown(self):
-        # Called on a foreign thread: read Python state only, no ctypes or Qt UI.
-        return int(not self._closed.is_set() and not self._busy.is_set() and callable(self.shutdown_requested))
+        # WinSparkle queries this BEFORE launching Setup, from a foreign thread.
+        # A fresh filesystem lock check catches scheduled/CLI runs that started
+        # since the GUI's most recent busy-state poll. No Qt or ctypes calls here.
+        if self._closed.is_set() or self._busy.is_set() or not callable(self.shutdown_requested):
+            return 0
+        try:
+            with FileLock(self._sync_lock_path, timeout=0):
+                return 1
+        except (Timeout, OSError):
+            return 0
 
     def _shutdown_request(self):
         if self._can_shutdown():

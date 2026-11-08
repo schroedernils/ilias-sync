@@ -265,6 +265,41 @@ def test_windows_hook_exceptions_do_not_escape_the_c_callback(native, caplog):
     assert 'queued signal failed' in caplog.text
 
 
+def test_windows_preinstaller_callback_checks_real_lock_on_foreign_thread(native):
+    from filelock import FileLock
+    from ilias_sync.storage import data_dir
+    library, _ = native('win32')
+    updater = windows(shutdown_requested=lambda: None)
+    updater.set_busy(False)  # Simulate a stale GUI poll just before a scheduled sync.
+    can, _ = windows_callbacks(library)
+    answers = []
+
+    def query():
+        answers.append(can())
+
+    with FileLock(data_dir() / 'sync.lock', timeout=0):
+        worker = threading.Thread(target=query)
+        worker.start()
+        worker.join(timeout=2)
+        assert not worker.is_alive() and answers == [0]
+    worker = threading.Thread(target=query)
+    worker.start()
+    worker.join(timeout=2)
+    assert not worker.is_alive() and answers == [0, 1]
+
+
+def test_windows_preinstaller_callback_fails_closed_on_unreadable_lock(native, monkeypatch):
+    library, _ = native('win32')
+    windows(shutdown_requested=lambda: None)
+
+    def denied(*args, **kwargs):
+        raise PermissionError('Test lock access denied')
+
+    monkeypatch.setattr(updates, 'FileLock', denied)
+    can, _ = windows_callbacks(library)
+    assert can() == 0
+
+
 def test_windows_shutdown_hook_names_share_one_callback(native):
     library, _ = native('win32')
     updater = windows()

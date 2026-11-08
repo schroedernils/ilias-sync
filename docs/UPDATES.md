@@ -2,7 +2,7 @@
 
 **Implementation status, 8 November 2026:** prepared locally; not published or
 enabled in the installed 1.0.4 release. Production key provisioning awaits
-explicit authorization. The complete local suite passed **545 tests, zero
+explicit authorization. The complete local suite passed **547 tests, zero
 skipped**, and an isolated Apple-Silicon package with a disposable test public
 key passed its native-runtime self-test and DMG build. This is not a completed
 old-to-new installation, native Windows run, or Linux package-manager handoff.
@@ -16,7 +16,9 @@ old-to-new installation, native Windows run, or Linux package-manager handoff.
 - **Windows:** WinSparkle offers opt-in automatic checks and a native update
   prompt. The signed Setup package updates the existing installation after the
   user accepts. The GUI receives shutdown requests through a queued signal and
-  rechecks synchronization before closing.
+  rechecks synchronization before closing. WinSparkle's pre-installer callback
+  independently checks the actual sync lock on its worker thread, so a stale GUI
+  busy-state poll cannot authorize installing over an already running sync.
 - **Linux:** checks require consent, run while the app is open, and authenticate
   the JSON before showing a release. On supported DEB installations, the app
   downloads the package, verifies its size, SHA-256 and Ed25519 signature, then
