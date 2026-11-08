@@ -1,11 +1,11 @@
 # Signed release updates
 
-**Implementation status, 8 November 2026:** prepared locally; not published or
-enabled in the installed 1.0.4 release. Production key provisioning awaits
-explicit authorization. The complete local suite passed **547 tests, zero
-skipped**, and an isolated Apple-Silicon package with a disposable test public
-key passed its native-runtime self-test and DMG build. This is not a completed
-old-to-new installation, native Windows run, or Linux package-manager handoff.
+**Implementation status, 8 November 2026:** version 1.1.0 is the first
+updater-enabled release. The signing key has been provisioned with the owner's
+explicit authorization. The pre-release local suite passed **547 tests, zero
+skipped**, and an isolated Apple-Silicon package passed its native-runtime
+self-test and DMG build. See [verification](VERIFICATION.md) for final release
+evidence and the distinction between native update installation and mock tests.
 
 ## User flow
 
@@ -50,13 +50,13 @@ Linux's detached metadata signature is at
 All URLs use HTTPS. Installed clients need unauthenticated access to these release
 assets; a private repository's release downloads are not a public update service.
 
-## Key contract and pending provisioning
+## Signing key configuration
 
-Production key provisioning is **pending**. This implementation does not create
-or upload a production key. A human must explicitly authorize uploading private
-signing material before provisioning the GitHub secret. Tests use synthetic keys
-in temporary directories only. The workflow intentionally fails until both
-halves of the production key configuration exist and match.
+Production key provisioning was explicitly authorized by the owner. The private
+seed is stored as the repository Actions secret and backed up in the macOS
+password vault, outside the checkout. Only the public verification key is
+committed. Tests use synthetic keys; they never receive the production secret.
+The publication workflow fails unless the private and public keys match.
 
 One Ed25519 key is shared by all update targets:
 

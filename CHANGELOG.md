@@ -1,5 +1,13 @@
 # Changelog
 
+## 1.1.0 — 2026-11-08
+
+- Add opt-in automatic app-update checks and manual checks under Settings → Updates.
+- Integrate native Sparkle updates on macOS and WinSparkle with the existing Setup installer on Windows.
+- Download and verify Linux DEB updates before explicit handoff to a supported graphical package manager; retain a release-page fallback for portable installations.
+- Authenticate update packages with Ed25519 signatures; sign macOS feeds and Linux metadata, and publish complete update feeds alongside verified GitHub releases.
+- Check synchronization locks before update installation or application shutdown. Keep materials, university settings and synchronization schedules separate from app-update preferences.
+
 ## 1.0.4 — 2026-11-06
 
 - Fix clipped macOS popup menus by updating their rounded mask after final sizing and preserving Qt's screen-constrained position.
