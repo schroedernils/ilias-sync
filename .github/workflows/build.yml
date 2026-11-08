@@ -42,6 +42,8 @@ jobs:
         run: python scripts/build.py
       - name: Verify installed application and uninstall
         run: python scripts/verify_install.py
+      - name: Verify signed native updater protocol
+        run: python scripts/verify_updates.py
       - uses: actions/upload-artifact@v4
         with:
           name: IliasSync-${{ matrix.name }}
