@@ -12,11 +12,12 @@ license = "GPL-3.0-or-later"
 authors = [{name = "Nils Schröder"}]
 dependencies = [
   "PFERD==3.9.4", "aiohttp==3.14.5", "PySide6-Essentials==6.10.0", "keyring==25.7.0",
-  "platformdirs==4.5.0", "psutil==7.1.0", "filelock==3.20.0", "lxml==6.0.2"
+  "platformdirs==4.5.0", "psutil==7.1.0", "filelock==3.20.0", "lxml==6.0.2",
+  "cryptography==50.0.2; sys_platform == 'linux'"
 ]
 
 [project.optional-dependencies]
-dev = ["pytest==8.4.2", "pytest-asyncio==1.2.0", "pyinstaller==6.16.0", "ruff==0.14.1"]
+dev = ["pytest==8.4.2", "pytest-asyncio==1.2.0", "pyinstaller==6.16.0", "ruff==0.14.1", "cryptography==50.0.2"]
 
 [project.scripts]
 ilias-sync = "ilias_sync.__main__:main"
@@ -25,7 +26,7 @@ ilias-sync = "ilias_sync.__main__:main"
 where = ["src"]
 
 [tool.setuptools.package-data]
-ilias_sync = ["assets/icons/**/*", "assets/native/*", "native/*.mm"]
+ilias_sync = ["assets/icons/**/*", "assets/native/*", "assets/update-config.json", "native/*.mm"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]

@@ -9,6 +9,9 @@ The packaged application contains unmodified, dynamically loaded libraries. Pack
   On macOS, IliasSync additionally loads its own GPLv3 compatibility library to correct Qt 6.10.0's native accessibility interface ownership at runtime. The upstream library files remain unchanged. The source, rationale, version guard and rebuild instructions are in `ilias_sync/native/qt_accessibility.mm` and `docs/QT-COCOA-COMPAT.md`; review this layer when replacing Qt.
 - **keyring**, **platformdirs**, **filelock**, **psutil** — see bundled upstream license texts and version manifest.
 - **lxml 6.0.2** — BSD and included component licenses; see bundled license texts, including its libxml2/libxslt notices. [Source](https://github.com/lxml/lxml).
+- **Sparkle 2.10.1** (macOS) — MIT. Native app-update framework; its license is included under `third-party-licenses/updaters/`. [Source](https://github.com/sparkle-project/Sparkle/tree/2.10.1).
+- **WinSparkle 0.9.4** (Windows) — MIT and bundled component notices. The upstream `COPYING` files are included under `third-party-licenses/updaters/`. [Source](https://github.com/vslavik/winsparkle/tree/v0.9.4).
+- **cryptography 50.0.2** (Linux) — Apache-2.0 OR BSD-3-Clause, with included component notices. Used to verify signed update metadata and downloads. [Source](https://github.com/pyca/cryptography).
 - **Lucide icons 0.468.0** — ISC, with upstream Feather/MIT notice where applicable. Selected unmodified SVG paths provide the action icons; color follows the UI palette. The complete supplied license is bundled under `ilias_sync/assets/icons/actions/LICENSE`. [Source](https://github.com/lucide-icons/lucide/tree/0.468.0).
 - PFERD's dependencies include aiohttp, beautifulsoup4, certifi, rich and their dependencies. The complete installed runtime version list and detected license files are bundled.
 

@@ -10,3 +10,5 @@ dist/
 *.spec
 .DS_Store
 src/ilias_sync/assets/native/*.dylib
+src/ilias_sync/assets/native/*.dll
+src/ilias_sync/assets/update-config.json

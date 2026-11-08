@@ -188,6 +188,22 @@ def _isolated_self_test():
             assert not window.progress_timer.isActive()
             assert window.sync_button.text() == "Jetzt synchronisieren"
             window.close()
+            if getattr(sys, 'frozen', False):
+                config = json.loads((Path(__file__).parent / 'assets/update-config.json').read_text())
+                if sys.platform in {'darwin', 'win32'}:
+                    from .native_updates import NativeUpdates
+                    # Load the real frozen libraries without starting the updater:
+                    # no network request, consent prompt or native preference write.
+                    target = 'windows-x64.xml' if sys.platform == 'win32' else 'macOS-arm64.xml'
+                    native = NativeUpdates(config['public_key'], config['releases'] + '/latest/download/' + target,
+                                           __version__)
+                    assert native.supported, 'Packaged native updater could not be loaded: ' + native.last_error
+                    assert not native.can_check
+                    native.close()
+                elif sys.platform == 'linux':
+                    import base64
+                    from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PublicKey
+                    Ed25519PublicKey.from_public_bytes(base64.b64decode(config['public_key'], validate=True))
         finally:
             if previous_root is None:
                 os.environ.pop("ILIAS_SYNC_DATA_DIR", None)

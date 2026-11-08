@@ -44,22 +44,31 @@ def notices():
 def main():
     from build_qt_compat import build
     from build_metadata import metadata
+    from build_updaters import prepare, embed
     build()
+    update_config = prepare()
     build_info = ROOT/'build/build-info.json'
     build_info.parent.mkdir(parents=True, exist_ok=True)
     build_info.write_text(json.dumps(metadata(ROOT, __version__), indent=2))
     notice_dir = notices()
+    shutil.copytree(ROOT / 'build/updater-notices', notice_dir / 'updaters', dirs_exist_ok=True)
     icons = ROOT / "src/ilias_sync/assets/icons"
     native_icon = (icons / "macOS/IliasSync-Dark.icns" if sys.platform == "darwin"
                    else windows_icon(icons, ROOT / "build/IliasSync.ico") if sys.platform == "win32"
                    else icons / "PNG/Dark/IliasSync-Dark-256.png")
+    updater_binary = []
+    if sys.platform in {'darwin', 'win32'}:
+        library = 'libilias_updates.dylib' if sys.platform == 'darwin' else 'WinSparkle.dll'
+        updater_binary = ['--add-binary', str(ROOT / 'src/ilias_sync/assets/native' / library)
+                          + os.pathsep + 'ilias_sync/assets/native']
     subprocess.run([sys.executable, "-m", "PyInstaller", "--noconfirm", "--clean", "--onedir", "--windowed",
                     "--name", "IliasSync", "--icon", str(native_icon), "--paths", "src",
                     "--collect-data", "ilias_sync", "--collect-all", "PFERD",
                     "--collect-submodules", "keyring.backends", "--recursive-copy-metadata", "PFERD",
                     "--copy-metadata", "keyring", "--add-data", str(notice_dir) + os.pathsep + "third-party-licenses",
+                    "--add-data", str(ROOT / 'src/ilias_sync/assets/update-config.json') + os.pathsep + 'ilias_sync/assets',
                     "--add-data", str(build_info) + os.pathsep + "ilias_sync/assets",
-                    "--osx-bundle-identifier", "org.iliassync.desktop", "scripts/launch.py"], check=True)
+                    "--osx-bundle-identifier", "org.iliassync.desktop", *updater_binary, "scripts/launch.py"], check=True)
     dist = ROOT / "dist"
     if sys.platform == "darwin":
         app = dist / "IliasSync.app"
@@ -69,6 +78,8 @@ def main():
         info.update(CFBundleShortVersionString=__version__, CFBundleVersion=__version__,
                     NSHumanReadableCopyright="IliasSync contributors · GPL-3.0-or-later")
         info_path.write_bytes(plistlib.dumps(info))
+        arch = 'arm64' if platform.machine().lower() in {'arm64', 'aarch64'} else 'x64'
+        embed(app, arch, update_config['public_key'])
         assert (app / "Contents/Resources" / info["CFBundleIconFile"]).read_bytes() == native_icon.read_bytes()
         subprocess.run(["codesign", "--force", "--deep", "--sign", "-", str(app)], check=True)
     else:
