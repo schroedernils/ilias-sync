@@ -13,6 +13,7 @@ static void record(NSString *message) {
 
 @interface UpdateProbe : NSObject <SPUUserDriver, SPUUpdaterDelegate, NSApplicationDelegate>
 @property SPUUpdater *updater;
+@property BOOL accepted;
 @end
 
 @implementation UpdateProbe
@@ -45,6 +46,7 @@ static void record(NSString *message) {
 - (void)showDownloadDidStartExtractingUpdate { record(@"verified; extracting"); }
 - (void)showExtractionReceivedProgress:(double)progress {}
 - (void)showReadyToInstallAndRelaunch:(void (^)(SPUUserUpdateChoice))reply {
+    self.accepted = YES;
     record(@"ready; install accepted by test driver"); reply(SPUUserUpdateChoiceInstall);
 }
 - (void)showInstallingUpdateWithApplicationTerminated:(BOOL)terminated retryTerminatingApplication:(void (^)(void))retry {
@@ -53,7 +55,12 @@ static void record(NSString *message) {
 - (void)showUpdateInstalledAndRelaunched:(BOOL)relaunched acknowledgement:(void (^)(void))ack {
     record(@"installed"); ack();
 }
-- (void)dismissUpdateInstallation { record(@"dismissed"); }
+- (void)dismissUpdateInstallation {
+    record(@"dismissed");
+    // The probe deliberately disables relaunch. Sparkle then installs on quit;
+    // finish the disposable host normally instead of waiting for its timeout.
+    if (self.accepted) dispatch_async(dispatch_get_main_queue(), ^{ [NSApp terminate:nil]; });
+}
 @end
 
 int main() {
