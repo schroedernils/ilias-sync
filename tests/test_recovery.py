@@ -125,12 +125,12 @@ def test_correction_is_confirmed_only_after_a_new_successful_check(app, source, 
         window.finished(1 if outcome == 'failure' else 0, None)
     if outcome in {'success', 'notes'}:
         assert window.repair_checks[source.id]['phase'] == 'verified'
-        assert 'Anmeldung bestätigt' in window.sync_panel.title.full_text
+        assert 'Anmeldung bestätigt' in window.sync_panel.title.text()
         assert window.sync_panel.mark.tone == ('warning' if outcome == 'notes' else 'success')
     else:
         assert window.repair_checks[source.id]['phase'] == 'failed'
         assert window.sync_panel.mark.tone == 'error'
-        assert 'Anmeldung bestätigt' not in window.sync_panel.title.full_text
+        assert 'Anmeldung bestätigt' not in window.sync_panel.title.text()
     window.close()
 
 
@@ -168,7 +168,7 @@ def test_successful_recovery_label_is_not_reused_after_a_later_failure(app, sour
     window = MainWindow()
     window.repair_checks[source.id] = {'kind': 'signin', 'phase': 'verified', 'started': 100, 'finished': 200}
     window.refresh()
-    assert 'Anmeldung bestätigt' not in window.sync_panel.title.full_text
+    assert 'Anmeldung bestätigt' not in window.sync_panel.title.text()
     assert window.sync_panel.mark.tone == 'error'
     assert window.recovery_button.text() == 'Erneut prüfen'
     window.close()

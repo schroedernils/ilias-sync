@@ -200,7 +200,7 @@ def test_background_sync_does_not_steal_navigation_or_block_local_files(library_
         assert window.sources.isEnabled()
         window.files.selectRow(0)
         assert window.file_target().is_file()
-        assert source.name in window.sync_panel.title.full_text
+        assert source.name in window.sync_panel.title.text()
         window.sources.select_scope()
         assert len(visible_entries(window)) == 6
         with patch('ilias_sync.gui.send_command') as command:
