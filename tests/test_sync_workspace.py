@@ -1,4 +1,5 @@
 from pathlib import Path
+import time
 from unittest.mock import patch
 
 import pytest
@@ -99,6 +100,55 @@ def test_sync_actions_are_one_fixed_section_and_busy_start_never_pauses(window, 
         command.assert_not_called()
         window.pause_button.click()
         command.assert_called_once_with(run, 'resume')
+
+
+def test_sync_card_pairs_the_last_run_and_schedule_with_the_action(window, source, monkeypatch):
+    from PySide6.QtCore import QPoint
+    from PySide6.QtWidgets import QApplication
+    from ilias_sync.presentation import brief_stamp
+
+    now = time.time()
+    monkeypatch.setattr(time, 'time', lambda: now)
+    root = data_dir() / 'sources' / source.id
+    status = read_json(root / 'status.json', {})
+    status.update(finished=now - 43 * 60, last_success=now - 43 * 60, next_run=now + 60 * 60)
+    write_json(root / 'status.json', status)
+    window.settings.value['scheduled'] = True
+    window.refresh()
+    QApplication.processEvents()
+
+    panel = window.sync_panel
+    assert 'vor 43 Min.' in panel.meta.text()
+    assert brief_stamp(status['finished'], now=now)[0] in panel.meta.text()
+    assert panel.schedule.text().startswith('Nächste Prüfung:')
+    assert panel.progress.isHidden() and panel.detail.isHidden()
+    assert panel.meta.y() - panel.title.geometry().bottom() < 10
+    assert panel.schedule.y() - panel.meta.geometry().bottom() < 10
+    assert panel.mapTo(window, QPoint()).x() == window.recent_files.parentWidget().mapTo(window, QPoint()).x()
+    assert panel.rect().contains(window.sync_cluster.geometry())
+
+
+def test_recovery_explanation_and_action_stay_together_at_compact_width(window, source):
+    from PySide6.QtCore import QPoint
+    from PySide6.QtWidgets import QApplication
+
+    write_json(data_dir() / 'sources' / source.id / 'status.json', {
+        'state': 'Sign in again', 'login_required': True, 'finished': time.time(), 'scope': source_scope(source),
+    })
+    window.resize(window.minimumWidth(), 560)
+    window.refresh()
+    QApplication.processEvents()
+    panel = window.sync_panel
+
+    def at(widget):
+        return widget.mapTo(panel, QPoint())
+
+    assert panel.detail.isVisible() and window.recovery_button.isVisible()
+    assert at(panel.title).y() < at(panel.detail).y() < at(window.recovery_button).y() < at(panel.meta).y()
+    assert at(panel.title).x() == at(panel.detail).x() == at(window.recovery_button).x()
+    assert panel.detail.width() >= panel.title.width()
+    assert panel.detail.height() >= panel.detail.heightForWidth(panel.detail.width())
+    assert panel.rect().contains(window.sync_cluster.geometry())
 
 
 def test_dismissed_notice_remains_in_details_and_error_does_not_become_success(window, source):

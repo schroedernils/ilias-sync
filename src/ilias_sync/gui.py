@@ -10,8 +10,8 @@ from dataclasses import replace
 from pathlib import Path
 from uuid import uuid4
 
-from PySide6.QtCore import QEasingCurve, QFileSystemWatcher, QPoint, QProcess, Qt, QTimer, QUrl, QVariantAnimation
-from PySide6.QtGui import QAction, QColor, QDesktopServices, QPainter, QFontDatabase, QPalette, QKeySequence, QShortcut
+from PySide6.QtCore import QEvent, QEasingCurve, QFileSystemWatcher, QPoint, QProcess, QSize, Qt, QTimer, QUrl, QVariantAnimation
+from PySide6.QtGui import QAction, QColor, QDesktopServices, QIcon, QPainter, QFontDatabase, QPalette, QKeySequence, QShortcut
 from PySide6.QtWidgets import (
     QApplication, QCheckBox, QComboBox, QDialog, QDialogButtonBox, QFileDialog, QFormLayout,
     QHBoxLayout, QHeaderView, QLabel, QLineEdit, QListWidget, QListWidgetItem, QMainWindow,
@@ -25,10 +25,10 @@ from .help_widgets import HelpTopicList
 from .hints import hint_text, set_hint
 from .control_colors import pause_colors
 from .scrolling import TranslucentScrollArea
-from .branding import BrandMark, app_icon, paint_action
+from .branding import BrandMark, action_pixmap, app_icon, paint_action
 from .motion import FadeButton, MotionMenu, PopupChipDelegate, Switch, SyncCluster, clip_round, popup
 from .control import active_run, send_command
-from .theme import DARK, LIGHT, Theme, popup_color, uses_native_backdrop
+from .theme import CARD_INSET, DARK, LIGHT, SYNC_CONTROL_HEIGHT, WORKSPACE_GUTTER, Theme, popup_color, uses_native_backdrop
 from .i18n import message, set_language, t
 from .scheduler import command, ensure_schedule, install, registration_matches, uninstall
 from .security import import_session, store_password
@@ -36,8 +36,8 @@ from .storage import Settings, Source, data_dir, exclude_files, excluded_files, 
 from .library_widgets import MaterialDelegate, MaterialTable, SyncPanel, ElidedLabel, LibraryNavigation
 from .library import load_library, course_key, source_summary, library_summary
 from .recovery import recovery_plan
-from .presentation import (file_size, is_course_info, local_time, sync_summary, schedule_expectation, schedule_brief,
-                          brief_sync_time, filtered_result, warning_facts, progress_copy, file_context)
+from .presentation import (brief_stamp, file_size, is_course_info, local_time, sync_summary, schedule_expectation, schedule_brief,
+                          filtered_result, warning_facts, progress_copy, file_context)
 
 def label(text, name=None):
     item = QLabel(t(text))
@@ -88,13 +88,29 @@ def save_buttons():
 
 
 class RunButton(FadeButton):
-    def __init__(self, text, callback, primary=False, *, icon_only=False):
+    def __init__(self, text, callback, primary=False, *, icon_only=False, symbol=None):
         super().__init__(t(text))
         self.icon_only = icon_only
+        self.symbol = symbol
         self.action = None
         self.clicked.connect(callback)
         if primary:
             self.setObjectName('primary')
+        self._update_icon()
+
+    def _update_icon(self):
+        if not getattr(self, 'symbol', None):
+            return
+        colors = DARK if self.palette().color(QPalette.ColorRole.Text).lightness() > 128 else LIGHT
+        contrast = getattr(getattr(QApplication.instance(), '_ilias_theme_manager', None), 'high_contrast', False)
+        ink = self.palette().color(QPalette.ColorRole.HighlightedText).name() if contrast else colors['on_accent']
+        self.setIconSize(QSize(16, 16))
+        self.setIcon(QIcon(action_pixmap(self.symbol, ink, 16, self.devicePixelRatioF())))
+
+    def changeEvent(self, event):
+        super().changeEvent(event)
+        if event.type() in (QEvent.Type.PaletteChange, QEvent.Type.ApplicationPaletteChange):
+            self._update_icon()
 
     def set_action(self, action=None):
         self.action = action
@@ -110,7 +126,7 @@ class RunButton(FadeButton):
         self.update()
         if self.icon_only:
             return
-        height = max(36, self.fontMetrics().height() + 16)
+        height = max(SYNC_CONTROL_HEIGHT if self.symbol else 36, self.fontMetrics().height() + 16)
         self.setMinimumHeight(height)
         self.setMaximumHeight(height)
 
@@ -154,6 +170,27 @@ class IconButton(FadeButton):
         if not self.isEnabled():
             color.setAlpha(90)
         paint_action(p, self, self.symbol, color, 18)
+
+
+class MaterialSearch(QLineEdit):
+    def __init__(self):
+        super().__init__()
+        self.search_mark = QAction(self)
+        self.search_mark.setText(t('Search materials'))
+        self.search_mark.triggered.connect(self.setFocus)
+        self.addAction(self.search_mark, QLineEdit.ActionPosition.LeadingPosition)
+        self._update_mark()
+
+    def _update_mark(self):
+        mark = getattr(self, 'search_mark', None)
+        if mark is not None:
+            ink = self.palette().color(QPalette.ColorRole.PlaceholderText).name()
+            mark.setIcon(QIcon(action_pixmap('search', ink, 16, self.devicePixelRatioF())))
+
+    def changeEvent(self, event):
+        super().changeEvent(event)
+        if event.type() in (QEvent.Type.PaletteChange, QEvent.Type.ApplicationPaletteChange):
+            self._update_mark()
 
 
 class FileCell(QTableWidgetItem):
@@ -1660,8 +1697,8 @@ class MainWindow(QMainWindow):
         body = QWidget()
         content = QVBoxLayout(body)
         self.content_layout = content
-        content.setContentsMargins(22, top_inset, 22, 0)
-        content.setSpacing(8)
+        content.setContentsMargins(WORKSPACE_GUTTER, top_inset, WORKSPACE_GUTTER, 0)
+        content.setSpacing(10)
         self.empty_lead = QWidget()
         self.empty_lead.hide()
         content.addWidget(self.empty_lead, 1)
@@ -1686,7 +1723,7 @@ class MainWindow(QMainWindow):
         source_meta.addWidget(self.destination, 1)
         title_group.addLayout(source_meta)
         source_heading.addLayout(title_group, 1)
-        self.file_search = QLineEdit()
+        self.file_search = MaterialSearch()
         self.file_search.setObjectName('materialSearch')
         self.file_search.setPlaceholderText(t('Search materials…'))
         self.file_search.setAccessibleName(t('Search materials'))
@@ -1696,7 +1733,7 @@ class MainWindow(QMainWindow):
         self.file_search.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Fixed)
         self.file_search.textChanged.connect(self.search_files)
         source_heading.addWidget(self.file_search, 1, Qt.AlignmentFlag.AlignVCenter)
-        self.sync_button = RunButton('Sync now', self.request_sync)
+        self.sync_button = RunButton('Sync now', self.request_sync, symbol='refresh')
         self.sync_button.setObjectName('syncAction')
         self.pause_button = RunButton('Pause', self.sync_or_pause, icon_only=True)
         self.pause_button.setObjectName('pauseControl')
@@ -1717,9 +1754,9 @@ class MainWindow(QMainWindow):
         self._unavailable_exclude = None
         self.status = self.sync_panel.detail
         self.recovery_button = button('View report', self.recover)
-        self.sync_panel.recovery_layout.addWidget(self.recovery_button, alignment=Qt.AlignmentFlag.AlignTop)
+        self.sync_panel.recovery_layout.addWidget(self.recovery_button, alignment=Qt.AlignmentFlag.AlignLeft)
         self.recovery_button.hide()
-        self.recovery_button.setObjectName('primary')
+        self.recovery_button.setObjectName('secondary')
         self.sync_panel.disclosure.toggled.connect(self.toggle_report)
         self.details_button = self.sync_panel.disclosure
         self.details_button.hide()
@@ -1808,7 +1845,7 @@ class MainWindow(QMainWindow):
         recent_card.setObjectName('recentCard')
         recent_card.setSizePolicy(QSizePolicy.Policy.Preferred, QSizePolicy.Policy.Maximum)
         recent_layout = QVBoxLayout(recent_card)
-        recent_layout.setContentsMargins(14, 8, 14, 8)
+        recent_layout.setContentsMargins(CARD_INSET, 8, CARD_INSET, 8)
         recent_layout.setSpacing(0)
         self.recent_files = MaterialTable()
         self.recent_files.setObjectName('recentFiles')
@@ -1855,9 +1892,13 @@ class MainWindow(QMainWindow):
         self.workspace.addWidget(self.sync_panel.report_host)
         self.workspace_tabs.currentChanged.connect(self.change_workspace)
         self.sync_cluster = SyncCluster(self.sync_button, self.pause_button, self.stop_button)
-        self.sync_panel.recovery_layout.addWidget(self.sync_cluster, alignment=Qt.AlignmentFlag.AlignVCenter)
+        self.sync_panel.action_layout.addWidget(self.sync_cluster, alignment=Qt.AlignmentFlag.AlignVCenter)
         column.addWidget(body, 1)
-        column.addWidget(self.sync_panel)
+        self.sync_footer = QWidget()
+        footer = QHBoxLayout(self.sync_footer)
+        footer.setContentsMargins(WORKSPACE_GUTTER, 10, WORKSPACE_GUTTER, 14)
+        footer.addWidget(self.sync_panel)
+        column.addWidget(self.sync_footer)
         self.activity = QTextEdit(self)
         self.activity.setReadOnly(True)
         self.activity.setAccessibleName(t('Activity'))
@@ -1985,12 +2026,13 @@ class MainWindow(QMainWindow):
             full = self.schedule_error
         self.sync_panel.schedule.setText(brief)
         self.sync_panel.schedule.setAccessibleName(full)
-        set_hint(self.sync_panel.schedule, t('Automatic sync'), full)
+        set_hint(self.sync_panel.schedule, t('Automatic sync'), tooltip if brief == t('Per university') else full)
 
     def update_sync_age(self):
         from .notifications import relative_time
         rows = []
-        visible = []
+        visible = t('Not yet synchronized')
+        now = time.time()
         source = self.selected()
         relevant = [self.libraries[source.id]] if source else list(self.libraries.values())
         for library in relevant:
@@ -1999,16 +2041,24 @@ class MainWindow(QMainWindow):
             current_scope = status.get('scope') == source_scope(library['source'])
             successful = current_scope and status.get('state') in {'Up to date', 'Completed with warnings'} and bool(status.get('result'))
             label = 'Last synchronization: {time} ({age})' if successful else 'Last attempt: {time} ({age})'
-            text = t(label, time=local_time(stamp), age=relative_time(stamp)) if stamp else t('Not yet synchronized')
+            stamp_text = local_time(stamp, now=now) if stamp else ''
+            age = relative_time(stamp, now) if stamp else ''
+            text = t(label, time=stamp_text, age=age) if stamp else t('Not yet synchronized')
+            short_label = 'Last run: {time} ({age})' if successful else label
+            visible = t(short_label, time=brief_stamp(stamp, now=now)[0], age=age) if stamp else t('Not yet synchronized')
             if current_scope and not successful and status.get('last_success'):
                 previous = status['last_success']
-                text += '\n' + t('Last complete synchronization: {time} ({age})', time=local_time(previous), age=relative_time(previous))
+                text += '\n' + t('Last complete synchronization: {time} ({age})',
+                                 time=local_time(previous, now=now), age=relative_time(previous, now))
             prefix = library['source'].name + ': ' if len(relevant) > 1 else ''
             rows.append(prefix + text)
-            visible.append(prefix + (brief_sync_time(stamp) if stamp else t('Not yet')))
-        self.sync_panel.meta.setText(' · '.join(visible))
+        self.sync_panel.meta.setText(t('Last runs by university in Details') if len(rows) > 1 else visible)
         self.sync_panel.meta.setAccessibleName('\n'.join(rows))
-        set_hint(self.sync_panel.meta, t('Synchronization status'), '\n'.join(rows))
+        detail = '\n'.join(rows) if len(rows) > 1 or any('\n' in row for row in rows) else ''
+        if detail:
+            set_hint(self.sync_panel.meta, t('Synchronization status'), detail)
+        else:
+            self.sync_panel.meta.setToolTip('')
 
     def render_overview(self, entries):
         from .notifications import observe_attempt
@@ -2244,7 +2294,7 @@ class MainWindow(QMainWindow):
         self.destination.hide()
         self.sidebar_button.setVisible(has_sources)
         self.management_button.setVisible(has_sources)
-        for widget in (self.sync_panel, self.files, self.library_widget, self.library_footer, self.sync_button):
+        for widget in (self.sync_footer, self.files, self.library_widget, self.library_footer, self.sync_button):
             widget.setVisible(has_sources)
         self.workspace_tabs.setVisible(has_sources)
         self.workspace.setVisible(has_sources)
@@ -2341,7 +2391,6 @@ class MainWindow(QMainWindow):
             self.show_local_error(self.schedule_error, kind='schedule')
 
     def render_status(self):
-        from .storage import source_scope
         source = self.selected()
         relevant = {source.id: self.libraries[source.id]} if source else self.libraries
         summary = source_summary(relevant[source.id]) if source else library_summary(relevant)
@@ -2391,14 +2440,8 @@ class MainWindow(QMainWindow):
                 detail = t('The problem is not resolved yet.') + ' ' + detail
             self.sync_panel.detail.setText(detail)
             self.sync_panel.detail.setAccessibleName(detail)
-        checked = t('Last checked: {time}', time=local_time(status.get('finished'))) if status.get('finished') else t('Not yet checked')
-        if source and status.get('scope') == source_scope(source):
-            last_success = status.get('last_success')
-            if last_success and last_success != status.get('finished'):
-                checked += ' · ' + t('Last complete check: {time}', time=local_time(last_success))
         schedules = [library['source'].name + ': ' + schedule_expectation(self.settings.value, library['status'])
                      for library in relevant.values()]
-        self.sync_panel.meta.setText(checked if source else '\n'.join(schedules))
         if source:
             next_check = schedule_expectation(self.settings.value, status)
         elif not self.settings.value.get('scheduled'):
@@ -2427,7 +2470,7 @@ class MainWindow(QMainWindow):
     def adapt_search(self):
         if not hasattr(self, 'file_search'):
             return
-        preferred = self.file_search.fontMetrics().horizontalAdvance(self.file_search.placeholderText()) + 56
+        preferred = self.file_search.fontMetrics().horizontalAdvance(self.file_search.placeholderText()) + 72
         maximum = min(360, max(180, preferred))
         if self.file_search.maximumWidth() != maximum:
             self.file_search.setMaximumWidth(maximum)
@@ -2985,6 +3028,7 @@ class MainWindow(QMainWindow):
             self.sync_button.setAccessibleDescription(t('Checks all configured courses at this university; browsing a course does not change the sync selection.')
                                                      if self.selected() else t('Checks all enabled universities one after another.'))
         self.sync_cluster.set_mode('hidden' if not self.libraries else 'running' if busy else 'sync')
+        self.sync_panel.adapt_actions()
         self.add_button.setEnabled(not busy)
         self.settings_button.setEnabled(not busy)
         self.recovery_button.setEnabled(not busy)

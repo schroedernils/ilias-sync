@@ -135,13 +135,6 @@ def brief_stamp(stamp, *, now=None):
     return f'{value.tm_mday:02d}.{value.tm_mon:02d}.{value.tm_year}, {clock}', False
 
 
-def brief_sync_time(stamp, *, now=None):
-    text, today = brief_stamp(stamp, now=now)
-    if not text:
-        return t('Not yet')
-    return text + (' · ' + t('today') if today else '')
-
-
 def schedule_brief(settings, status, *, clock=None):
     from .recovery import needs_signin
     if not settings.get('scheduled'):
@@ -158,7 +151,7 @@ def schedule_brief(settings, status, *, clock=None):
         return t('Next system run')
     text, today = brief_stamp(stamp, now=now)
     shown = (t('today') + ', ' + text) if today else text
-    return t('Next {time}', time=shown)
+    return t('Next check: {time}', time=shown)
 
 
 def progress_copy(raw):

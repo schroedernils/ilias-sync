@@ -4,13 +4,13 @@ Those surfaces fade a wash in 140ms and settle a press in about 120ms.
 Qt stylesheets cannot interpolate those states, so the widgets animate them.
 """
 from PySide6.QtCore import QEasingCurve, QEvent, QModelIndex, QObject, QPersistentModelIndex, QRectF, QVariantAnimation, Qt
-from PySide6.QtGui import QBitmap, QColor, QFont, QPainter, QPalette
+from PySide6.QtGui import QBitmap, QColor, QFont, QPainter, QPalette, QPen
 from PySide6.QtWidgets import (QApplication, QCheckBox, QGraphicsOpacityEffect, QMenu, QPushButton,
                               QStyle, QStyledItemDelegate, QStyleOptionViewItem, QWidget)
 
 from .i18n import t
 from .control_colors import pause_colors
-from .theme import popup_color, uses_native_backdrop
+from .theme import SYNC_CONTROL_HEIGHT, popup_color, uses_native_backdrop
 
 def popup(menu, anchor):
     """Open a menu from a control without replaying that control's hover."""
@@ -184,6 +184,7 @@ class FadeButton(QPushButton):
         self._inside = False
         self._hold_hover = False
         self._popup_lock = False
+        self._keyboard_focus = False
         self._hover_animation = QVariantAnimation(self)
         self._hover_animation.setDuration(90)
         self._hover_animation.setEasingCurve(QEasingCurve.Type.OutCubic)
@@ -250,22 +251,34 @@ class FadeButton(QPushButton):
 
     def paintEvent(self, event):
         super().paintEvent(event)
-        if self.objectName() in {'primary', 'syncAction', 'quiet', 'commit', 'pauseControl', 'stopControl'}:
-            return
-        if self._hover <= 0:
+        name = self.objectName()
+        hover = self._hover > 0 and self.isEnabled() and name not in {'primary', 'syncAction', 'quiet', 'commit', 'pauseControl', 'stopControl'}
+        focused = self._keyboard_focus and self.hasFocus() and self.isEnabled()
+        if not hover and not focused:
             return
         painter = QPainter(self)
         painter.setRenderHint(QPainter.RenderHint.Antialiasing)
-        painter.setPen(Qt.PenStyle.NoPen)
         dark = self.palette().color(QPalette.ColorRole.Text).lightness() > 128
-        painter.setBrush(wash(dark, self._hover))
-        if self.objectName() == 'sidebarAction':
-            radius = 10
-        elif self.objectName() == 'iconControl':
-            radius = self.height() / 2
-        else:
-            radius = 10
-        painter.drawRoundedRect(self.rect().adjusted(1, 1, -1, -1), radius, radius)
+        radius = self.height() / 2 if name == 'iconControl' else 10
+        if hover:
+            painter.setPen(Qt.PenStyle.NoPen)
+            painter.setBrush(wash(dark, self._hover))
+            painter.drawRoundedRect(self.rect().adjusted(1, 1, -1, -1), radius, radius)
+        if focused:
+            painter.setBrush(Qt.BrushStyle.NoBrush)
+            painter.setPen(QPen(self.palette().color(QPalette.ColorRole.ButtonText), 1.5))
+            painter.drawRoundedRect(QRectF(self.rect()).adjusted(3, 3, -3, -3), max(0, radius - 3), max(0, radius - 3))
+
+    def focusInEvent(self, event):
+        self._keyboard_focus = event.reason() in (Qt.FocusReason.TabFocusReason, Qt.FocusReason.BacktabFocusReason,
+                                                  Qt.FocusReason.ShortcutFocusReason)
+        super().focusInEvent(event)
+        self.update()
+
+    def focusOutEvent(self, event):
+        self._keyboard_focus = False
+        super().focusOutEvent(event)
+        self.update()
 
 
 class MotionMenu(QMenu):
@@ -381,7 +394,7 @@ class Switch(QCheckBox):
 class SyncCluster(QWidget):
     """Morphs the labeled sync action into pause and stop without moving either."""
 
-    ROW = 36
+    ROW = SYNC_CONTROL_HEIGHT
     GAP = 8
 
     def __init__(self, sync, pause, stop):
@@ -404,6 +417,7 @@ class SyncCluster(QWidget):
         self._span = 0.0
         self._shaped = False
         self._rest_width = 0
+        self._row_height = self.ROW
         self._width_key = None
         self.setFixedHeight(self.ROW)
 
@@ -411,7 +425,7 @@ class SyncCluster(QWidget):
         if mode == 'hidden':
             self._stop_motion()
             self._mode = mode
-            self.setFixedSize(0, self.ROW)
+            self.setFixedSize(0, self._row_height)
             for button in (self.sync, self.pause, self.stop):
                 button.hide()
             return
@@ -445,7 +459,8 @@ class SyncCluster(QWidget):
             button.setUpdatesEnabled(False)
             button.setMinimumWidth(0)
             button.setMaximumWidth(16777215)
-            width = 120
+            self._row_height = max(self.ROW, button.fontMetrics().height() + 16)
+            width = max(120, 2 * self._row_height + self.GAP)
             for label in labels:
                 button.setText(label)
                 width = max(width, button.sizeHint().width())
@@ -455,13 +470,13 @@ class SyncCluster(QWidget):
             button.setUpdatesEnabled(True)
             self._width_key = key
             self._rest_width = width
-        if self.width() != self._rest_width or self.height() != self.ROW:
-            self.setFixedSize(self._rest_width, self.ROW)
+        if self.width() != self._rest_width or self.height() != self._row_height:
+            self.setFixedSize(self._rest_width, self._row_height)
 
     def _place(self):
         width = self._rest_width or self.width()
-        icon = self.ROW
-        self.sync.setFixedSize(width, self.ROW)
+        icon = self._row_height
+        self.sync.setFixedSize(width, icon)
         self.sync.move(0, 0)
         self.pause.setFixedSize(icon, icon)
         self.stop.setFixedSize(icon, icon)
@@ -506,7 +521,7 @@ class SyncCluster(QWidget):
         self._effects[self.pause].setOpacity(1.0 if running else 0.0)
         self._effects[self.stop].setOpacity(1.0 if running else 0.0)
         self.sync.setAttribute(Qt.WidgetAttribute.WA_TransparentForMouseEvents, running)
-        self.sync.show()
+        self.sync.setVisible(not running)
         self.pause.setVisible(running)
         self.stop.setVisible(running)
         if running:
@@ -531,6 +546,7 @@ class SyncCluster(QWidget):
             return
         self._motion.finished.disconnect(self._settle)
         self._motion.stop()
+        self._motion.deleteLater()
         self._motion = None
 
     def paintEvent(self, _event):
@@ -545,7 +561,7 @@ class SyncCluster(QWidget):
         pause = QColor(pause_colors(dark).fill)
         stop = QColor('#6e1c34' if dark else '#8d1234')
         right = float(self.width())
-        height = float(self.ROW)
+        height = float(self._row_height)
         icon = height
         radius = 10.0
         if split < 0.004:

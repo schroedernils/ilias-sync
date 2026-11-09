@@ -3,7 +3,7 @@ from pathlib import PurePosixPath
 
 from PySide6.QtCore import QEvent, QRect, QRectF, QSize, Qt, QVariantAnimation, Signal
 from PySide6.QtGui import QBrush, QColor, QFont, QFontMetrics, QPainterPath, QPalette, QPainter, QPen
-from PySide6.QtWidgets import (QApplication, QFrame, QHBoxLayout, QLabel, QProgressBar, QSizePolicy, QStyle,
+from PySide6.QtWidgets import (QApplication, QBoxLayout, QFrame, QHBoxLayout, QLabel, QProgressBar, QSizePolicy, QStyle,
                               QStyledItemDelegate, QStyleOptionViewItem, QTableWidget, QVBoxLayout, QWidget,
                               QTreeWidget, QTreeWidgetItem, QPushButton, QToolTip)
 from PySide6.QtWidgets import QScrollArea
@@ -11,7 +11,7 @@ from PySide6.QtWidgets import QScrollArea
 from .i18n import t
 from .hints import hint_text, set_hint
 from .motion import QuietDelegate, RowHover
-from .theme import DARK, LIGHT, is_dark
+from .theme import CARD_INSET, DARK, LIGHT, is_dark
 
 
 class ElidedLabel(QLabel):
@@ -362,7 +362,8 @@ class StatusMark(QWidget):
         self._spin.setEndValue(-360.0)
         self._spin.setLoopCount(-1)
         self._spin.valueChanged.connect(self._turn)
-        self.setFixedSize(16 if compact else 28, 16 if compact else 28)
+        size = 32 if compact else 28
+        self.setFixedSize(size, size)
         self.setAccessibleName(t('Synchronization status'))
 
     def _turn(self, value):
@@ -392,12 +393,6 @@ class StatusMark(QWidget):
             color = self.palette().color(QPalette.ColorRole.Text)
         p = QPainter(self)
         p.setRenderHint(QPainter.RenderHint.Antialiasing)
-        if self.compact:
-            p.setPen(Qt.PenStyle.NoPen)
-            p.setBrush(color)
-            dot = min(self.width(), self.height()) - 4
-            p.drawEllipse((self.width() - dot) // 2, (self.height() - dot) // 2, dot, dot)
-            return
         p.scale(self.width() / 42, self.height() / 42)
         if self.tone == 'error':
             high_contrast = getattr(getattr(QApplication.instance(), 'theme', None), 'high_contrast', False)
@@ -431,29 +426,40 @@ class StatusMark(QWidget):
 
     def _paint_compact(self):
         colors = DARK if self.palette().color(QPalette.ColorRole.Text).lightness() > 128 else LIGHT
-        high_contrast = getattr(getattr(QApplication.instance(), 'theme', None), 'high_contrast', False)
+        high_contrast = getattr(getattr(QApplication.instance(), '_ilias_theme_manager', None), 'high_contrast', False)
         p = QPainter(self)
         p.setRenderHint(QPainter.RenderHint.Antialiasing)
+        key = {'success': 'success', 'warning': 'warning', 'running': 'accent', 'error': 'error'}.get(self.tone, 'muted')
+        color = self.palette().color(QPalette.ColorRole.Text) if high_contrast else QColor(colors[key])
+        fill = QColor(color)
+        fill.setAlpha(34 if colors is DARK else 22)
+        if self.tone == 'error':
+            fill = self.palette().color(QPalette.ColorRole.Highlight) if high_contrast else QColor(colors['error_fill'])
+            color = self.palette().color(QPalette.ColorRole.HighlightedText) if high_contrast else QColor('#ffffff')
+        p.setPen(Qt.PenStyle.NoPen)
+        p.setBrush(fill)
+        p.drawRoundedRect(QRectF(self.rect()), 10, 10)
         if self.tone == 'success':
-            color = self.palette().color(QPalette.ColorRole.Text) if high_contrast else QColor(colors['accent'])
             self._paint_check(p, color)
             return
-        if self.tone in {'warning', 'running'}:
-            color = self.palette().color(QPalette.ColorRole.Text) if high_contrast else QColor(colors['warning'])
-            self._paint_sync(p, color, self._angle if self.tone == 'running' else 0)
+        if self.tone == 'running':
+            self._paint_sync(p, color, self._angle)
             return
-        key = 'error' if self.tone == 'error' else 'muted'
-        color = self.palette().color(QPalette.ColorRole.Text) if high_contrast else QColor(colors[key])
-        p.setPen(Qt.PenStyle.NoPen)
-        p.setBrush(color)
-        dot = min(self.width(), self.height()) - 4
-        p.drawEllipse((self.width() - dot) // 2, (self.height() - dot) // 2, dot, dot)
+        p.setBrush(Qt.BrushStyle.NoBrush)
+        p.setPen(QPen(color, 2, Qt.PenStyle.SolidLine, Qt.PenCapStyle.RoundCap))
+        if self.tone in {'warning', 'error'}:
+            p.drawLine(16, 9, 16, 17)
+            p.drawPoint(16, 22)
+        else:
+            p.drawEllipse(9, 9, 14, 14)
+            p.drawLine(16, 12, 16, 16)
+            p.drawLine(16, 16, 19, 17)
 
     def _paint_check(self, painter, color):
-        painter.setPen(QPen(color, 1.7, Qt.PenStyle.SolidLine, Qt.PenCapStyle.RoundCap, Qt.PenJoinStyle.RoundJoin))
+        painter.setPen(QPen(color, 2, Qt.PenStyle.SolidLine, Qt.PenCapStyle.RoundCap, Qt.PenJoinStyle.RoundJoin))
         side = min(self.width(), self.height())
-        painter.drawLine(int(side * 0.22), int(side * 0.52), int(side * 0.42), int(side * 0.74))
-        painter.drawLine(int(side * 0.42), int(side * 0.74), int(side * 0.80), int(side * 0.28))
+        painter.drawLine(int(side * 0.29), int(side * 0.51), int(side * 0.44), int(side * 0.66))
+        painter.drawLine(int(side * 0.44), int(side * 0.66), int(side * 0.72), int(side * 0.36))
 
     def _paint_sync(self, painter, color, angle):
         import math
@@ -462,7 +468,7 @@ class StatusMark(QWidget):
         side = min(self.width(), self.height())
         painter.translate(self.width() / 2, self.height() / 2)
         painter.rotate(angle)
-        painter.scale(side / 16.0, side / 16.0)
+        painter.scale(side / 20.0, side / 20.0)
         radius = 4.15
         head = 78
         sweep = 268
@@ -594,97 +600,66 @@ class SyncPanel(QFrame):
         self.tone = 'neutral'
         self.setObjectName('compactSync' if compact else 'syncPanel')
         outer = QVBoxLayout(self)
-        outer.setContentsMargins(22, 10, 22, 16) if compact else outer.setContentsMargins(0, 14, 0, 12)
-        outer.setSpacing(10)
-        row = QHBoxLayout()
-        row.setSpacing(10 if compact else 14)
         self.mark = StatusMark(compact=compact)
-        row.addWidget(self.mark, alignment=Qt.AlignmentFlag.AlignVCenter)
-        text_inset = self.mark.width() + row.spacing()
-        text = QVBoxLayout()
-        text.setSpacing(1)
-        self.title = ElidedLabel() if compact else QLabel()
+        self.title = QLabel()
         self.title.setObjectName('compactStatusTitle' if compact else 'statusTitle')
-        self.title.setWordWrap(not compact)
         self.detail = QLabel()
-        self.detail.setObjectName('subtitle')
-        self.detail.setWordWrap(True)
-        self.title.setTextFormat(Qt.TextFormat.PlainText)
-        self.title.setAlignment(Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignVCenter)
-        if compact:
-            self.title.setFixedHeight(self.title.fontMetrics().height() + 4)
-        self.detail.setTextFormat(Qt.TextFormat.PlainText)
+        self.detail.setObjectName('compactStatusDetail' if compact else 'subtitle')
         self.detail.setAccessibleName(t('Synchronization status'))
-        text.addWidget(self.title)
         self.meta = QLabel()
         self.meta.setObjectName('statusMeta')
-        self.meta.setWordWrap(False)
-        self.meta.setTextFormat(Qt.TextFormat.PlainText)
-        self.schedule = ElidedLabel()
+        self.schedule = QLabel()
         self.schedule.setObjectName('statusMeta')
         self.schedule.setVisible(compact)
-        if compact:
-            self.meta.setFixedHeight(self.meta.fontMetrics().height() + 2)
-            self.schedule.setFixedHeight(self.schedule.fontMetrics().height() + 2)
-        facts = QHBoxLayout()
-        facts.setSpacing(18)
-        facts.setContentsMargins(text_inset, 0, 0, 0)
-        self.meta.setSizePolicy(QSizePolicy.Policy.Maximum, QSizePolicy.Policy.Preferred)
-        self.schedule.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Preferred)
-        facts.addWidget(self.meta, 0)
-        facts.addWidget(self.schedule, 1)
-        if not compact:
-            text.addWidget(self.detail)
-        row.addLayout(text, 1)
-        self.recovery_layout = row
         self.disclosure = QPushButton(t('Details'))
         self.disclosure.setObjectName('compactControl')
         self.disclosure.setCheckable(True)
         self.disclosure.setAccessibleName(t('Show synchronization details'))
         self.disclosure.setVisible(compact)
         self.disclosure.toggled.connect(self.set_expanded)
-        if compact:
-            row.addWidget(self.disclosure)
-        outer.addLayout(row)
-        if compact:
-            detail_row = QHBoxLayout()
-            detail_row.setContentsMargins(text_inset, 0, 0, 0)
-            detail_row.addWidget(self.detail)
-            outer.addLayout(detail_row)
         self.exception_host = QWidget()
         exception_row = QHBoxLayout(self.exception_host)
-        exception_row.setContentsMargins(text_inset, 0, 0, 0)
+        exception_row.setContentsMargins(0, 0, 0, 0)
         exception_row.setSpacing(8)
         self.exception = QLabel()
-        self.exception.setObjectName('subtitle')
-        self.exception.setTextFormat(Qt.TextFormat.PlainText)
+        self.exception.setObjectName('compactStatusDetail' if compact else 'subtitle')
         self.exception_dismiss = QPushButton(t('Ignore'))
         self.exception_dismiss.setObjectName('exceptionDismiss')
         set_hint(self.exception_dismiss, t('Ignore'), t('Skip these unavailable files in future syncs. Existing local copies stay.'))
         self.exception_dismiss.setAccessibleName(t('Skip these unavailable files in future syncs. Existing local copies stay.'))
-        exception_row.addWidget(self.exception, 0)
+        exception_row.addWidget(self.exception, 1)
         exception_row.addWidget(self.exception_dismiss, 0)
-        exception_row.addStretch(1)
         self.exception_host.hide()
-        outer.addWidget(self.exception_host)
+        for label in (self.title, self.detail, self.meta, self.schedule, self.exception):
+            label.setTextFormat(Qt.TextFormat.PlainText)
+            label.setWordWrap(True)
+            policy = label.sizePolicy()
+            policy.setHorizontalPolicy(QSizePolicy.Policy.Ignored if compact else QSizePolicy.Policy.Preferred)
+            policy.setVerticalPolicy(QSizePolicy.Policy.Maximum)
+            label.setSizePolicy(policy)
         if compact:
-            self.progress_slot = QWidget()
-            self.progress_slot.setFixedHeight(16)
-            slot = QVBoxLayout(self.progress_slot)
-            slot.setContentsMargins(0, 6, 0, 6)
-            slot.setSpacing(0)
+            self._compose_card(outer)
+        else:
+            outer.setContentsMargins(0, 14, 0, 12)
+            outer.setSpacing(10)
+            row = QHBoxLayout()
+            row.setSpacing(14)
+            row.addWidget(self.mark, alignment=Qt.AlignmentFlag.AlignVCenter)
+            text = QVBoxLayout()
+            text.addWidget(self.title)
+            text.addWidget(self.detail)
+            row.addLayout(text, 1)
+            outer.addLayout(row)
+            outer.addWidget(self.exception_host)
         self.progress = QProgressBar()
         self.progress.setAccessibleName(t('Synchronization progress'))
         self.progress.setRange(0, 0)
         self.progress.setTextVisible(False)
         self.progress.setFixedHeight(4)
         self.progress.hide()
-        if compact:
-            slot.addWidget(self.progress)
-            outer.addWidget(self.progress_slot)
-        else:
-            outer.addWidget(self.progress)
-        outer.addLayout(facts)
+        outer.addWidget(self.progress)
+        if not compact:
+            outer.addWidget(self.meta)
         self.report_host = QScrollArea()
         self.report_host.setWidgetResizable(True)
         self.report_host.setFrameShape(QFrame.Shape.NoFrame)
@@ -699,14 +674,75 @@ class SyncPanel(QFrame):
         outer.addWidget(self.report_host)
         self.set_expanded(False)
 
+    def _compose_card(self, outer):
+        outer.setContentsMargins(CARD_INSET, 12, CARD_INSET, 12)
+        outer.setSpacing(6)
+        self._card_row = QBoxLayout(QBoxLayout.Direction.LeftToRight)
+        self._card_row.setSpacing(12)
+        status = QHBoxLayout()
+        status.setSpacing(12)
+        status.addWidget(self.mark, alignment=Qt.AlignmentFlag.AlignVCenter)
+        self._summary = QVBoxLayout()
+        self._summary.setSpacing(3)
+        self._summary.addWidget(self.title)
+        self._summary.addWidget(self.meta)
+        self._summary.addWidget(self.schedule)
+        status.addLayout(self._summary, 1)
+        self._card_row.addLayout(status, 1)
+        self.action_layout = QHBoxLayout()
+        self.action_layout.setSpacing(0)
+        self.action_layout.addStretch(1)
+        self.action_layout.addWidget(self.disclosure, alignment=Qt.AlignmentFlag.AlignVCenter)
+        self._card_row.addLayout(self.action_layout)
+        outer.addLayout(self._card_row)
+        self._detail_body = QWidget()
+        self._body_layout = QVBoxLayout(self._detail_body)
+        self._body_layout.setContentsMargins(self.mark.width() + status.spacing(), 0, 0, 0)
+        self._body_layout.setSpacing(5)
+        self._body_layout.addWidget(self.detail)
+        self._body_layout.addWidget(self.exception_host)
+        self.recovery_layout = QHBoxLayout()
+        self._body_layout.addLayout(self.recovery_layout)
+        self._detail_body.hide()
+        self._body_open = False
+        outer.addWidget(self._detail_body)
+
+    def adapt_actions(self):
+        if not self.compact:
+            return
+        # Give text a comfortable reading column; stack only when both sides
+        # cannot fit. The same action slot is shared by sync, pause and stop.
+        available = self.width() - 2 * CARD_INSET
+        actions = self.action_layout.minimumSize().width()
+        beside = self.mark.width() + 12 + 192 + self._card_row.spacing() + actions
+        direction = (QBoxLayout.Direction.TopToBottom if actions and available < beside
+                     else QBoxLayout.Direction.LeftToRight)
+        if self._card_row.direction() != direction:
+            self._card_row.setDirection(direction)
+
     def set_expanded(self, expanded):
-        self.detail.setVisible(not self.compact or (expanded and not self.external_report) or self.tone == 'error')
+        self._update_detail(expanded)
         self.meta.setVisible(True)
         if not self.external_report:
             self.report_host.setVisible(self.compact and expanded)
         self.disclosure.setText(t('Hide details') if expanded else t('Details'))
         self.disclosure.setAccessibleName(t('Hide synchronization details') if expanded else t('Show synchronization details'))
         self.update_minimum_height()
+
+    def _update_detail(self, expanded):
+        has_detail = bool(self.detail.text() and self.detail.text() != self.title.text())
+        if self.compact:
+            has_exception = not self.exception_host.isHidden()
+            has_detail &= not has_exception and (self.tone != 'success' or (expanded and not self.external_report))
+            body_open = has_detail or has_exception
+            if body_open != self._body_open:
+                self._body_open = body_open
+                old, new = (self._summary, self._body_layout) if body_open else (self._body_layout, self._summary)
+                for fact in (self.meta, self.schedule):
+                    old.removeWidget(fact)
+                    new.addWidget(fact)
+                self._detail_body.setVisible(body_open)
+        self.detail.setVisible(has_detail)
 
     def set_state(self, title, detail, tone, *, busy=False):
         self.title.setText(title)
@@ -720,9 +756,6 @@ class SyncPanel(QFrame):
                 widget.style().unpolish(widget)
                 widget.style().polish(widget)
         self.mark.set_tone(tone)
-        if self.compact:
-            self.layout().setSpacing(6 if tone == 'error' else 10)
-            self.progress_slot.setVisible(busy or tone != 'error')
         if not busy:
             self.progress.setRange(0, 0)
             self.progress.setValue(0)
@@ -734,9 +767,11 @@ class SyncPanel(QFrame):
         self.exception.setText(text)
         self.exception_dismiss.setVisible(bool(dismiss))
         self.exception_host.setVisible(bool(text))
+        self._update_detail(self.disclosure.isChecked())
 
     def resizeEvent(self, event):
         super().resizeEvent(event)
+        self.adapt_actions()
         self.update_minimum_height()
 
     def update_minimum_height(self):

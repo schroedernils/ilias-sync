@@ -11,17 +11,20 @@ from .control_colors import pause_colors
 # Layered charcoal from Cursor Dark and the Grok Bot renderer: chrome under the pane, never pure black.
 LIGHT = dict(window='#e8eae8', surface='#e8eae8', elevated='#f4f5f2', inset='#dfe3e0', text='#303936', muted='#57635e',
              faint='#637069', border='#c5cdc7', hover='#e0e6e1', accent='#a4cbe1', accent_hover='#b4d6e9',
-             on_accent='#233e4d', selection='#d1dfd8', selected_text='#303936', disabled='#78827c', error='#a33850',
+             on_accent='#233e4d', selection='#d1dfd8', selected_text='#303936', disabled='#78827c', error='#a33850', error_fill='#a33850',
              success='#326d50', warning='#865b28', sidebar='#e0e4e0', input_border='#7b877f',
              card='#f2f3f0', field='#f7f7f3', link='#356983')
 DARK = dict(window='#181818', surface='#181818', elevated='#1e1e1e', inset='#202020', text='#f0f0f0', muted='#b8b8b8',
-            faint='#666666', border='#383838', hover='#262626', accent='#599ce7', accent_hover='#68a4e8',
-            on_accent='#141414', selection='#313131', selected_text='#f0f0f0', disabled='#818181', error='#e34671',
-            success='#3fa266', warning='#f1b467', sidebar='#141414', input_border='#818181')
+            faint='#a2a2a2', border='#383838', hover='#262626', accent='#599ce7', accent_hover='#68a4e8',
+            on_accent='#141414', selection='#313131', selected_text='#f0f0f0', disabled='#818181', error='#ff8da4', error_fill='#a6314e',
+            success='#83cfa3', warning='#f1b467', sidebar='#141414', input_border='#818181')
 
 # Frosted surfaces rely on the native Cocoa backdrop.
 FROST = 0.76
 MENU_OPACITY = 0.97
+WORKSPACE_GUTTER = 22
+CARD_INSET = 14
+SYNC_CONTROL_HEIGHT = 40
 
 
 def uses_native_backdrop(application):
@@ -100,7 +103,7 @@ QTabBar::tab:hover {{ background: {c['hover']}; color: {c['text']}; }}
 QTabBar::tab:selected {{ background: {c['selection']}; color: {c['text']}; border-radius: 8px; font-weight: 600; }}
 QTabBar::tab:selected:hover {{ background: {c['selection']}; color: {c['text']}; }}
 QTabBar#workspaceTabs::tab {{ padding: 6px 10px; margin-right: 6px; }}
-QFrame#noticeRow, QFrame#textCard, QFrame#recentCard, QFrame#settingsCard {{ background: {card}; border: 1px solid {c['border']}; border-radius: 12px; }}
+QFrame#noticeRow, QFrame#textCard, QFrame#recentCard, QFrame#settingsCard, QFrame#compactSync {{ background: {card}; border: 1px solid {c['border']}; border-radius: 12px; }}
 QFrame#noticeRow QLabel, QFrame#textCard QLabel, QFrame#recentCard QLabel, QFrame#settingsCard QLabel {{ border: none; background: transparent; }}
 QTextBrowser {{ border: none; background: transparent; padding: 0; color: {c['text']}; selection-background-color: {c['accent']}; selection-color: {c['on_accent']}; }}
 QTextBrowser:focus {{ border: none; padding: 0; }}
@@ -108,7 +111,7 @@ QLabel {{ background: transparent; }}
 QLabel#eyebrow, QLabel#subtitle {{ color: {c['muted']}; }}
 QLabel#eyebrow {{ font-size: 13px; font-weight: 400; }}
 QLabel#title {{ font-size: 22px; font-weight: 600; }}
-QMainWindow QLabel#title {{ font-size: 18px; font-weight: 600; }}
+QMainWindow QLabel#title {{ font-size: 20px; font-weight: 600; }}
 QLabel#appTitle {{ font-size: 14px; font-weight: 600; }}
 QLabel#sidebarNote {{ color: {c['muted']}; font-size: 13px; }}
 QLabel#statusTitle {{ font-size: 14px; font-weight: 600; }}
@@ -118,11 +121,11 @@ QFrame#syncPanel {{ background: transparent; border: none; border-top: 1px solid
 QFrame#syncPanel QLabel {{ background: transparent; border: none; }}
 QTableWidget#recentFiles {{ background: transparent; selection-background-color: transparent; outline: none; }}
 QTableWidget#recentFiles::item, QTableWidget#recentFiles::item:selected, QTableWidget#recentFiles::item:selected:active, QTableWidget#recentFiles::item:focus {{ background: transparent; border: none; outline: none; }}
-QFrame#compactSync {{ background: {rail}; border: none; border-top: 1px solid {c['border']}; border-radius: 0; }}
 QFrame#compactSync QLabel {{ border: none; background: transparent; }}
-QFrame#compactSync[tone="error"] {{ background: {rail}; border: none; border-top: 1px solid {c['error']}; border-radius: 0; }}
+QFrame#compactSync[tone="error"] {{ border-color: {c['error_fill']}; }}
 QFrame#compactSync[tone="error"] QLabel#compactStatusTitle {{ color: {c['error']}; font-weight: 700; }}
-QLabel#compactStatusTitle {{ font-size: 14px; font-weight: 600; }}
+QLabel#compactStatusTitle {{ font-size: 15px; font-weight: 600; }}
+QLabel#compactStatusDetail {{ font-size: 13px; color: {c['muted']}; }}
 QWidget#inlineReport {{ background: transparent; }}
 QWidget#inlineReport QTabWidget::pane {{ padding-top: 5px; }}
 QWidget#inlineReport QTabBar::tab {{ padding: 5px 9px; }}
@@ -167,7 +170,7 @@ QPushButton#sidebarAction {{ background: transparent; border: none; border-radiu
 QPushButton#sidebarAction:hover {{ background: transparent; }}
 QPushButton#sidebarAction:focus {{ outline: none; border: none; }}
 QPushButton#toolbarControl {{ padding: 0 14px; min-height: 32px; }}
-QPushButton#syncAction {{ background: {c['accent']}; color: {c['on_accent']}; border: 1px solid {c['accent']}; border-radius: 10px; padding: 0 14px; font-size: 13px; font-weight: 600; min-height: 32px; }}
+QPushButton#syncAction {{ background: {c['accent']}; color: {c['on_accent']}; border: 1px solid {c['accent']}; border-radius: 10px; padding: 0 14px; font-size: 14px; font-weight: 600; min-height: 36px; }}
 QPushButton#syncAction:hover {{ background: {accent_hover}; border-color: {accent_hover}; }}
 QPushButton#syncAction:pressed {{ background: {accent_pressed}; border-color: {accent_pressed}; }}
 QPushButton#syncAction:focus {{ outline: none; }}
@@ -175,9 +178,9 @@ QPushButton#syncAction:disabled {{ background: {c['inset']}; color: {c['disabled
 QPushButton#syncAction[collapsing="true"]:disabled {{ background: {c['accent']}; color: {c['on_accent']}; border-color: {c['accent']}; }}
 QPushButton#syncAction[shaped="true"], QPushButton#syncAction[shaped="true"]:disabled {{ background: transparent; border-color: transparent; color: {c['on_accent']}; }}
 QPushButton#primary[shaped="true"], QPushButton#primary[shaped="true"]:disabled, QPushButton#pauseControl[shaped="true"], QPushButton#pauseControl[shaped="true"]:disabled, QPushButton#stopControl[shaped="true"], QPushButton#stopControl[shaped="true"]:disabled {{ background: transparent; border-color: transparent; }}
-QLineEdit#materialSearch {{ background: {c['inset']}; border: 1px solid transparent; border-radius: 12px; padding: 0 16px; min-height: 36px; }}
+QLineEdit#materialSearch {{ background: {c['inset']}; border: 1px solid {c['border']}; border-radius: 10px; padding: 0 10px; min-height: 36px; }}
 QLineEdit#materialSearch:hover {{ background: {c['hover']}; }}
-QLineEdit#materialSearch:focus {{ background: {c['window']}; border: 1px solid {c['accent']}; padding: 0 16px; }}
+QLineEdit#materialSearch:focus {{ background: {c['window']}; border-color: {c['accent']}; }}
 QPushButton#exceptionDismiss {{ background: transparent; color: {c['muted']}; border: 1px solid {c['border']}; border-radius: 8px; padding: 0 8px; min-height: 22px; font-size: 12px; font-weight: 500; }}
 QPushButton#exceptionDismiss:hover {{ background: transparent; color: {c['text']}; }}
 QPushButton#exceptionDismiss:focus {{ outline: none; }}
@@ -318,9 +321,6 @@ class Theme(QObject):
         scheme = scheme if isinstance(scheme, Qt.ColorScheme) else self.app.styleHints().colorScheme()
         dark = self.mode == 'dark' or (self.mode == 'system' and scheme == Qt.ColorScheme.Dark)
         c = DARK if dark else LIGHT
-        if not self.native_backdrop:
-            # Keep inactive tabs and sync metadata legible on solid surfaces.
-            c = dict(c, faint='#919191' if dark else c['muted'])
         self.high_contrast = self.accessibility.contrastPreference() == Qt.ContrastPreference.HighContrast
         if self.high_contrast:
             system = self.app.style().standardPalette()
@@ -328,7 +328,7 @@ class Theme(QObject):
             for key, role in [('window', 'Window'), ('surface', 'Base'), ('elevated', 'Base'), ('card', 'Base'), ('field', 'Base'), ('inset', 'Window'), ('sidebar', 'Window'),
                               ('text', 'Text'), ('muted', 'Text'), ('faint', 'Text'), ('border', 'Text'), ('input_border', 'Text'), ('hover', 'AlternateBase'),
                               ('accent', 'Highlight'), ('accent_hover', 'Highlight'), ('on_accent', 'HighlightedText'), ('selection', 'Highlight'),
-                              ('selected_text', 'HighlightedText')]:
+                              ('selected_text', 'HighlightedText'), ('error', 'Text'), ('error_fill', 'Text')]:
                 c[key] = system.color(getattr(QPalette.ColorRole, role)).name()
         palette = QPalette()
         roles = {'Window':'window', 'WindowText':'text', 'Base':'window', 'AlternateBase':'inset',
