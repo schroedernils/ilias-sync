@@ -221,8 +221,8 @@ def test_local_dates_remain_correct_across_midnight_language_and_timezone(monkey
 def test_sync_arrow_spins_the_way_it_points(app):
     from ilias_sync.library_widgets import StatusMark
     mark = StatusMark(compact=True)
-    # The head points counter-clockwise, so the loop runs that way too.
-    assert mark._spin.endValue() < mark._spin.startValue()
+    # Lucide's rotate-cw leads with the tip when Qt rotates clockwise.
+    assert mark._spin.endValue() > mark._spin.startValue()
 
 
 def test_hiding_unavailable_paths_does_not_erase_incomplete_check_evidence():

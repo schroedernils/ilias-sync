@@ -2,12 +2,13 @@
 from pathlib import PurePosixPath
 
 from PySide6.QtCore import QEvent, QRect, QRectF, QSize, Qt, QVariantAnimation, Signal
-from PySide6.QtGui import QBrush, QColor, QFont, QFontMetrics, QPainterPath, QPalette, QPainter, QPen
+from PySide6.QtGui import QBrush, QColor, QFont, QFontMetrics, QPalette, QPainter, QPen
 from PySide6.QtWidgets import (QApplication, QBoxLayout, QFrame, QHBoxLayout, QLabel, QProgressBar, QSizePolicy, QStyle,
                               QStyledItemDelegate, QStyleOptionViewItem, QTableWidget, QVBoxLayout, QWidget,
                               QTreeWidget, QTreeWidgetItem, QPushButton, QToolTip)
 from PySide6.QtWidgets import QScrollArea
 
+from .branding import action_pixmap
 from .i18n import t
 from .hints import hint_text, set_hint
 from .motion import QuietDelegate, RowHover
@@ -357,9 +358,7 @@ class StatusMark(QWidget):
         self._spin = QVariantAnimation(self)
         self._spin.setDuration(1400)
         self._spin.setStartValue(0.0)
-        # Qt's rotate() turns clockwise. The arrow points the other way,
-        # so the spin runs counter-clockwise and the tip stays in front.
-        self._spin.setEndValue(-360.0)
+        self._spin.setEndValue(360.0)
         self._spin.setLoopCount(-1)
         self._spin.valueChanged.connect(self._turn)
         size = 32 if compact else 28
@@ -462,44 +461,13 @@ class StatusMark(QWidget):
         painter.drawLine(int(side * 0.44), int(side * 0.66), int(side * 0.72), int(side * 0.36))
 
     def _paint_sync(self, painter, color, angle):
-        import math
+        size = 18
+        pixmap = action_pixmap('rotate-cw', color.name(), size, self.devicePixelRatioF())
         painter.save()
-        painter.setRenderHint(QPainter.RenderHint.Antialiasing)
-        side = min(self.width(), self.height())
+        painter.setRenderHint(QPainter.RenderHint.SmoothPixmapTransform)
         painter.translate(self.width() / 2, self.height() / 2)
         painter.rotate(angle)
-        painter.scale(side / 20.0, side / 20.0)
-        radius = 4.15
-        head = 78
-        sweep = 268
-        rect = QRectF(-radius, -radius, radius * 2, radius * 2)
-        painter.setPen(QPen(color, 1.55, Qt.PenStyle.SolidLine, Qt.PenCapStyle.FlatCap, Qt.PenJoinStyle.MiterJoin))
-        painter.setBrush(Qt.BrushStyle.NoBrush)
-        painter.drawArc(rect, int((head - sweep) * 16), int(sweep * 16))
-        theta = math.radians(head)
-        on_x = radius * math.cos(theta)
-        on_y = -radius * math.sin(theta)
-        # Counter-clockwise tangent. The head continues the stroke instead of
-        # sitting on it as a wide wedge.
-        tangent_x = -math.sin(theta)
-        tangent_y = -math.cos(theta)
-        normal_x = -tangent_y
-        normal_y = tangent_x
-        wing = 1.8
-        back = 0.45
-        length = 3.85
-        base_x = on_x - tangent_x * back
-        base_y = on_y - tangent_y * back
-        tip_x = on_x + tangent_x * length
-        tip_y = on_y + tangent_y * length
-        path = QPainterPath()
-        path.moveTo(tip_x, tip_y)
-        path.lineTo(base_x + normal_x * wing, base_y + normal_y * wing)
-        path.lineTo(base_x - normal_x * wing, base_y - normal_y * wing)
-        path.closeSubpath()
-        painter.setPen(Qt.PenStyle.NoPen)
-        painter.setBrush(color)
-        painter.drawPath(path)
+        painter.drawPixmap(-size // 2, -size // 2, pixmap)
         painter.restore()
 
 

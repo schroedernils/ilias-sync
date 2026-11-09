@@ -1733,7 +1733,7 @@ class MainWindow(QMainWindow):
         self.file_search.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Fixed)
         self.file_search.textChanged.connect(self.search_files)
         source_heading.addWidget(self.file_search, 1, Qt.AlignmentFlag.AlignVCenter)
-        self.sync_button = RunButton('Sync now', self.request_sync, symbol='refresh')
+        self.sync_button = RunButton('Sync now', self.request_sync, symbol='rotate-cw')
         self.sync_button.setObjectName('syncAction')
         self.pause_button = RunButton('Pause', self.sync_or_pause, icon_only=True)
         self.pause_button.setObjectName('pauseControl')
