@@ -1,5 +1,12 @@
 # Changelog
 
+## 1.1.1 — 2026-11-10
+
+- Align synchronization status, progress and controls in a compact card across the workspace.
+- Use a single circular Lucide arrow for the sync action and the running indicator.
+- Give sign-in renewal and other guided fixes the primary action slot, with clear explanations and room for text to wrap.
+- Keep the last run and next scheduled check readable alongside the current state.
+
 ## 1.1.0 — 2026-11-08
 
 - Add opt-in automatic app-update checks and manual checks under Settings → Updates.
