@@ -17,6 +17,7 @@ def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--native', action='store_true', help='Capture real macOS compositor output.')
     parser.add_argument('--preview', action='store_true', help='Keep the isolated sample app open for review.')
+    parser.add_argument('--context-menu', action='store_true', help='Include the native recent-file context menu.')
     parser.add_argument('--language', choices=('en', 'de'), default='en')
     parser.add_argument('--output', type=Path, default=Path(__file__).resolve().parents[1] / 'docs/images')
     args = parser.parse_args()
@@ -27,7 +28,7 @@ def main():
             parser.error('--native requires macOS')
         os.environ['QT_QPA_PLATFORM'] = 'cocoa'
         os.environ.pop('QT_SCALE_FACTOR', None)
-    from PySide6.QtCore import QPoint, Qt
+    from PySide6.QtCore import QPoint, Qt, QTimer
     from PySide6.QtTest import QTest
     from PySide6.QtWidgets import QApplication, QMessageBox, QWidget
     from PySide6.QtGui import QFontDatabase
@@ -100,12 +101,13 @@ def main():
                 app.exec()
             return
 
-        def capture(widget, name):
-            widget.show()
-            if args.native:
-                widget.move(app.primaryScreen().availableGeometry().center() - widget.rect().center())
-            widget.raise_()
-            widget.activateWindow()
+        def capture(widget, name, *, activate=True):
+            if activate:
+                widget.show()
+                if args.native:
+                    widget.move(app.primaryScreen().availableGeometry().center() - widget.rect().center())
+                widget.raise_()
+                widget.activateWindow()
             QTest.qWait(180)
             if args.native:
                 point = widget.mapToGlobal(QPoint())
@@ -116,6 +118,11 @@ def main():
             assert surface.grab().save(str(output / name))
 
         capture(window, "app-dark.png")
+        if args.native and args.context_menu:
+            point = window.recent_files.visualItemRect(window.recent_files.item(0, 0)).center()
+            QTimer.singleShot(350, lambda: capture(window, 'recent-menu.png', activate=False))
+            QTimer.singleShot(800, lambda: app.activePopupWidget() and app.activePopupWidget().close())
+            window.recent_menu(point)
         app.theme.set_mode("light")
         capture(window, "app-light.png")
         app.theme.set_mode("dark")
