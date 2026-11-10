@@ -53,7 +53,7 @@ def main():
     notice_dir = notices()
     shutil.copytree(ROOT / 'build/updater-notices', notice_dir / 'updaters', dirs_exist_ok=True)
     icons = ROOT / "src/ilias_sync/assets/icons"
-    native_icon = (icons / "macOS/IliasSync-Dark.icns" if sys.platform == "darwin"
+    native_icon = (icons / "macOS/IliasSync-macOS.icns" if sys.platform == "darwin"
                    else windows_icon(icons, ROOT / "build/IliasSync.ico") if sys.platform == "win32"
                    else icons / "PNG/Dark/IliasSync-Dark-256.png")
     updater_binary = []

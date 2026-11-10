@@ -34,7 +34,7 @@ def app_icon():
     # Keep the OS identity independent of the in-app appearance preference.
     # In particular, don't replace macOS's Dock icon when a settings pane changes.
     if sys.platform == "darwin":
-        return QIcon(str(ICONS / "macOS/IliasSync-Dark.icns"))
+        return QIcon(str(ICONS / "macOS/IliasSync-macOS.icns"))
     icon = QIcon()
     for size in (16, 32, 64, 128, 256, 512, 1024):
         icon.addFile(str(ICONS / f"PNG/Dark/IliasSync-Dark-{size}.png"))
