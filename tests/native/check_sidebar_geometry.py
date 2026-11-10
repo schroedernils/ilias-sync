@@ -11,6 +11,7 @@ with tempfile.TemporaryDirectory(prefix='ilias-sidebar-state-') as temporary:
 
     from PySide6.QtCore import Qt
     from PySide6.QtGui import QFontDatabase
+    from PySide6.QtTest import QTest
     from PySide6.QtWidgets import QApplication
     from ilias_sync.gui import MainWindow, SettingsDialog, SourceDialog
     from ilias_sync.native_compat import protect_accessibility
@@ -41,6 +42,10 @@ with tempfile.TemporaryDirectory(prefix='ilias-sidebar-state-') as temporary:
     assert toggle.parentWidget() is window
     assert titlebar_controls_right(int(window.winId())) < toggle.x()
     assert toggle.geometry().bottom() < window.windowHandle().safeAreaMargins().top()
+    for sidebar_visible in (False, True):
+        QTest.mouseClick(window.windowHandle(), Qt.MouseButton.LeftButton, pos=toggle.geometry().center())
+        QTest.qWait(window.sidebar_animation.duration() + 35)
+        assert window.sidebar.isVisible() == sidebar_visible
 
     def check_titlebar(widget):
         image = widget.grab().toImage()

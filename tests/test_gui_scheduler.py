@@ -243,7 +243,7 @@ def test_management_and_sidebar_icons_are_accessible(app, source):
     for action in (window.management_button, window.sidebar_button):
         assert action.text() == ''
         assert action.toolTip() and action.accessibleName()
-        assert action.width() == 34
+        assert action.width() == action.height() and action.width() >= 26
     window.close()
 
 

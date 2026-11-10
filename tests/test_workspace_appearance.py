@@ -136,8 +136,9 @@ def test_sync_completion_keeps_chosen_sidebar_width(workspace, source, state, ex
     assert window.sidebar.width() == 420
 
 
-def test_sidebar_animates_and_reverses_without_saving_intermediate_width(workspace):
+def test_sidebar_animates_and_reverses_without_saving_intermediate_width(workspace, monkeypatch):
     from PySide6.QtCore import QAbstractAnimation
+    monkeypatch.setattr('ilias_sync.native_compat.prefers_reduced_motion', lambda: False)
 
     _, window = workspace
     window.split.moveSplitter(300, 1)
