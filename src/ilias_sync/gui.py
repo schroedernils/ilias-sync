@@ -105,8 +105,10 @@ class RunButton(FadeButton):
         colors = DARK if self.palette().color(QPalette.ColorRole.Text).lightness() > 128 else LIGHT
         contrast = getattr(getattr(QApplication.instance(), '_ilias_theme_manager', None), 'high_contrast', False)
         ink = self.palette().color(QPalette.ColorRole.HighlightedText).name() if contrast else colors['on_accent']
-        self.setIconSize(QSize(16, 16))
-        self.setIcon(QIcon(action_pixmap(self.symbol, ink, 16, self.devicePixelRatioF())))
+        # Qt adds four points after the icon; keep the arrow visually centered
+        # between the button edge and the label by adding eight more.
+        self.setIconSize(QSize(24, 16))
+        self.setIcon(QIcon(action_pixmap(self.symbol, ink, 16, self.devicePixelRatioF(), trailing=8)))
 
     def changeEvent(self, event):
         super().changeEvent(event)

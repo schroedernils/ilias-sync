@@ -12,10 +12,10 @@ ICONS = Path(__file__).resolve().parent / "assets" / "icons"
 
 
 @lru_cache(maxsize=128)
-def action_pixmap(name, color, size, ratio):
+def action_pixmap(name, color, size, ratio, *, trailing=0):
     svg = (ICONS / "actions" / (name + ".svg")).read_text().replace("currentColor", color)
     renderer = QSvgRenderer(svg.encode())
-    pixmap = QPixmap(round(size * ratio), round(size * ratio))
+    pixmap = QPixmap(round((size + trailing) * ratio), round(size * ratio))
     pixmap.setDevicePixelRatio(ratio)
     pixmap.fill(Qt.GlobalColor.transparent)
     painter = QPainter(pixmap)
