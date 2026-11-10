@@ -137,6 +137,7 @@ def main():
             assert surface.grab().save(str(output / name))
 
         if args.hero:
+            window.sources.select_scope(source.id)
             capture(window, 'app-macos.png', framed=True)
             window.close()
             backdrop.close()
