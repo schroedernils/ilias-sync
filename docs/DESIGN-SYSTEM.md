@@ -48,6 +48,6 @@ The system font, German by default, English from Settings. Names from the server
 
 ## Content
 
-The sidebar resizes live from 200 to 480px, while the content retains at least 500px. The divider is visible on hover and while dragging. Search adapts to the remaining width. Resizing repaints the translucent workspace, and the chosen sidebar width is restored with the window state.
+The sidebar resizes live from 200 to 480px, while the content retains at least 500px. The divider is visible on hover and while dragging. A quiet toggle sits next to the macOS window controls, or at the top left of the workspace on Windows, Linux and in macOS full screen. The pane eases open and closed without saving transient widths; the system's reduced-motion preference skips the transition where available. Search adapts to the remaining width. Resizing repaints the translucent workspace, and the chosen sidebar width is restored with the window state.
 
 Overview first. The recent-files card hugs its rows. The sync strip runs the full width to the sidebar edge and keeps a reserved gap under the status and buttons. The progress stroke is 4px and sits in that gap, so the line has room above and below without pushing the text. Notifications live in Settings, not on the start screen. Status copy is a short heading plus one fact. A missing local file says so and offers a repair, instead of failing silently.

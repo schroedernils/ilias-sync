@@ -154,10 +154,11 @@ class RunButton(FadeButton):
 
 
 class IconButton(FadeButton):
-    def __init__(self, name, symbol, callback, *, button_size=34, icon_size=18):
+    def __init__(self, name, symbol, callback, *, button_size=34, icon_size=18, quiet=False):
         super().__init__('')
         self.symbol = symbol
         self.icon_size = icon_size
+        self.quiet_icon = quiet
         self.setObjectName('iconControl')
         self.setAccessibleName(t(name))
         set_hint(self, t(name))
@@ -171,6 +172,8 @@ class IconButton(FadeButton):
         color = self.palette().color(QPalette.ColorRole.WindowText)
         if not self.isEnabled():
             color.setAlpha(90)
+        elif self.quiet_icon and not getattr(getattr(QApplication.instance(), 'theme', None), 'high_contrast', False):
+            color.setAlphaF(0.62 + 0.38 * self._hover)
         paint_action(p, self, self.symbol, color, self.icon_size)
 
 
@@ -1666,7 +1669,7 @@ class MainWindow(QMainWindow):
         split.setChildrenCollapsible(False)
         # Standard title bars sit outside the client area. Only Cocoa's
         # expanded client area needs room for the overlaid title-bar controls.
-        top_inset = 38 if uses_native_backdrop(QApplication.instance()) else 16
+        top_inset = 30 if uses_native_backdrop(QApplication.instance()) else 12
         left = SurfaceFrame()
         left.setObjectName('sidebar')
         left.setMinimumWidth(200)
@@ -1704,10 +1707,11 @@ class MainWindow(QMainWindow):
         column.setContentsMargins(0, 0, 0, 0)
         column.setSpacing(0)
         self.sidebar_toolbar = QWidget()
-        toolbar = QHBoxLayout(self.sidebar_toolbar)
-        toolbar.setContentsMargins(8, 4, 0, 0)
-        self.sidebar_button = IconButton('Hide sidebar', 'sidebar', self.toggle_sidebar, button_size=30, icon_size=14)
-        toolbar.addWidget(self.sidebar_button, alignment=Qt.AlignmentFlag.AlignLeft)
+        self.sidebar_tools = QHBoxLayout(self.sidebar_toolbar)
+        self.sidebar_tools.setContentsMargins(4, 4, 0, 0)
+        self.sidebar_button = IconButton('Hide sidebar', 'sidebar', self.toggle_sidebar,
+                                         button_size=30, icon_size=14, quiet=True)
+        self.sidebar_tools.addWidget(self.sidebar_button, alignment=Qt.AlignmentFlag.AlignLeft)
         column.addWidget(self.sidebar_toolbar)
         body = QWidget()
         content = QVBoxLayout(body)
@@ -1927,6 +1931,10 @@ class MainWindow(QMainWindow):
         sidebar_width = max(200, min(480, self.view_state.get('sidebar_width', 272)))
         split.setSizes([sidebar_width, max(500, self.width() - sidebar_width - split.handleWidth())])
         split.splitterMoved.connect(self.sidebar_resized)
+        self.sidebar_animation = QVariantAnimation(self)
+        self.sidebar_animation.setEasingCurve(QEasingCurve.Type.InOutCubic)
+        self.sidebar_animation.valueChanged.connect(self._apply_sidebar_width)
+        self.sidebar_animation.finished.connect(self._finish_sidebar_transition)
         page.addWidget(split, 1)
         self.setCentralWidget(container)
         self.shortcuts = []
@@ -1962,6 +1970,7 @@ class MainWindow(QMainWindow):
         self.timeout.timeout.connect(self.timeout_job)
         self.populate()
         self.sidebar.setVisible(bool(self.settings.sources()) and not self.view_state.get('sidebar_hidden', False))
+        self._update_sidebar_action()
         if not self.settings.sources():
             self.setMinimumSize(620, 390)
             self.resize(660, 420)
@@ -2218,6 +2227,12 @@ class MainWindow(QMainWindow):
 
     def showEvent(self, event):
         super().showEvent(event)
+        if uses_native_backdrop(QApplication.instance()):
+            handle = self.windowHandle()
+            if handle and getattr(self, '_titlebar_window', None) is not handle:
+                self._titlebar_window = handle
+                handle.safeAreaMarginsChanged.connect(self._place_sidebar_button)
+            self._place_sidebar_button()
         if getattr(self, '_notification_status_checked', False):
             return
         self._notification_status_checked = True
@@ -2309,7 +2324,7 @@ class MainWindow(QMainWindow):
         self.source_title.setAlignment(Qt.AlignmentFlag.AlignHCenter if not has_sources else Qt.AlignmentFlag.AlignLeft)
         self.source_host.setAlignment(Qt.AlignmentFlag.AlignHCenter if not has_sources else Qt.AlignmentFlag.AlignLeft)
         self.destination.hide()
-        self.sidebar_toolbar.setVisible(has_sources)
+        self._show_sidebar_button(has_sources)
         self.management_button.setVisible(has_sources)
         for widget in (self.sync_footer, self.files, self.library_widget, self.library_footer, self.sync_button):
             widget.setVisible(has_sources)
@@ -2492,7 +2507,7 @@ class MainWindow(QMainWindow):
             self.file_search.setMaximumWidth(maximum)
 
     def sidebar_resized(self, *_):
-        if self.sidebar.isVisible():
+        if self.sidebar.isVisible() and self.sidebar_animation.state() != QVariantAnimation.State.Running:
             self.view_state['sidebar_width'] = self.sidebar.width()
         self.adapt_columns()
         # Moving translucent panes must invalidate their old positions as well.
@@ -2902,14 +2917,77 @@ class MainWindow(QMainWindow):
         self.report_source.currentIndexChanged.connect(lambda *_: self.build_report(self.report_source.currentData()))
 
     def toggle_sidebar(self):
-        visible = not self.sidebar.isVisible()
-        self.sidebar.setVisible(visible)
-        self.view_state['sidebar_hidden'] = not visible
-        name = t('Hide sidebar') if visible else t('Show sidebar')
+        if not self.libraries:
+            return
+        from .native_compat import prefers_reduced_motion
+        show = self.view_state.get('sidebar_hidden', False)
+        self.view_state['sidebar_hidden'] = not show
+        self._update_sidebar_action()
+        self.sidebar_animation.stop()
+        start = self.sidebar.width() if self.sidebar.isVisible() else 0
+        end = self._sidebar_target_width() if show else 0
+        self.sidebar.setMinimumWidth(1)
+        self.sidebar.show()
+        self._apply_sidebar_width(start)
+        if start == end or prefers_reduced_motion():
+            self._finish_sidebar_transition()
+            return
+        # Reversals start at the live width. Never store an intermediate frame.
+        self.sidebar_animation.setDuration(max(100, min(240, round(abs(end - start) * 240 / max(start, end)))))
+        self.sidebar_animation.setStartValue(start)
+        self.sidebar_animation.setEndValue(end)
+        self.sidebar_animation.start()
+
+    def _sidebar_target_width(self):
+        available = self.split.width() - 10 - self.split.widget(1).minimumWidth()
+        return min(max(200, min(480, self.view_state.get('sidebar_width', 272))), max(1, available))
+
+    def _apply_sidebar_width(self, width):
+        width = min(max(1, int(width)), self._sidebar_target_width())
+        self.split.setHandleWidth(min(10, width))
+        self.split.setSizes([width, self.split.width() - width - self.split.handleWidth()])
+        self.update()
+
+    def _finish_sidebar_transition(self):
+        show = not self.view_state.get('sidebar_hidden', False)
+        self.sidebar.setVisible(show)
+        self.split.setHandleWidth(10)
+        self.sidebar.setMinimumWidth(200)
+        if show:
+            self._apply_sidebar_width(self._sidebar_target_width())
+        self.adapt_columns()
+        self.update()
+
+    def _update_sidebar_action(self):
+        name = t('Show sidebar') if self.view_state.get('sidebar_hidden', False) else t('Hide sidebar')
         set_hint(self.sidebar_button, name)
         self.sidebar_button.setAccessibleName(name)
         self.sidebar_action.setText(name)
-        self.adapt_columns()
+
+    def _show_sidebar_button(self, has_sources):
+        self.sidebar_toolbar.setVisible(has_sources and self.sidebar_button.parentWidget() is self.sidebar_toolbar)
+        self.sidebar_button.setVisible(has_sources)
+
+    def _place_sidebar_button(self, *_):
+        from .native_compat import titlebar_controls_right
+        handle = self.windowHandle()
+        title_height = handle.safeAreaMargins().top() if handle else 0
+        right = titlebar_controls_right(int(self.winId())) if title_height >= 26 else 0
+        native = right > 0
+        button = self.sidebar_button
+        if native:
+            if button.parentWidget() is not self:
+                self.sidebar_tools.removeWidget(button)
+                button.setParent(self)
+                button.setFixedSize(26, 26)
+            button.move(right + 6, (title_height - button.height()) // 2)
+            button.raise_()
+        elif button.parentWidget() is self:
+            button.setParent(self.sidebar_toolbar)
+            button.setFixedSize(30, 30)
+            self.sidebar_tools.addWidget(button, alignment=Qt.AlignmentFlag.AlignLeft)
+        self.content_layout.setContentsMargins(WORKSPACE_GUTTER, 34 if native and self.libraries else 4, WORKSPACE_GUTTER, 0)
+        self._show_sidebar_button(bool(self.libraries))
 
     def edit_source(self, identity):
         if self.process or self.run_info:

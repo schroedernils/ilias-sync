@@ -34,3 +34,28 @@ def blur_window(view_id, tint='#181818'):
         return bool(function(ctypes.c_void_p(view_id), color.red(), color.green(), color.blue()))
     except (OSError, AttributeError):
         return False
+
+
+def titlebar_controls_right(view_id):
+    if _library is None or not view_id:
+        return 0
+    function = getattr(_library, 'ilias_titlebar_controls_right', None)
+    if function is None:
+        return 0
+    function.argtypes = [ctypes.c_void_p]
+    function.restype = ctypes.c_int
+    return function(view_id)
+
+
+def prefers_reduced_motion():
+    if _library is not None:
+        function = getattr(_library, 'ilias_reduce_motion', None)
+        if function is not None:
+            function.argtypes = []
+            function.restype = ctypes.c_int
+            return bool(function())
+    if sys.platform == 'win32':
+        enabled = ctypes.c_int()
+        if ctypes.windll.user32.SystemParametersInfoW(0x1042, 0, ctypes.byref(enabled), 0):  # SPI_GETCLIENTAREAANIMATION
+            return not enabled.value
+    return False

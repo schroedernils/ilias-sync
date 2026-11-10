@@ -38,6 +38,25 @@ extern "C" int ilias_set_window_appearance(void *nativeView, int dark)
     }
 }
 
+extern "C" int ilias_titlebar_controls_right(void *nativeView)
+{
+    @autoreleasepool {
+        NSView *view = (NSView *)nativeView;
+        NSWindow *window = view.window;
+        if (!window || (window.styleMask & NSWindowStyleMaskFullScreen))
+            return 0;
+        NSButton *zoom = [window standardWindowButton:NSWindowZoomButton];
+        if (!zoom.superview || zoom.hidden)
+            return 0;
+        return (int)NSMaxX([view convertRect:zoom.bounds fromView:zoom]);
+    }
+}
+
+extern "C" int ilias_reduce_motion()
+{
+    return [NSWorkspace sharedWorkspace].accessibilityDisplayShouldReduceMotion;
+}
+
 static NSView *labeled(NSView *host, NSString *name)
 {
     for (NSView *subview in host.subviews) {

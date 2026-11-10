@@ -14,6 +14,7 @@ with tempfile.TemporaryDirectory(prefix='ilias-sidebar-state-') as temporary:
     from PySide6.QtWidgets import QApplication
     from ilias_sync.gui import MainWindow, SettingsDialog, SourceDialog
     from ilias_sync.native_compat import protect_accessibility
+    from ilias_sync.native_compat import titlebar_controls_right
     from ilias_sync.storage import Settings, Source, data_dir, write_json
     from ilias_sync.theme import Theme
 
@@ -36,6 +37,10 @@ with tempfile.TemporaryDirectory(prefix='ilias-sidebar-state-') as temporary:
     app.processEvents()
     hints = Qt.WindowType.ExpandedClientAreaHint | Qt.WindowType.NoTitleBarBackgroundHint
     assert window.windowFlags() & hints == hints
+    toggle = window.sidebar_button
+    assert toggle.parentWidget() is window
+    assert titlebar_controls_right(int(window.winId())) < toggle.x()
+    assert toggle.geometry().bottom() < window.windowHandle().safeAreaMargins().top()
 
     def check_titlebar(widget):
         image = widget.grab().toImage()

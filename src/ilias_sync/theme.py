@@ -129,7 +129,7 @@ QLabel#eyebrow, QLabel#subtitle {{ color: {c['muted']}; }}
 QLabel#eyebrow {{ font-size: 13px; font-weight: 400; }}
 QLabel#title {{ font-size: 22px; font-weight: 600; }}
 QMainWindow QLabel#title {{ font-size: 20px; font-weight: 600; }}
-QLabel#appTitle {{ font-size: 14px; font-weight: 600; }}
+QLabel#appTitle {{ font-size: 15px; font-weight: 600; }}
 QLabel#sidebarNote {{ color: {c['muted']}; font-size: 13px; }}
 QLabel#statusTitle {{ font-size: 14px; font-weight: 600; }}
 QLabel#statusMeta {{ color: {c['faint']}; font-size: 12px; }}

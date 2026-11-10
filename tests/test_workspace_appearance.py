@@ -136,6 +136,26 @@ def test_sync_completion_keeps_chosen_sidebar_width(workspace, source, state, ex
     assert window.sidebar.width() == 420
 
 
+def test_sidebar_animates_and_reverses_without_saving_intermediate_width(workspace):
+    from PySide6.QtCore import QAbstractAnimation
+
+    _, window = workspace
+    window.split.moveSplitter(300, 1)
+    window.toggle_sidebar()
+    motion = window.sidebar_animation
+    assert motion.state() == QAbstractAnimation.State.Running
+    motion.setCurrentTime(motion.duration() // 2)
+    width = window.sidebar.width()
+    assert 1 < width < 300
+    assert window.view_state['sidebar_width'] == 300
+    window.toggle_sidebar()
+    assert window.sidebar.width() == width
+    motion.setCurrentTime(motion.duration())
+    assert window.sidebar.width() == 300
+    assert window.sidebar.minimumWidth() == 200
+    assert window.split.handleWidth() == 10
+
+
 def test_language_change_keeps_sidebar_width_in_replacement_window(workspace):
     from unittest.mock import patch
     app, window = workspace
