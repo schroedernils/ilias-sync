@@ -45,7 +45,7 @@ with tempfile.TemporaryDirectory(prefix='ilias-sidebar-state-') as temporary:
         x, edge = image.width() - round(12 * scale), round(inset * scale)
         title = image.pixelColor(x, edge - 1).alpha()
         content = image.pixelColor(x, edge).alpha()
-        assert 70 < title < 145 and 210 < content < 235, (title, content)
+        assert 70 < title <= content - 40 and 210 < content < 235, (title, content)
 
     preferences = SettingsDialog(Settings(), window)
     setup = SourceDialog(Settings(), source)

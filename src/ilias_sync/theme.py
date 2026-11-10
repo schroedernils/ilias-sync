@@ -21,7 +21,7 @@ DARK = dict(window='#181818', surface='#181818', elevated='#1e1e1e', inset='#202
 
 # Frosted surfaces rely on the native Cocoa backdrop.
 FROST = 0.87
-TITLEBAR_OPACITY = 0.54
+TITLEBAR_OPACITY = 0.62
 MENU_OPACITY = 0.98
 WORKSPACE_GUTTER = 22
 CARD_INSET = 14
