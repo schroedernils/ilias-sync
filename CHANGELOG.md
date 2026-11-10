@@ -1,5 +1,12 @@
 # Changelog
 
+## 1.1.2 — 2026-11-10
+
+- Fix macOS update controls that could stop responding when opened from Settings.
+- Show formatted release notes and offer a manual download link in Update settings.
+- Align the macOS Dock icon footprint with standard system icons.
+- Keep the next scheduled check visible after a scheduled run was skipped on battery power.
+
 ## 1.1.1 — 2026-11-10
 
 - Align synchronization status, progress and controls in a compact card across the workspace.
