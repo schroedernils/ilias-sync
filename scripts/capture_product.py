@@ -17,12 +17,15 @@ def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--native', action='store_true', help='Capture real macOS compositor output.')
     parser.add_argument('--preview', action='store_true', help='Keep the isolated sample app open for review.')
+    parser.add_argument('--hero', action='store_true', help='Capture only the full macOS window with a framed background.')
     parser.add_argument('--context-menu', action='store_true', help='Include the native recent-file context menu.')
     parser.add_argument('--language', choices=('en', 'de'), default='en')
     parser.add_argument('--output', type=Path, default=Path(__file__).resolve().parents[1] / 'docs/images')
     args = parser.parse_args()
     if args.preview and not args.native:
         parser.error('--preview requires --native')
+    if args.hero and (not args.native or args.preview or args.context_menu):
+        parser.error('--hero requires --native and cannot be combined with --preview or --context-menu')
     if args.native:
         if sys.platform != 'darwin':
             parser.error('--native requires macOS')
@@ -51,6 +54,8 @@ def main():
         names_by_language = (['Programming and Software Engineering', 'Computer Architecture', 'Discrete Mathematics']
                              if args.language == 'en' else ['Programmierung und Softwareentwicklung',
                              'Technische Grundlagen der Informatik', 'Logik und diskrete Strukturen'])
+        if args.hero:
+            names_by_language[0] = 'Software Engineering' if args.language == 'en' else 'Softwareentwicklung'
         courses = [{"id": f"crs-{index}", "name": name, "url": source.url + f"/go/crs/{index}"}
                    for index, name in enumerate(names_by_language, 1)]
         write_json(state / "courses.json", courses)
@@ -59,6 +64,8 @@ def main():
                  ("Programming/Exercises/Exercise Sheet 01.pdf", "crs-1/Exercises/Exercise Sheet 01.pdf", "crs-1", 285000),
                  ("Architecture/Lectures/01 Number Systems.pdf", "crs-2/Lectures/01 Number Systems.pdf", "crs-2", 2160000),
                  ("Mathematics/Exercises/Exercise Sheet 01.pdf", "crs-3/Exercises/Exercise Sheet 01.pdf", "crs-3", 180000)]
+        if args.hero:
+            names = [names[index] for index in (1, 4, 3, 0, 2)]
         write_json(state / "manifest.json", {"schema": 1, "files": {
             f"file:{index}": {"path": path, "logical": logical, "course_id": course,
                               "target_stat": [size], "size": size, "changed_at": time.time() - index * 3600, "change": "added",
@@ -75,14 +82,18 @@ def main():
         backdrop = None
         if args.native and not args.preview:
             # Keep private desktop contents out of public compositor captures.
+            stops = ('stop:0 #536577, stop:0.53 #343b50, stop:1 #465852' if args.hero else
+                     'stop:0 #26373b, stop:0.5 #22272e, stop:1 #37303b')
             backdrop = QWidget(None, Qt.WindowType.FramelessWindowHint)
-            backdrop.setStyleSheet('background: qlineargradient(x1:0,y1:0,x2:1,y2:1,'
-                                  'stop:0 #26373b, stop:0.5 #22272e, stop:1 #37303b);')
+            backdrop.setStyleSheet(f'background: qlineargradient(x1:0,y1:0,x2:1,y2:1,{stops});')
             backdrop.setGeometry(app.primaryScreen().availableGeometry().adjusted(2, 2, -2, -2))
             backdrop.show()
         window = MainWindow()
-        window.resize(980, 700)
         available = app.primaryScreen().availableGeometry()
+        if args.hero:
+            window.resize(min(980, available.width() - 168), min(640, available.height() - 128))
+        else:
+            window.resize(980, 700)
         window.move(available.center() - window.rect().center())
         window.show()
         if args.preview:
@@ -101,7 +112,7 @@ def main():
                 app.exec()
             return
 
-        def capture(widget, name, *, activate=True):
+        def capture(widget, name, *, activate=True, framed=False):
             if activate:
                 widget.show()
                 if args.native:
@@ -110,12 +121,26 @@ def main():
                 widget.activateWindow()
             QTest.qWait(180)
             if args.native:
-                point = widget.mapToGlobal(QPoint())
-                region = f'{point.x()},{point.y()},{widget.width()},{widget.height()}'
+                bounds = widget.rect().translated(widget.mapToGlobal(QPoint()))
+                if framed:
+                    safe = backdrop.geometry()
+                    horizontal = min(80, bounds.left() - safe.left(), safe.right() - bounds.right())
+                    vertical = min(60, bounds.top() - safe.top(), safe.bottom() - bounds.bottom())
+                    if min(horizontal, vertical) < 24:
+                        raise RuntimeError('The display is too small to safely frame the whole window.')
+                    bounds.adjust(-horizontal, -vertical, horizontal, vertical)
+                region = f'{bounds.x()},{bounds.y()},{bounds.width()},{bounds.height()}'
                 subprocess.run(['/usr/sbin/screencapture', '-x', '-R' + region, str(output / name)], check=True)
                 return
             surface = widget.centralWidget() if isinstance(widget, MainWindow) else widget
             assert surface.grab().save(str(output / name))
+
+        if args.hero:
+            capture(window, 'app-macos.png', framed=True)
+            window.close()
+            backdrop.close()
+            print('Framed macOS screenshot written to', output / 'app-macos.png')
+            return
 
         capture(window, "app-dark.png")
         if args.native and args.context_menu:
