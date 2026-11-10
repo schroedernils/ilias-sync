@@ -10,7 +10,9 @@ import json
 import os
 from pathlib import Path
 import re
+from shutil import copyfile
 import xml.etree.ElementTree as ET
+from zipfile import ZIP_DEFLATED, ZipFile
 
 from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PrivateKey
 from markdown_it import MarkdownIt
@@ -24,6 +26,7 @@ PACKAGE_SUFFIXES = (
     'Windows-x64.zip', 'Linux-x64.deb', 'Linux-x64.tar.gz',
 )
 FEED_NAMES = ('macOS-arm64.xml', 'macOS-x64.xml', 'windows-x64.xml', 'linux-x64.json', 'linux-x64.json.sig')
+VERIFICATION_ARCHIVE = 'IliasSync-package-verification.zip'
 
 ET.register_namespace('sparkle', SPARKLE_NAMESPACE)
 
@@ -49,10 +52,43 @@ def package_names(version: str) -> tuple[str, ...]:
 
 
 def release_asset_names(version: str) -> set[str]:
-    names = package_names(version)
-    return set(names) | {name + suffix for name in names for suffix in ('.sha256', '.sig')} | set(FEED_NAMES) | {
-        'SHA256SUMS',
-    }
+    return set(package_names(version)) | set(FEED_NAMES) | {'SHA256SUMS', VERIFICATION_ARCHIVE}
+
+
+def stage_release_assets(assets: Path, destination: Path, version: str) -> None:
+    """Bundle optional sidecars while preserving every URL used by installed apps."""
+    public = release_asset_names(version) - {VERIFICATION_ARCHIVE}
+    sidecars = {name + suffix for name in package_names(version) for suffix in ('.sha256', '.sig')}
+    expected = public | sidecars
+    if ({path.name for path in assets.iterdir()} != expected
+            or any((assets / name).is_symlink() or not (assets / name).is_file() for name in expected)):
+        raise FeedError('Signed release asset set is incomplete or unexpected')
+    destination.mkdir()
+    for name in sorted(public):
+        copyfile(assets / name, destination / name)
+    with ZipFile(destination / VERIFICATION_ARCHIVE, 'x', compression=ZIP_DEFLATED) as archive:
+        for name in sorted(sidecars):
+            archive.writestr(name, (assets / name).read_bytes())
+
+
+def release_download_links(version: str) -> str:
+    package_names(version)
+    base = f'{REPOSITORY_URL}/releases/download/v{version}'
+
+    def link(label: str, suffix: str) -> str:
+        return f'[{label}]({base}/IliasSync-{version}-{suffix})'
+
+    return '\n'.join([
+        '## Download IliasSync', '',
+        f'- **macOS:** {link("Apple silicon", "macOS-arm64.dmg")} · {link("Intel", "macOS-x64.dmg")}',
+        f'- **Windows:** {link("64-bit installer", "Windows-x64-Setup.exe")}',
+        f'- **Linux:** {link("64-bit Debian/Ubuntu package", "Linux-x64.deb")}', '',
+        '<details>', '<summary>Portable downloads and verification</summary>', '',
+        f'- {link("Windows portable ZIP", "Windows-x64.zip")}',
+        f'- {link("Linux portable archive", "Linux-x64.tar.gz")}',
+        f'- [SHA-256 checksums]({base}/SHA256SUMS) · [Package signatures and individual checksums]({base}/{VERIFICATION_ARCHIVE})',
+        '', '</details>', '',
+    ])
 
 
 def _decode_key(value: str, label: str) -> bytes:

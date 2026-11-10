@@ -9,6 +9,7 @@ import subprocess
 import sys
 from types import SimpleNamespace
 import xml.etree.ElementTree as ET
+from zipfile import ZipFile
 
 import pytest
 from cryptography.exceptions import InvalidSignature
@@ -67,13 +68,21 @@ def signature(path):
     return base64.b64decode(path.read_bytes().strip(), validate=True)
 
 
-def remote_release(release):
+@pytest.fixture
+def staged_release(release, tmp_path):
+    generate(release)
+    public = tmp_path / 'public-release'
+    feeds.stage_release_assets(release.assets, public, VERSION)
+    return public
+
+
+def remote_release(public):
     return {
         'draft': True, 'prerelease': False, 'tag_name': f'v{VERSION}', 'target_commitish': SOURCE_SHA,
         'assets': [
             {'name': path.name, 'state': 'uploaded', 'size': path.stat().st_size,
              'digest': 'sha256:' + hashlib.sha256(path.read_bytes()).hexdigest()}
-            for path in release.assets.iterdir()
+            for path in public.iterdir()
         ],
     }
 
@@ -278,16 +287,40 @@ def test_sparkle_signed_feed_covers_exact_original_xml_bytes(release, feed):
         Ed25519PrivateKey.from_private_bytes(b'x' * 32).public_key().verify(base64.b64decode(encoded_sig), original)
 
 
-def test_complete_draft_passes_uploaded_byte_verification(release):
+def test_public_downloads_keep_updater_urls_and_bundle_only_optional_sidecars(release, staged_release):
+    required = {f'IliasSync-{VERSION}-{suffix}' for suffix in SUFFIXES} | {
+        'macOS-arm64.xml', 'macOS-x64.xml', 'windows-x64.xml', 'linux-x64.json', 'linux-x64.json.sig', 'SHA256SUMS',
+    }
+    assert {path.name for path in staged_release.iterdir()} == required | {'IliasSync-package-verification.zip'}
+    for name in required:
+        assert (staged_release / name).read_bytes() == (release.assets / name).read_bytes()
+    with ZipFile(staged_release / 'IliasSync-package-verification.zip') as archive:
+        assert len(archive.namelist()) == 12
+        for suffix in SUFFIXES:
+            for extension in ('.sha256', '.sig'):
+                name = f'IliasSync-{VERSION}-{suffix}{extension}'
+                assert archive.read(name) == (release.assets / name).read_bytes()
+    notes = feeds.release_download_links(VERSION)
+    assert all(f'/releases/download/v{VERSION}/IliasSync-{VERSION}-{suffix})' in notes for suffix in SUFFIXES)
+
+
+def test_staging_rejects_incomplete_signature_set(release, tmp_path):
     generate(release)
-    feeds.verify_uploaded_assets(release.assets, VERSION, SOURCE_SHA, remote_release(release))
+    next(release.assets.glob('*.dmg.sig')).unlink()
+    target = tmp_path / 'public-release'
+    with pytest.raises(feeds.FeedError, match='incomplete'):
+        feeds.stage_release_assets(release.assets, target, VERSION)
+    assert not target.exists()
+
+
+def test_complete_draft_passes_uploaded_byte_verification(staged_release):
+    feeds.verify_uploaded_assets(staged_release, VERSION, SOURCE_SHA, remote_release(staged_release))
 
 
 @pytest.mark.parametrize('problem', ['missing', 'duplicate', 'extra', 'starter', 'size', 'digest', 'no-digest',
                                    'published', 'prerelease', 'tag', 'source'])
-def test_incomplete_or_tampered_uploaded_release_cannot_pass_publish_gate(release, problem):
-    generate(release)
-    remote = deepcopy(remote_release(release))
+def test_incomplete_or_tampered_uploaded_release_cannot_pass_publish_gate(staged_release, problem):
+    remote = deepcopy(remote_release(staged_release))
     if problem == 'missing':
         remote['assets'].pop()
     elif problem == 'duplicate':
@@ -311,16 +344,15 @@ def test_incomplete_or_tampered_uploaded_release_cannot_pass_publish_gate(releas
     else:
         remote['target_commitish'] = 'b' * 40
     with pytest.raises(feeds.FeedError):
-        feeds.verify_uploaded_assets(release.assets, VERSION, SOURCE_SHA, remote)
+        feeds.verify_uploaded_assets(staged_release, VERSION, SOURCE_SHA, remote)
 
 
-def test_local_tampering_after_upload_fails_publish_gate(release):
-    generate(release)
-    remote = remote_release(release)
-    path = release.assets / 'linux-x64.json'
+def test_local_tampering_after_upload_fails_publish_gate(staged_release):
+    remote = remote_release(staged_release)
+    path = staged_release / 'linux-x64.json'
     path.write_bytes(path.read_bytes() + b' ')
     with pytest.raises(feeds.FeedError):
-        feeds.verify_uploaded_assets(release.assets, VERSION, SOURCE_SHA, remote)
+        feeds.verify_uploaded_assets(staged_release, VERSION, SOURCE_SHA, remote)
 
 
 def test_output_symlink_is_rejected_before_any_generated_file_is_written(release, tmp_path):

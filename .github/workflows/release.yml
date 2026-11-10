@@ -92,16 +92,29 @@ jobs:
         run: |
           python scripts/update_feeds.py --assets release-assets --version "$VERSION" \
             --public-key updates/public-key.txt --release-notes "docs/releases/$VERSION.md"
-      - name: Create draft and upload all release assets
+      - name: Group release downloads and verification files
+        env:
+          VERSION: ${{ steps.package.outputs.version }}
+        run: |
+          python - <<'PY'
+          import os
+          from pathlib import Path
+          from scripts.update_feeds import release_download_links, stage_release_assets
+          version = os.environ['VERSION']
+          stage_release_assets(Path('release-assets'), Path('public-release'), version)
+          notes = Path(f'docs/releases/{version}.md').read_text(encoding='utf-8')
+          Path('/tmp/release-notes.md').write_text(release_download_links(version) + '\n' + notes, encoding='utf-8')
+          PY
+      - name: Create draft and upload public release assets
         env:
           GH_TOKEN: ${{ github.token }}
           SOURCE_SHA: ${{ steps.source.outputs.sha }}
           VERSION: ${{ steps.package.outputs.version }}
         run: |
-          gh release create "v$VERSION" release-assets/* \
+          gh release create "v$VERSION" public-release/* \
             --target "$SOURCE_SHA" --draft \
             --title "IliasSync $VERSION" \
-            --notes-file "docs/releases/$VERSION.md"
+            --notes-file /tmp/release-notes.md
       - name: Verify uploaded draft before publishing
         env:
           GH_TOKEN: ${{ github.token }}
@@ -115,7 +128,7 @@ jobs:
           import json, os
           from pathlib import Path
           from scripts.update_feeds import verify_uploaded_assets
-          verify_uploaded_assets(Path('release-assets'), os.environ['VERSION'], os.environ['SOURCE_SHA'],
+          verify_uploaded_assets(Path('public-release'), os.environ['VERSION'], os.environ['SOURCE_SHA'],
                                  json.loads(Path('/tmp/draft-release.json').read_text()))
           PY
       - name: Publish complete stable release

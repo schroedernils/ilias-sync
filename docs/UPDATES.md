@@ -86,11 +86,11 @@ The build/development environment and Linux verifier require
 ## Signatures and feed formats
 
 Every one of the six packages (both DMGs, Windows Setup and portable ZIP, Linux
-DEB and portable tarball) receives a `<package-name>.sig` asset containing a
+DEB and portable tarball) receives a `<package-name>.sig` file containing a
 base64-encoded 64-byte signature plus a newline. Signatures use **pure Ed25519 on
-the exact package bytes**, with no prehash. Existing `.sha256` sidecars and the
-combined `SHA256SUMS` remain available. SHA-256 checksums alone do not authenticate
-a release.
+the exact package bytes**, with no prehash. Per-package `.sig` and `.sha256`
+files are grouped in `IliasSync-package-verification.zip`; the combined
+`SHA256SUMS` is also available directly. SHA-256 checksums alone do not authenticate a release.
 
 XML uses the namespace
 `http://www.andymatuschak.org/xml-namespaces/sparkle`. Each enclosure includes the
@@ -152,7 +152,7 @@ Ed25519 signature before handing the package to the system installer. Reject
 older/equal versions and all verification failures. If a newer release becomes
 latest between the JSON and signature requests, the pair may mismatch; fail
 closed and retry on a later check. Linux's portable archive remains a browser
-download, with its package `.sig` available separately.
+download, with its package `.sig` in the verification ZIP.
 
 ## Publishing procedure
 
@@ -169,9 +169,11 @@ run ID. The release workflow:
 3. Validates the signing seed against the checked-out public key, rechecks every
    package checksum, and generates the feeds and signatures in `release-assets`.
    All keys and package inputs pass before any generated file is written.
-4. Creates a **draft** release at the source SHA and uploads all 24 assets:
-   six packages, six `.sha256` files, six package `.sig` files, `SHA256SUMS`, three
-   XML feeds, Linux JSON and its detached signature.
+4. Stages 13 downloads: six packages, `SHA256SUMS`, the verification ZIP and
+   five feed files (three XML feeds, Linux JSON and its detached signature).
+   The feed names, URLs and bytes stay compatible with installed versions.
+   Creates a **draft** at the source SHA with the platform installers linked
+   first and portable packages and verification links under an expandable section.
 5. Requires the stable draft's tag/source metadata and complete asset set to
    match. Resolves the draft's numeric ID with `gh release view` (the REST
    by-tag endpoint only promises published releases), then checks every uploaded asset's state, size and
