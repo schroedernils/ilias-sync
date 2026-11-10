@@ -82,18 +82,20 @@ def macos(root, key):
                 info.update(CFBundleVersion='0.0.1', CFBundleShortVersionString='0.0.1', CFBundleExecutable='UpdateProbe')
             path.write_bytes(plistlib.dumps(info))
         executable = old / 'Contents/MacOS/UpdateProbe'
-        subprocess.run(['xcrun', 'clang++', '-fobjc-arc', '-mmacosx-version-min=13.0', '-framework', 'AppKit',
+        subprocess.run(['xcrun', 'clang++', '-std=c++17', '-fobjc-arc', '-mmacosx-version-min=13.0', '-framework', 'AppKit',
+                        '-I', str(ROOT / 'src/ilias_sync/native'),
                         '-F' + str(sdk), '-framework', 'Sparkle', '-Wl,-rpath,@executable_path/../Frameworks',
                         '-o', str(executable), str(ROOT / 'tests/native/update_install_probe.mm')], check=True)
         for app in (old, new):
             subprocess.run(['codesign', '--force', '--deep', '--sign', '-', str(app)], check=True)
-        package = root / 'update.zip'
-        subprocess.run(['ditto', '-c', '-k', '--sequesterRsrc', '--keepParent', str(new), str(package)], check=True)
+        package = root / 'update.dmg'
+        subprocess.run(['hdiutil', 'create', '-volname', 'IliasSync Update Probe', '-srcfolder', str(new.parent),
+                        '-format', 'UDZO', str(package)], check=True)
         feed(root, key, base, package, __version__, mac=True)
         env = {**os.environ, 'ILIAS_UPDATE_PROBE_LOG': str(log), 'ILIAS_SYNC_DATA_DIR': str(root / 'user-data')}
         worker = subprocess.Popen([str(executable)], env=env, stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
         try:
-            worker.wait(timeout=150)
+            assert worker.wait(timeout=150) == 0, log.read_text()
             deadline = time.monotonic() + 60
             while time.monotonic() < deadline:
                 try:
@@ -105,9 +107,10 @@ def macos(root, key):
                 time.sleep(0.25)
             else:
                 raise RuntimeError('Sparkle failed to install update: ' + log.read_text())
-            assert 'ERROR' not in log.read_text(), log.read_text()
+            steps = log.read_text()
+            assert 'ERROR' not in steps and 'clicked native Install Update' in steps and 'clicked native Install and Relaunch' in steps, steps
             subprocess.run([str(old / 'Contents/MacOS/IliasSync'), '--self-test'], env=env, check=True, timeout=90)
-            print('Native Sparkle signed-feed download, signature verification and app replacement passed.')
+            print('Native Sparkle buttons, signed DMG download and app replacement passed.')
         finally:
             if worker.poll() is None:
                 worker.kill()

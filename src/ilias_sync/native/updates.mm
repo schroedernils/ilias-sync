@@ -62,6 +62,24 @@ static BOOL canPresentUpdate(void)
     [super showUpdateFoundWithAppcastItem:item state:state reply:reply];
 }
 
+- (void)showReadyToInstallAndRelaunch:(void (^)(SPUUserUpdateChoice))reply
+{
+    self.pendingPresentation = ^{ [super showReadyToInstallAndRelaunch:reply]; };
+    [self resumePresentation];
+}
+
+- (void)showUpdateNotFoundWithError:(NSError *)error acknowledgement:(void (^)(void))ack
+{
+    self.pendingPresentation = ^{ [super showUpdateNotFoundWithError:error acknowledgement:ack]; };
+    [self resumePresentation];
+}
+
+- (void)showUpdaterError:(NSError *)error acknowledgement:(void (^)(void))ack
+{
+    self.pendingPresentation = ^{ [super showUpdaterError:error acknowledgement:ack]; };
+    [self resumePresentation];
+}
+
 - (void)showUpdateInFocus
 {
     if (self.pendingPresentation) [self resumePresentation];
