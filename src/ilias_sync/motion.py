@@ -267,6 +267,9 @@ class FadeButton(QPushButton):
             color = QColor(255, 255, 255, round(20 * self._hover)) if dark else QColor(20, 20, 20, round(16 * self._hover))
             painter.setBrush(color if colored else wash(dark, self._hover))
             painter.drawRoundedRect(self.rect().adjusted(1, 1, -1, -1), radius, radius)
+        if name == 'sidebarAction':
+            # Drawing the label separately bypasses the style's content padding.
+            option.rect = self.style().subElementRect(QStyle.SubElement.SE_PushButtonContents, option, self)
         self.style().drawControl(QStyle.ControlElement.CE_PushButtonLabel, option, painter, self)
         if focused:
             painter.setBrush(Qt.BrushStyle.NoBrush)
