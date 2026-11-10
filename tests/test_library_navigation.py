@@ -51,6 +51,33 @@ def visible_entries(window):
             for row in range(window.files.rowCount()) if not window.files.isRowHidden(row)]
 
 
+def test_clicking_the_heading_releases_search_focus_without_resetting_the_query(library_app, source):
+    from PySide6.QtCore import Qt
+    from PySide6.QtTest import QTest
+    from ilias_sync.gui import MainWindow
+
+    university(source)
+    window = MainWindow()
+    window.show()
+    library_app.processEvents()
+    try:
+        search = window.file_search
+        QTest.mouseClick(search, Qt.MouseButton.LeftButton)
+        QTest.keyClicks(search, 'Chapter 1')
+        assert search.hasFocus()
+        assert len(visible_entries(window)) == 1
+
+        QTest.mouseClick(window.source_title, Qt.MouseButton.LeftButton)
+        assert not search.hasFocus()
+        assert search.text() == 'Chapter 1'
+        assert len(visible_entries(window)) == 1
+
+        window.focus_search()
+        assert search.hasFocus() and search.selectedText() == 'Chapter 1'
+    finally:
+        window.close()
+
+
 def test_every_scope_and_view_defaults_to_newest_material_first(library_app, source, tmp_path):
     from PySide6.QtCore import Qt
     from ilias_sync.gui import MainWindow

@@ -182,6 +182,21 @@ class MaterialSearch(QLineEdit):
         self.addAction(self.search_mark, QLineEdit.ActionPosition.LeadingPosition)
         self._update_mark()
 
+    def focusInEvent(self, event):
+        super().focusInEvent(event)
+        QApplication.instance().installEventFilter(self)
+
+    def focusOutEvent(self, event):
+        QApplication.instance().removeEventFilter(self)
+        super().focusOutEvent(event)
+
+    def eventFilter(self, watched, event):
+        if (event.type() == QEvent.Type.MouseButtonPress and self.hasFocus()
+                and isinstance(watched, QWidget) and watched.window() is self.window()
+                and watched is not self and not self.isAncestorOf(watched)):
+            self.clearFocus()
+        return super().eventFilter(watched, event)
+
     def _update_mark(self):
         mark = getattr(self, 'search_mark', None)
         if mark is not None:
