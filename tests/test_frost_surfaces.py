@@ -29,7 +29,7 @@ def test_native_pages_share_one_translucent_window_layer(source):
                     app.processEvents()
                     image = main.grab().toImage()
                     # Before the fix the two pane fills accumulated to alpha 240.
-                    assert 0 < image.pixelColor(image.width() - 8, image.height() // 2).alpha() < 220
+                    assert 210 < image.pixelColor(image.width() - 8, image.height() // 2).alpha() < 235
                     assert main.windowOpacity() == 1
                 # Surface contrast is a light tint, not another nearly opaque
                 # coat hiding the same backdrop under the sidebar and cards.
@@ -51,7 +51,7 @@ def test_native_pages_share_one_translucent_window_layer(source):
                     preferences.tabs.setCurrentIndex(tab)
                     app.processEvents()
                     image = preferences.grab().toImage()
-                    assert 0 < image.pixelColor(image.width() - 8, image.height() // 2).alpha() < 220
+                    assert 210 < image.pixelColor(image.width() - 8, image.height() // 2).alpha() < 235
                     assert preferences.testAttribute(Qt.WidgetAttribute.WA_TranslucentBackground)
                 preferences.hide()
         finally:

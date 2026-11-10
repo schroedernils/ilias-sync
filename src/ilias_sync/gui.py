@@ -17,7 +17,7 @@ from PySide6.QtWidgets import (
     QHBoxLayout, QHeaderView, QLabel, QLineEdit, QListWidget, QListWidgetItem, QMainWindow,
     QMessageBox, QScrollArea, QSplitter, QTableWidget, QTableWidgetItem,
     QTextEdit, QTextBrowser, QTabWidget, QVBoxLayout, QWidget, QSizePolicy, QFrame, QStackedWidget, QTreeWidget, QTreeWidgetItem,
-    QTabBar, QStyle, QStyleOption,
+    QTabBar,
 )
 
 from . import __version__
@@ -25,7 +25,7 @@ from .help_widgets import HelpTopicList
 from .hints import hint_text, set_hint
 from .control_colors import pause_colors
 from .scrolling import TranslucentScrollArea
-from .surfaces import SurfaceFrame
+from .surfaces import SurfaceDialog, SurfaceFrame, paint_window_background
 from .branding import BrandMark, action_pixmap, app_icon, paint_action
 from .motion import FadeButton, MotionMenu, PopupChipDelegate, Switch, SyncCluster, clip_round, popup
 from .control import active_run, send_command
@@ -287,7 +287,7 @@ class FileFilterDialog(QWidget):
             widget.setCurrentIndex(0)
 
 
-class SyncReportDialog(QDialog):
+class SyncReportDialog(SurfaceDialog):
     def __init__(self, status, activity, parent=None, history=None, *, embedded=False):
         super().__init__(parent)
         self.status = status
@@ -469,7 +469,7 @@ class Dropdown(QComboBox):
         painter.drawLine(x, y+2, x+4, y-2)
 
 
-class SourceDialog(QDialog):
+class SourceDialog(SurfaceDialog):
     def __init__(self, settings, existing=None, parent=None, *, signin_recovery=False, verify_on_save=False):
         super().__init__(parent)
         self.settings = settings
@@ -852,7 +852,7 @@ class SourceDialog(QDialog):
             self.show_error(str(exc) if isinstance(exc, (ValueError, RuntimeError)) else "The credential vault or folder is unavailable.")
 
 
-class CoursesDialog(QDialog):
+class CoursesDialog(SurfaceDialog):
     def __init__(self, courses, source, settings, parent):
         super().__init__(parent)
         self.setWindowTitle(t("Choose courses"))
@@ -922,7 +922,7 @@ class CoursesDialog(QDialog):
         buttons.rejected.connect(self.reject)
 
 
-class FolderMappingDialog(QDialog):
+class FolderMappingDialog(SurfaceDialog):
     def __init__(self, source, settings, parent=None):
         super().__init__(parent)
         self.source = source
@@ -1246,21 +1246,7 @@ class FolderMappingDialog(QDialog):
             self.error.show()
 
 
-def paint_window_background(widget):
-    if not widget.testAttribute(Qt.WidgetAttribute.WA_TranslucentBackground):
-        return
-    painter = QPainter(widget)
-    # Clear moved/invalidated regions before repainting translucent surfaces.
-    painter.setCompositionMode(QPainter.CompositionMode.CompositionMode_Source)
-    painter.fillRect(widget.rect(), Qt.GlobalColor.transparent)
-    painter.setCompositionMode(QPainter.CompositionMode.CompositionMode_SourceOver)
-    option = QStyleOption()
-    option.initFrom(widget)
-    widget.style().drawPrimitive(QStyle.PrimitiveElement.PE_Widget, option, painter, widget)
-    painter.end()
-
-
-class SettingsDialog(QDialog):
+class SettingsDialog(SurfaceDialog):
     def __init__(self, settings, parent=None):
         super().__init__(parent)
         self.setObjectName('settingsDialog')
@@ -1381,10 +1367,6 @@ class SettingsDialog(QDialog):
         for widget, name in [(self.language, 'Language'), (self.appearance, 'Theme'), (self.hours, 'Interval'), (self.schedule_mode, 'Schedule')]:
             widget.setAccessibleName(t(name))
         self.update_schedule_fields()
-
-    def paintEvent(self, event):
-        paint_window_background(self)
-        super().paintEvent(event)
 
     def notifications_page(self):
         scroll, layout = self.scroll_page()
@@ -1580,7 +1562,7 @@ class SettingsDialog(QDialog):
             self.tabs.setCurrentIndex(1)
 
 
-class HelpDialog(QDialog):
+class HelpDialog(SurfaceDialog):
     def __init__(self, parent=None):
         super().__init__(parent)
         self.setWindowTitle(t('Help & about'))
@@ -1623,10 +1605,6 @@ class HelpDialog(QDialog):
         self.topics.currentRowChanged.connect(show_topic)
         self.topics.setCurrentRow(0)
         layout.addWidget(button('Close', self.accept), alignment=Qt.AlignmentFlag.AlignRight)
-
-    def paintEvent(self, event):
-        paint_window_background(self)
-        super().paintEvent(event)
 
 
 class MainWindow(QMainWindow):

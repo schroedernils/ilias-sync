@@ -12,7 +12,7 @@ with tempfile.TemporaryDirectory(prefix='ilias-sidebar-state-') as temporary:
     from PySide6.QtCore import Qt
     from PySide6.QtGui import QFontDatabase
     from PySide6.QtWidgets import QApplication
-    from ilias_sync.gui import MainWindow
+    from ilias_sync.gui import MainWindow, SettingsDialog, SourceDialog
     from ilias_sync.native_compat import protect_accessibility
     from ilias_sync.storage import Settings, Source, data_dir, write_json
     from ilias_sync.theme import Theme
@@ -37,12 +37,32 @@ with tempfile.TemporaryDirectory(prefix='ilias-sidebar-state-') as temporary:
     hints = Qt.WindowType.ExpandedClientAreaHint | Qt.WindowType.NoTitleBarBackgroundHint
     assert window.windowFlags() & hints == hints
 
+    def check_titlebar(widget):
+        image = widget.grab().toImage()
+        scale = image.devicePixelRatio()
+        inset = widget.windowHandle().safeAreaMargins().top()
+        assert inset > 0 and widget.contentsRect().top() == inset
+        x, edge = image.width() - round(12 * scale), round(inset * scale)
+        title = image.pixelColor(x, edge - 1).alpha()
+        content = image.pixelColor(x, edge).alpha()
+        assert 70 < title < 145 and 210 < content < 235, (title, content)
+
+    preferences = SettingsDialog(Settings(), window)
+    setup = SourceDialog(Settings(), source)
+    for dialog in (preferences, setup):
+        dialog.setAttribute(Qt.WidgetAttribute.WA_DontShowOnScreen, True)
+        dialog.show()
+    app.processEvents()
+
     checked = 0
     for appearance in ('dark', 'light', 'dark'):
         app.theme.set_mode(appearance)
+        for dialog in (preferences, setup):
+            check_titlebar(dialog)
         for size in ((820, 560), (980, 700), (1280, 800)):
             window.resize(*size)
             app.processEvents()
+            check_titlebar(window)
             for tab in (0, 1, 2):
                 window.workspace_tabs.setCurrentIndex(tab)
                 for position in (200, 480, 272, 400):
@@ -66,5 +86,6 @@ with tempfile.TemporaryDirectory(prefix='ilias-sidebar-state-') as temporary:
                         assert top_left.x() >= right.mapTo(window, right.rect().topLeft()).x()
                         assert top_left.x() + control.width() <= window.width()
                     checked += 1
-    window.close()
+    for widget in (setup, preferences, window):
+        widget.close()
     print(f'{checked} hidden Cocoa pane transitions passed')
