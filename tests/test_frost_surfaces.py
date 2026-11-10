@@ -31,6 +31,15 @@ def test_native_pages_share_one_translucent_window_layer(source):
                     # Before the fix the two pane fills accumulated to alpha 240.
                     assert 0 < image.pixelColor(image.width() - 8, image.height() // 2).alpha() < 220
                     assert main.windowOpacity() == 1
+                # Surface contrast is a light tint, not another nearly opaque
+                # coat hiding the same backdrop under the sidebar and cards.
+                for surface in (main.sidebar, main.recent_files.parentWidget()):
+                    image = surface.grab().toImage()
+                    alpha = image.pixelColor(image.width() - 8, image.height() // 2).alpha()
+                    assert abs(alpha - (117 if mode == 'light' else 66)) <= 1
+                card = main.recent_files.parentWidget().grab().toImage()
+                # The single coat must retain the rounded card's visible border.
+                assert card.pixelColor(card.width() // 2, 0).alpha() == 255
                 setup.show()
                 for index, page in enumerate(setup.pages):
                     setup.stack.setCurrentIndex(index)

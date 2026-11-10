@@ -20,7 +20,7 @@ DARK = dict(window='#181818', surface='#181818', elevated='#1e1e1e', inset='#202
             success='#83cfa3', warning='#f1b467', sidebar='#141414', input_border='#818181')
 
 # Frosted surfaces rely on the native Cocoa backdrop.
-FROST = 0.76
+FROST = 0.82
 MENU_OPACITY = 0.97
 WORKSPACE_GUTTER = 22
 CARD_INSET = 14
@@ -60,15 +60,32 @@ def _lift(hex_color, amount):
     return QColor(channel(color.red()), channel(color.green()), channel(color.blue())).name()
 
 
+def _surface(color, base, opacity):
+    """Keep a surface's contrast while allowing the common backdrop through."""
+    surface, under = QColor(color), QColor(base)
+    channels = [max(0, min(255, round(b + (s - b) / opacity)))
+                for s, b in zip(surface.getRgb()[:3], under.getRgb()[:3])]
+    return f'rgba({channels[0]}, {channels[1]}, {channels[2]}, {opacity:.2f})'
+
+
 def stylesheet(c, frost=1):
     check = Path(__file__).parent / 'assets/icons/actions' / ('check-dark.svg' if QColor(c['on_accent']).lightness() < 128 else 'check-light.svg')
     pane = _frost(c['window'], frost)
     # One window tint: nested layout carriers must not repeatedly attenuate
     # the native backdrop or make full pages opaque.
     carrier = 'transparent' if frost < 1 else pane
-    rail = _frost(_lift(c['window'], 12) if QColor(c['text']).lightness() > 128 else c['sidebar'], frost)
-    card = _frost(c.get('card', _lift(c['window'], 18)), frost)
+    night = QColor(c['text']).lightness() > 128
+    rail_color = _lift(c['window'], 12) if night else c['sidebar']
+    card_color = c.get('card', _lift(c['window'], 18))
+    layer_opacity = 0.26 if night else 0.46
+    rail = _surface(rail_color, c['window'], layer_opacity) if frost < 1 else rail_color
+    card = _surface(card_color, c['window'], layer_opacity) if frost < 1 else card_color
     field = c.get('field', _lift(c['window'], 28))
+    if frost < 1:
+        field = _surface(field, c['window'], 0.70)
+    input_fill = _surface(c['window'], c['window'], 0.55) if frost < 1 else c['window']
+    search_fill = _surface(c['inset'], c['window'], 0.55) if frost < 1 else c['inset']
+    search_hover = _surface(c['hover'], c['window'], 0.55) if frost < 1 else c['hover']
     sheet = _frost(c['elevated'], 1 if frost == 1 else MENU_OPACITY)
     tooltip_opacity = 255 if frost == 1 else 250
     accent = QColor(c['accent'])
@@ -76,7 +93,6 @@ def stylesheet(c, frost=1):
     elevated = c.get('elevated', c['surface'])
     item_hover = 'rgba(255, 255, 255, 0.30)' if QColor(c['text']).lightness() > 128 else 'rgba(20, 20, 20, 0.08)'
     # The commit control is the lightest solid action, so Save stays findable on a dark sheet.
-    night = QColor(c['text']).lightness() > 128
     commit = '#d7ebff' if night else c['accent']
     commit_pressed = '#c5dff8' if night else accent_pressed
     commit_ink = c['on_accent']
@@ -178,9 +194,9 @@ QPushButton#syncAction:disabled, QPushButton#syncRecovery:disabled {{ background
 QPushButton#syncAction[collapsing="true"]:disabled {{ background: {c['accent']}; color: {c['on_accent']}; border-color: {c['accent']}; }}
 QPushButton#syncAction[shaped="true"], QPushButton#syncAction[shaped="true"]:disabled {{ background: transparent; border-color: transparent; color: {c['on_accent']}; }}
 QPushButton#primary[shaped="true"], QPushButton#primary[shaped="true"]:disabled, QPushButton#pauseControl[shaped="true"], QPushButton#pauseControl[shaped="true"]:disabled, QPushButton#stopControl[shaped="true"], QPushButton#stopControl[shaped="true"]:disabled {{ background: transparent; border-color: transparent; }}
-QLineEdit#materialSearch {{ background: {c['inset']}; border: 1px solid {c['border']}; border-radius: 10px; padding: 0 10px; min-height: 36px; }}
-QLineEdit#materialSearch:hover {{ background: {c['hover']}; }}
-QLineEdit#materialSearch:focus {{ background: {c['window']}; border-color: {c['accent']}; }}
+QLineEdit#materialSearch {{ background: {search_fill}; border: 1px solid {c['border']}; border-radius: 10px; padding: 0 10px; min-height: 36px; }}
+QLineEdit#materialSearch:hover {{ background: {search_hover}; }}
+QLineEdit#materialSearch:focus {{ background: {input_fill}; border-color: {c['accent']}; }}
 QPushButton#exceptionDismiss {{ background: transparent; color: {c['muted']}; border: 1px solid {c['border']}; border-radius: 8px; padding: 0 8px; min-height: 22px; font-size: 12px; font-weight: 500; }}
 QPushButton#exceptionDismiss:hover {{ background: transparent; color: {c['text']}; }}
 QPushButton#exceptionDismiss:focus {{ outline: none; }}
@@ -202,7 +218,7 @@ QPushButton#secondary:focus {{ outline: none; }}
 QPushButton#quiet {{ background: transparent; border: none; color: {c['text']}; text-align: left; padding: 0; min-height: 28px; font-weight: 600; }}
 QPushButton#quiet:hover {{ background: transparent; color: {c['text']}; }}
 QPushButton#quiet:focus {{ border: none; }}
-QLineEdit, QTextEdit, QComboBox, QTimeEdit {{ background: {c['window']}; color: {c['text']}; padding: 8px 12px; border: 1px solid {c['input_border']}; border-radius: 8px; selection-background-color: {c['accent']}; selection-color: {c['on_accent']}; }}
+QLineEdit, QTextEdit, QComboBox, QTimeEdit {{ background: {input_fill}; color: {c['text']}; padding: 8px 12px; border: 1px solid {c['input_border']}; border-radius: 8px; selection-background-color: {c['accent']}; selection-color: {c['on_accent']}; }}
 QLineEdit:focus, QTextEdit:focus, QComboBox:focus {{ border: 1px solid {c['accent']}; padding: 8px 12px; }}
 QLineEdit:disabled, QComboBox:disabled {{ color: {c['disabled']}; background: {c['inset']}; }}
 QDialog#settingsDialog QLineEdit, QDialog#settingsDialog QComboBox, QDialog#settingsDialog QTimeEdit {{ background: {field}; }}

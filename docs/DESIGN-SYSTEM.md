@@ -4,7 +4,7 @@ These are the rules the interface already follows. Change the product by extendi
 
 ## Surfaces
 
-On macOS one window surface uses `FROST` (0.76). Nested layout carriers, scrolling pages and material tables remain transparent so they cannot multiply that opacity. Other desktop backends retain solid surfaces. Dark rails are lifted 12 steps and cards 18. Menus and choice lists use a separate 0.97 opacity so content behind them cannot compete with their labels. High contrast makes them opaque.
+On macOS one window surface uses `FROST` (0.82). Nested layout carriers, scrolling pages and material tables remain transparent so they cannot multiply that opacity. Sidebar and card fills are light overlays (0.26 dark, 0.46 light), with their colors compensated to retain the same contrast over the window. Fields use the same backdrop with a slightly denser overlay. Other desktop backends retain solid surfaces. Dark rails are lifted 12 steps and cards 18. Menus and choice lists use a separate 0.97 opacity so content behind them cannot compete with their labels. High contrast makes them opaque.
 
 The desktop behind the window is a smooth blur (radius 52) with a restrained native tint (0.26 dark, 0.34 light) that keeps bright backgrounds from punching through. The blur view sits behind Qt’s view. Do not reparent that view or replace the window content view. Do not fade the whole window with `setWindowOpacity`; that fades the type as well. High contrast turns the frost fully opaque.
 

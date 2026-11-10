@@ -10,6 +10,7 @@ from PySide6.QtWidgets import QScrollArea
 
 from .branding import action_pixmap
 from .i18n import t
+from .surfaces import SurfaceFrame
 from .hints import hint_text, set_hint
 from .motion import FadeButton, QuietDelegate, RowHover
 from .theme import CARD_INSET, DARK, LIGHT, is_dark
@@ -560,7 +561,7 @@ class MaterialTable(QTableWidget):
             super().keyPressEvent(event)
 
 
-class SyncPanel(QFrame):
+class SyncPanel(SurfaceFrame):
     def __init__(self, parent=None, *, compact=False):
         super().__init__(parent)
         self.compact = compact

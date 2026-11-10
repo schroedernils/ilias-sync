@@ -25,6 +25,7 @@ from .help_widgets import HelpTopicList
 from .hints import hint_text, set_hint
 from .control_colors import pause_colors
 from .scrolling import TranslucentScrollArea
+from .surfaces import SurfaceFrame
 from .branding import BrandMark, action_pixmap, app_icon, paint_action
 from .motion import FadeButton, MotionMenu, PopupChipDelegate, Switch, SyncCluster, clip_round, popup
 from .control import active_run, send_command
@@ -1387,7 +1388,7 @@ class SettingsDialog(QDialog):
 
     def notifications_page(self):
         scroll, layout = self.scroll_page()
-        card = QFrame()
+        card = SurfaceFrame()
         card.setObjectName('textCard')
         card.setSizePolicy(QSizePolicy.Policy.Preferred, QSizePolicy.Policy.Maximum)
         row = QHBoxLayout(card)
@@ -1412,7 +1413,7 @@ class SettingsDialog(QDialog):
         layout.addWidget(card)
         self.permission_note = label('', 'subtitle')
         self.permission_note.setWordWrap(True)
-        self.permission_card = QFrame()
+        self.permission_card = SurfaceFrame()
         self.permission_card.setObjectName('textCard')
         self.permission_card.setSizePolicy(QSizePolicy.Policy.Preferred, QSizePolicy.Policy.Maximum)
         note_layout = QVBoxLayout(self.permission_card)
@@ -1428,7 +1429,7 @@ class SettingsDialog(QDialog):
             for identity, notice in rows:
                 layout.addWidget(window.notice_widget(identity, notice))
         else:
-            empty = QFrame()
+            empty = SurfaceFrame()
             empty.setObjectName('textCard')
             empty.setSizePolicy(QSizePolicy.Policy.Preferred, QSizePolicy.Policy.Maximum)
             empty_layout = QVBoxLayout(empty)
@@ -1452,7 +1453,7 @@ class SettingsDialog(QDialog):
 
     def page(self):
         scroll, layout = self.scroll_page()
-        card = QFrame()
+        card = SurfaceFrame()
         card.setObjectName('settingsCard')
         card.setSizePolicy(QSizePolicy.Policy.Preferred, QSizePolicy.Policy.Maximum)
         form = QFormLayout(card)
@@ -1671,7 +1672,7 @@ class MainWindow(QMainWindow):
         # Standard title bars sit outside the client area. Only Cocoa's
         # expanded client area needs room for the overlaid title-bar controls.
         top_inset = 38 if uses_native_backdrop(QApplication.instance()) else 16
-        left = QFrame()
+        left = SurfaceFrame()
         left.setObjectName('sidebar')
         left.setMinimumWidth(200)
         left.setMaximumWidth(480)
@@ -1855,7 +1856,7 @@ class MainWindow(QMainWindow):
         overview.setSpacing(8)
         self.recent_title = label('Recently updated', 'sectionTitle')
         overview.addWidget(self.recent_title)
-        recent_card = QFrame()
+        recent_card = SurfaceFrame()
         recent_card.setObjectName('recentCard')
         recent_card.setSizePolicy(QSizePolicy.Policy.Preferred, QSizePolicy.Policy.Maximum)
         recent_layout = QVBoxLayout(recent_card)
@@ -2157,7 +2158,7 @@ class MainWindow(QMainWindow):
 
     def notice_widget(self, identity, row, *, details=False):
         from .notifications import relative_time
-        widget = QFrame()
+        widget = SurfaceFrame()
         widget.setObjectName('noticeRow')
         layout = QVBoxLayout(widget)
         layout.setContentsMargins(16, 14, 16, 14)
