@@ -254,7 +254,7 @@ QTableWidget::item:selected, QTableWidget::item:selected:active, QTableWidget::i
 QTreeWidget#libraryNavigation {{ background: transparent; border: none; border-radius: 0; outline: none; selection-background-color: transparent; selection-color: {c['text']}; }}
 QTreeWidget#libraryNavigation::branch {{ background: transparent; border: none; border-image: none; image: none; }}
 QTreeWidget#libraryNavigation::branch:selected, QTreeWidget#libraryNavigation::branch:selected:active, QTreeWidget#libraryNavigation::branch:hover, QTreeWidget#libraryNavigation::branch:has-children, QTreeWidget#libraryNavigation::branch:open, QTreeWidget#libraryNavigation::branch:closed {{ background: transparent; border: none; border-image: none; image: none; }}
-QTreeWidget#libraryNavigation::item {{ height: 32px; padding: 0 10px; margin: 1px 8px; border-radius: 10px; color: {c['text']}; }}
+QTreeWidget#libraryNavigation::item {{ height: 32px; padding: 0 7px; margin: 1px 4px; border-radius: 10px; color: {c['text']}; }}
 QTreeWidget#libraryNavigation::item:hover {{ background: transparent; }}
 QTreeWidget#libraryNavigation::item:selected, QTreeWidget#libraryNavigation::item:selected:active {{ background: transparent; color: {c['text']}; font-weight: 600; }}
 QTreeWidget#libraryNavigation::item:focus {{ border: none; }}
@@ -268,6 +268,8 @@ QTextEdit#activity {{ font-size: 13px; color: {c['muted']}; border: none; }}
 QSplitter::handle {{ background: transparent; }}
 QSplitter::handle:horizontal {{ width: 10px; background: qlineargradient(x1:0, y1:0, x2:1, y2:0, stop:0 rgba(0,0,0,0), stop:0.42 rgba(0,0,0,0), stop:0.42 {c['border']}, stop:0.58 {c['border']}, stop:0.58 rgba(0,0,0,0), stop:1 rgba(0,0,0,0)); }}
 QSplitter::handle:horizontal:hover {{ background: qlineargradient(x1:0, y1:0, x2:1, y2:0, stop:0 rgba(0,0,0,0), stop:0.42 rgba(0,0,0,0), stop:0.42 {c['muted']}, stop:0.58 {c['muted']}, stop:0.58 rgba(0,0,0,0), stop:1 rgba(0,0,0,0)); }}
+QSplitter#workspaceSplit::handle:horizontal {{ background: transparent; }}
+QSplitter#workspaceSplit::handle:horizontal:hover, QSplitter#workspaceSplit::handle:horizontal:pressed {{ background: qlineargradient(x1:0, y1:0, x2:1, y2:0, stop:0 transparent, stop:0.44 transparent, stop:0.45 {c['input_border']}, stop:0.55 {c['input_border']}, stop:0.56 transparent, stop:1 transparent); }}
 QSplitter::handle:vertical {{ height: 10px; background: qlineargradient(x1:0, y1:0, x2:0, y2:1, stop:0 rgba(0,0,0,0), stop:0.42 rgba(0,0,0,0), stop:0.42 {c['border']}, stop:0.58 {c['border']}, stop:0.58 rgba(0,0,0,0), stop:1 rgba(0,0,0,0)); }}
 QMenu {{ background: {sheet}; color: {c['text']}; border: 1px solid {c['border']}; border-radius: 12px; padding: 4px; font-size: 13px; font-weight: 500; }}
 QMenu::item {{ padding: 6px 12px; margin: 1px 2px; border-radius: 10px; min-height: 20px; }}

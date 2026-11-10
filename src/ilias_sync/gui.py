@@ -1661,6 +1661,7 @@ class MainWindow(QMainWindow):
         page = QVBoxLayout(container)
         page.setContentsMargins(0, 0, 0, 0)
         split = QSplitter()
+        split.setObjectName('workspaceSplit')
         split.setChildrenCollapsible(False)
         # Standard title bars sit outside the client area. Only Cocoa's
         # expanded client area needs room for the overlaid title-bar controls.

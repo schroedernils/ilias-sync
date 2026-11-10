@@ -218,7 +218,7 @@ class LibraryNavigation(QTreeWidget):
         self.setSelectionMode(QTreeWidget.SelectionMode.SingleSelection)
         self.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
         self.setTextElideMode(Qt.TextElideMode.ElideRight)
-        self.setIndentation(22)
+        self.setIndentation(16)
         self.setUniformRowHeights(True)
         self.setItemsExpandable(True)
         self.setRootIsDecorated(True)
@@ -294,7 +294,7 @@ class LibraryNavigation(QTreeWidget):
         if event.type() == QEvent.Type.ToolTip:
             item = self.itemAt(event.pos())
             if item is not None:
-                width = self.visualItemRect(item).width() - 20
+                width = self.visualItemRect(item).width() - 22
                 if QFontMetrics(item.font(0).resolve(self.font())).horizontalAdvance(item.text(0)) <= width:
                     QToolTip.hideText()
                     return True
