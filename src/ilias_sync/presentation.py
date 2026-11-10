@@ -99,11 +99,11 @@ def schedule_expectation(settings, status, *, clock=None):
     now, stamp, retry_at, waiting_for_server = _schedule_moment(settings, status, clock)
     if waiting_for_server:
         return t('Server pause until {time}.', time=local_time(retry_at, now=now)) + ' ' + t('Next planned check: {time}', time=local_time(stamp, now=now))
+    next_check = (t('Next check: when the operating system starts the scheduled run') if not stamp or stamp <= now
+                  else t('Next planned check: {time}', time=local_time(stamp, now=now)))
     if status.get('deferred') == 'battery':
-        return t('Last automatic run deferred on battery. Next attempt follows the schedule.')
-    if not stamp or stamp <= now:
-        return t('Next check: when the operating system starts the scheduled run')
-    return t('Next planned check: {time}', time=local_time(stamp, now=now))
+        return t('The last scheduled sync was skipped because your device was on battery power.') + ' ' + next_check
+    return next_check
 
 
 def _schedule_moment(settings, status, clock):
@@ -145,8 +145,6 @@ def schedule_brief(settings, status, *, clock=None):
     if waiting:
         text, _today = brief_stamp(retry_at, now=now)
         return t('Paused until {time}', time=text)
-    if status.get('deferred') == 'battery':
-        return t('Deferred on battery')
     if not stamp or stamp <= now:
         return t('Next system run')
     text, today = brief_stamp(stamp, now=now)

@@ -267,7 +267,8 @@ DE.update({
  'Effective destination after the next sync':'Wirksames Ziel beim nächsten Sync','Excluded content':'Ausgeschlossene Inhalte',
  'Excluded types and groups are not failed file downloads.':'Ausgeschlossene Inhalte und Gruppen sind keine fehlgeschlagenen Datei-Downloads.',
  'Help & about':'Hilfe & Über IliasSync','Hide filters':'Filter ausblenden',
- 'Last automatic run deferred on battery. Next attempt follows the schedule.':'Letzter automatischer Lauf im Akkubetrieb verschoben. Der nächste Versuch folgt dem Zeitplan.',
+ 'The last scheduled sync was skipped because your device was on battery power.':
+     'Die letzte geplante Synchronisierung wurde wegen Akkubetrieb übersprungen.',
  'Last check completed':'Letzte Prüfung abgeschlossen','Last complete check: {time}':'Letzte vollständige Prüfung: {time}',
  'Latest attempt':'Letzter Versuch','Legacy result: file totals may include course information.':'Älteres Ergebnis: Die Dateizahl kann Kursinformationen enthalten.',
  'Material files processed: {count}':'Bearbeitete Materialdateien: {count}',
@@ -460,7 +461,6 @@ DE.update({
     'Sync off': 'Automatik aus',
     'Waiting for sign-in': 'Wartet auf Anmeldung',
     'Paused until {time}': 'Pause bis {time}',
-    'Deferred on battery': 'Auf Akku verschoben',
     'Next system run': 'Nächste Prüfung durch das System',
     'Next check: {time}': 'Nächste Prüfung: {time}',
     'Last run: {time} ({age})': 'Letzter Lauf: {time} ({age})',

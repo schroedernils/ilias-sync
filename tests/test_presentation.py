@@ -45,6 +45,19 @@ def test_generated_course_information_is_not_presented_as_new_materials():
     assert 'nicht um fehlgeschlagene' in html
 
 
+def test_battery_skip_is_history_and_does_not_replace_the_next_check():
+    from ilias_sync.presentation import schedule_brief, schedule_expectation
+
+    set_language('de')
+    now = 1_800_000_000
+    settings = {'scheduled': True, 'schedule_mode': 'interval'}
+    status = {'deferred': 'battery', 'next_run': now + 3600}
+    assert schedule_brief(settings, status, clock=now) == schedule_brief(settings, {'next_run': now + 3600}, clock=now)
+    detail = schedule_expectation(settings, status, clock=now)
+    assert 'wegen Akkubetrieb übersprungen' in detail
+    assert schedule_expectation(settings, {'next_run': now + 3600}, clock=now) in detail
+
+
 def test_archive_records_real_changes_without_resetting_history_on_noop(tmp_path, monkeypatch):
     raw = tmp_path / 'raw.pdf'
     raw.write_bytes(b'%PDF-1.4 one')
