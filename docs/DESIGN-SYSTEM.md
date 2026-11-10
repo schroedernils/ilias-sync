@@ -36,7 +36,7 @@ Help topics keep hover separate from selection, with the selected fill taking pr
 
 ## Motion that must not shove layout
 
-The sync area is one inset card, aligned with the materials and overview on both sides. In the resting state, the outcome, last run (clock time and age) and next check form one text group beside the primary action. The status symbol carries meaning as well as color. When a run or problem needs explanation, a full-width body below the heading shows it before times or recovery metadata. The progress track only takes up space during active work. At tight widths, the action slot can move below the heading group instead of squeezing the text or clipping a control.
+The sync area is one inset card, aligned with the materials and overview on both sides. In the resting state, the outcome, last run (clock time and age) and next check form one text group beside the primary action. The status symbol carries meaning as well as color. During an active run, the explanation and time labels sit together between the heading and progress track, with balanced spacing. When an error has a specific recovery action, that action takes the primary slot and the explanation uses the full text column below it. At tight widths, the action slot can move below the heading group instead of squeezing the text or clipping a control.
 
 The sync action morphs into pause and stop over 640ms on a fixed rectangle. Pause settles into a neutral gray in dark mode and a muted amber in light mode; stop retains its red fill. Pause ink, hover/pressed states and the animated fill share one palette. The button transformation does not move neighboring content. Menus open with a short fade at their Qt-constrained position. They close immediately.
 

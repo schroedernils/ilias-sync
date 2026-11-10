@@ -644,7 +644,7 @@ class SyncPanel(QFrame):
 
     def _compose_card(self, outer):
         outer.setContentsMargins(CARD_INSET, 12, CARD_INSET, 12)
-        outer.setSpacing(6)
+        outer.setSpacing(0)
         self._card_row = QBoxLayout(QBoxLayout.Direction.LeftToRight)
         self._card_row.setSpacing(12)
         status = QHBoxLayout()
@@ -665,12 +665,10 @@ class SyncPanel(QFrame):
         outer.addLayout(self._card_row)
         self._detail_body = QWidget()
         self._body_layout = QVBoxLayout(self._detail_body)
-        self._body_layout.setContentsMargins(self.mark.width() + status.spacing(), 0, 0, 0)
-        self._body_layout.setSpacing(5)
+        self._body_layout.setContentsMargins(self.mark.width() + status.spacing(), 8, 0, 22)
+        self._body_layout.setSpacing(6)
         self._body_layout.addWidget(self.detail)
         self._body_layout.addWidget(self.exception_host)
-        self.recovery_layout = QHBoxLayout()
-        self._body_layout.addLayout(self.recovery_layout)
         self._detail_body.hide()
         self._body_open = False
         outer.addWidget(self._detail_body)
@@ -687,6 +685,10 @@ class SyncPanel(QFrame):
                      else QBoxLayout.Direction.LeftToRight)
         if self._card_row.direction() != direction:
             self._card_row.setDirection(direction)
+        margins = self._body_layout.contentsMargins()
+        top = 22 if direction == QBoxLayout.Direction.TopToBottom else 8
+        if margins.top() != top:
+            self._body_layout.setContentsMargins(margins.left(), top, margins.right(), 22)
 
     def set_expanded(self, expanded):
         self._update_detail(expanded)
@@ -742,9 +744,21 @@ class SyncPanel(QFrame):
         self.adapt_actions()
         self.update_minimum_height()
 
+    def event(self, event):
+        handled = super().event(event)
+        if event.type() == QEvent.Type.LayoutRequest and getattr(self, 'compact', False):
+            self.update_minimum_height()
+        return handled
+
     def update_minimum_height(self):
         if self.compact:
-            self.setMinimumHeight(0)
+            self.adapt_actions()
+            layout = self.layout()
+            minimum = layout.totalHeightForWidth(self.width())
+            if minimum < 0:
+                minimum = layout.totalSizeHint().height()
+            if self.minimumHeight() != minimum:
+                self.setMinimumHeight(minimum)
             return
         title_height = max(self.title.fontMetrics().height() + 2, self.title.heightForWidth(max(120, self.title.width())))
         detail_height = max(self.detail.fontMetrics().height() + 2, self.detail.heightForWidth(max(120, self.detail.width())))

@@ -50,7 +50,7 @@ def recovery_plan(status):
              t('2. If the file stays missing, check whether it is still available to you in ILIAS. Existing files are never deleted by this repair.')))
     if needs_signin(status):
         return RecoveryPlan('signin', 'signin', t('Renew sign-in'),
-            t('ILIAS needs a new sign-in. Existing materials remain in your library; new downloads are waiting.'),
+            t('Sign in again to download new materials.\nYour saved files stay available.'),
             (t('1. Update the password or import a fresh browser session.'),
              t('2. Save and check. IliasSync tests the sign-in by checking this university.'),
              t('3. The new result confirms whether syncing works again.')))

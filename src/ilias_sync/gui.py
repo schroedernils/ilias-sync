@@ -1754,9 +1754,10 @@ class MainWindow(QMainWindow):
         self._unavailable_exclude = None
         self.status = self.sync_panel.detail
         self.recovery_button = button('View report', self.recover)
-        self.sync_panel.recovery_layout.addWidget(self.recovery_button, alignment=Qt.AlignmentFlag.AlignLeft)
+        self.sync_panel.action_layout.addWidget(self.recovery_button, alignment=Qt.AlignmentFlag.AlignVCenter)
         self.recovery_button.hide()
-        self.recovery_button.setObjectName('secondary')
+        self.recovery_button.setObjectName('syncRecovery')
+        self.recovery_button.setMinimumHeight(SYNC_CONTROL_HEIGHT)
         self.sync_panel.disclosure.toggled.connect(self.toggle_report)
         self.details_button = self.sync_panel.disclosure
         self.details_button.hide()
@@ -2424,7 +2425,14 @@ class MainWindow(QMainWindow):
         else:
             display_title, display_tone, exception, dismiss_paths = self._status_display(summary, title, relevant, source)
         self._unavailable_exclude = dismiss_paths
-        self.sync_panel.set_state(display_title, summary.detail, display_tone)
+        detail = summary.detail
+        if plan and summary.tone == 'error':
+            detail = plan.explanation
+            if not source:
+                detail = relevant[self.recovery_source]['source'].name + ': ' + detail
+            if repair and repair.get('phase') == 'failed':
+                detail = t('The problem is not resolved yet.') + ' ' + detail
+        self.sync_panel.set_state(display_title, detail, display_tone)
         self.sync_panel.set_exception(exception, dismiss=bool(dismiss_paths))
         self.recovery = summary.recovery
         self.recovery_plan = plan
@@ -2432,14 +2440,6 @@ class MainWindow(QMainWindow):
         self.recovery_button.setToolTip('')
         self.recovery_button.setAccessibleDescription(plan.explanation if plan else '')
         self.recovery_button.setVisible(bool(plan and summary.tone == 'error'))
-        if plan and summary.tone == 'error':
-            detail = plan.explanation
-            if not source:
-                detail = relevant[self.recovery_source]['source'].name + ': ' + detail
-            if repair and repair.get('phase') == 'failed':
-                detail = t('The problem is not resolved yet.') + ' ' + detail
-            self.sync_panel.detail.setText(detail)
-            self.sync_panel.detail.setAccessibleName(detail)
         schedules = [library['source'].name + ': ' + schedule_expectation(self.settings.value, library['status'])
                      for library in relevant.values()]
         if source:
@@ -3027,13 +3027,18 @@ class MainWindow(QMainWindow):
                      t('Checks the courses selected for synchronization.') if self.selected() else t('Checks all enabled universities one after another.'))
             self.sync_button.setAccessibleDescription(t('Checks all configured courses at this university; browsing a course does not change the sync selection.')
                                                      if self.selected() else t('Checks all enabled universities one after another.'))
-        self.sync_cluster.set_mode('hidden' if not self.libraries else 'running' if busy else 'sync')
-        self.sync_panel.adapt_actions()
         self.add_button.setEnabled(not busy)
         self.settings_button.setEnabled(not busy)
         self.recovery_button.setEnabled(not busy)
         if self.ui_error_kind != 'schedule' and getattr(self, 'recovery_plan', None) and self.recovery_plan.action == 'retry':
             self.recovery_button.hide()
+        if busy:
+            self.recovery_button.hide()
+        repair_action = not self.recovery_button.isHidden()
+        self.sync_cluster.set_mode('hidden' if not self.libraries or repair_action else 'running' if busy else 'sync')
+        self.sync_panel.action_layout.invalidate()
+        self.sync_panel.adapt_actions()
+        self.sync_panel.update_minimum_height()
         self.stop_button.setEnabled(busy and not (self.run_info and self.run_info["state"] == "stopping"))
 
     def read_output(self):

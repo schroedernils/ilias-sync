@@ -99,6 +99,8 @@ DE = {
     "{count} warnings": "{count} Hinweise", "{count} errors": "{count} Fehler",
     "The worker could not start.": "Synchronisierung konnte nicht gestartet werden. Starte die App erneut.",
     "Checking ILIAS…": "ILIAS wird geprüft …", "Checking {name}": "Prüfe {name}",
+    'Sign in again to download new materials.\nYour saved files stay available.':
+        'Melde dich erneut an, um neue Materialien zu laden.\nDeine gespeicherten Dateien bleiben verfügbar.',
     "Downloading {name}": "Lade {name} herunter", "Saving files…": "Dateien werden gespeichert …",
     "Saving course information…": "Kursinformationen werden gespeichert …",
     "Checking known content pages…": "Bekannte Inhaltsseiten werden geprüft …",

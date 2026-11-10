@@ -128,27 +128,81 @@ def test_sync_card_pairs_the_last_run_and_schedule_with_the_action(window, sourc
     assert panel.rect().contains(window.sync_cluster.geometry())
 
 
-def test_recovery_explanation_and_action_stay_together_at_compact_width(window, source):
-    from PySide6.QtCore import QPoint
+@pytest.mark.parametrize('width', [820, 980, 1200])
+@pytest.mark.parametrize('language', ['de', 'en'])
+def test_signin_has_one_primary_action_and_no_overlapping_content(window, source, width, language):
+    from PySide6.QtCore import QPoint, QRect
     from PySide6.QtWidgets import QApplication
+    from ilias_sync.i18n import set_language
 
+    set_language(language)
     write_json(data_dir() / 'sources' / source.id / 'status.json', {
         'state': 'Sign in again', 'login_required': True, 'finished': time.time(), 'scope': source_scope(source),
     })
-    window.resize(window.minimumWidth(), 560)
+    window.resize(width, 650)
     window.refresh()
     QApplication.processEvents()
     panel = window.sync_panel
 
-    def at(widget):
-        return widget.mapTo(panel, QPoint())
-
     assert panel.detail.isVisible() and window.recovery_button.isVisible()
-    assert at(panel.title).y() < at(panel.detail).y() < at(window.recovery_button).y() < at(panel.meta).y()
-    assert at(panel.title).x() == at(panel.detail).x() == at(window.recovery_button).x()
+    assert not window.sync_button.isVisible()
+    assert window.recovery_button.isEnabled()
+    widgets = (panel.title, panel.detail, panel.meta, panel.schedule, window.recovery_button)
+    rects = [QRect(widget.mapTo(panel, QPoint()), widget.size()) for widget in widgets]
+    for i, rect in enumerate(rects):
+        assert panel.rect().contains(rect)
+        assert not any(rect.intersects(other) for other in rects[i + 1:])
+    assert rects[1].top() >= rects[-1].bottom() + 8
+    assert rects[1].left() == rects[0].left()
+    assert rects[2].top() >= rects[1].bottom() + 6
     assert panel.detail.width() >= panel.title.width()
     assert panel.detail.height() >= panel.detail.heightForWidth(panel.detail.width())
-    assert panel.rect().contains(window.sync_cluster.geometry())
+    with patch.object(window, 'edit') as edit:
+        window.recovery_button.click()
+        assert edit.call_args.kwargs['signin'] is True
+    status = read_json(data_dir() / 'sources' / source.id / 'status.json', {})
+    status.update(state='Up to date', login_required=False, result={'counts': {'unchanged': 6}})
+    write_json(data_dir() / 'sources' / source.id / 'status.json', status)
+    window.refresh()
+    QApplication.processEvents()
+    assert window.sync_button.isVisible() and window.sync_button.isEnabled()
+    assert not window.recovery_button.isVisible()
+
+
+@pytest.mark.parametrize('width', [820, 980, 1200])
+@pytest.mark.parametrize('language', ['de', 'en'])
+def test_running_text_is_balanced_above_progress_and_clear_of_actions(window, source, width, language):
+    from PySide6.QtCore import QPoint, QRect
+    from PySide6.QtWidgets import QApplication, QBoxLayout
+    from ilias_sync.i18n import set_language, t
+
+    set_language(language)
+    window.resize(width, 650)
+    window.run_info = {'state': 'running', 'source': source.id, 'token': 'fixture'}
+    window.refresh_controls()
+    window.show_progress(t('Checking ILIAS…'))
+    motion = window.sync_cluster._motion
+    if motion:
+        motion.setCurrentTime(motion.duration())
+    QApplication.processEvents()
+    panel = window.sync_panel
+
+    def rect(widget):
+        return QRect(widget.mapTo(panel, QPoint()), widget.size())
+
+    labels = (panel.title, panel.detail, panel.meta, panel.schedule)
+    for widget in (*labels, window.pause_button, window.stop_button, panel.progress):
+        assert panel.rect().contains(rect(widget))
+    for label in labels:
+        assert not rect(label).intersects(rect(window.pause_button))
+        assert not rect(label).intersects(rect(window.stop_button))
+        assert label.height() >= label.heightForWidth(label.width())
+    reference = rect(panel.title).bottom()
+    if panel._card_row.direction() == QBoxLayout.Direction.TopToBottom:
+        reference = max(reference, rect(window.stop_button).bottom())
+    top_gap = rect(panel.detail).top() - reference - 1
+    bottom_gap = rect(panel.progress).top() - rect(panel.schedule).bottom() - 1
+    assert top_gap >= 12 and abs(top_gap - bottom_gap) <= 4, (top_gap, bottom_gap)
 
 
 def test_dismissed_notice_remains_in_details_and_error_does_not_become_success(window, source):

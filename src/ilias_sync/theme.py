@@ -170,11 +170,11 @@ QPushButton#sidebarAction {{ background: transparent; border: none; border-radiu
 QPushButton#sidebarAction:hover {{ background: transparent; }}
 QPushButton#sidebarAction:focus {{ outline: none; border: none; }}
 QPushButton#toolbarControl {{ padding: 0 14px; min-height: 32px; }}
-QPushButton#syncAction {{ background: {c['accent']}; color: {c['on_accent']}; border: 1px solid {c['accent']}; border-radius: 10px; padding: 0 14px; font-size: 14px; font-weight: 600; min-height: 36px; }}
-QPushButton#syncAction:hover {{ background: {accent_hover}; border-color: {accent_hover}; }}
-QPushButton#syncAction:pressed {{ background: {accent_pressed}; border-color: {accent_pressed}; }}
-QPushButton#syncAction:focus {{ outline: none; }}
-QPushButton#syncAction:disabled {{ background: {c['inset']}; color: {c['disabled']}; border-color: {c['border']}; }}
+QPushButton#syncAction, QPushButton#syncRecovery {{ background: {c['accent']}; color: {c['on_accent']}; border: 1px solid {c['accent']}; border-radius: 10px; padding: 0 14px; font-size: 14px; font-weight: 600; min-height: 36px; }}
+QPushButton#syncAction:hover, QPushButton#syncRecovery:hover {{ background: {accent_hover}; border-color: {accent_hover}; }}
+QPushButton#syncAction:pressed, QPushButton#syncRecovery:pressed {{ background: {accent_pressed}; border-color: {accent_pressed}; }}
+QPushButton#syncAction:focus, QPushButton#syncRecovery:focus {{ outline: none; }}
+QPushButton#syncAction:disabled, QPushButton#syncRecovery:disabled {{ background: {c['inset']}; color: {c['disabled']}; border-color: {c['border']}; }}
 QPushButton#syncAction[collapsing="true"]:disabled {{ background: {c['accent']}; color: {c['on_accent']}; border-color: {c['accent']}; }}
 QPushButton#syncAction[shaped="true"], QPushButton#syncAction[shaped="true"]:disabled {{ background: transparent; border-color: transparent; color: {c['on_accent']}; }}
 QPushButton#primary[shaped="true"], QPushButton#primary[shaped="true"]:disabled, QPushButton#pauseControl[shaped="true"], QPushButton#pauseControl[shaped="true"]:disabled, QPushButton#stopControl[shaped="true"], QPushButton#stopControl[shaped="true"]:disabled {{ background: transparent; border-color: transparent; }}
