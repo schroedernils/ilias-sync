@@ -33,15 +33,15 @@ No separate IliasSync account, app telemetry or additional cloud service.
 
 ## Download
 
-**Current release: [IliasSync 1.1.2](https://github.com/schroedernils/ilias-sync/releases/latest).** Python and Qt are included; you do not need to install them separately.
+**Current release: [IliasSync 1.1.3](https://github.com/schroedernils/ilias-sync/releases/latest).** Python and Qt are included; you do not need to install them separately.
 
 | Your computer | Download | Install |
 | --- | --- | --- |
-| **Mac with Apple Silicon** | [DMG · arm64](https://github.com/schroedernils/ilias-sync/releases/download/v1.1.2/IliasSync-1.1.2-macOS-arm64.dmg) | Open the disk image and drag IliasSync to Applications. Native app; no Rosetta required. |
-| **Mac with Intel** | [DMG · x64](https://github.com/schroedernils/ilias-sync/releases/download/v1.1.2/IliasSync-1.1.2-macOS-x64.dmg) | Open the disk image and drag IliasSync to Applications. |
-| **Windows 10/11 · x64** | [Setup · EXE](https://github.com/schroedernils/ilias-sync/releases/download/v1.1.2/IliasSync-1.1.2-Windows-x64-Setup.exe) | Follow the installer, then open IliasSync from the Start menu. |
-| **Ubuntu/Debian · x64** | [Package · DEB](https://github.com/schroedernils/ilias-sync/releases/download/v1.1.2/IliasSync-1.1.2-Linux-x64.deb) | Install with your package manager, then open IliasSync from the app menu. |
-| **Other Linux distributions · x64** | [Archive · TAR.GZ](https://github.com/schroedernils/ilias-sync/releases/download/v1.1.2/IliasSync-1.1.2-Linux-x64.tar.gz) | Extract the archive. Run `install-desktop.sh` to add an app-menu entry; keep the extracted folder in place. |
+| **Mac with Apple Silicon** | [DMG · arm64](https://github.com/schroedernils/ilias-sync/releases/download/v1.1.3/IliasSync-1.1.3-macOS-arm64.dmg) | Open the disk image and drag IliasSync to Applications. Native app; no Rosetta required. |
+| **Mac with Intel** | [DMG · x64](https://github.com/schroedernils/ilias-sync/releases/download/v1.1.3/IliasSync-1.1.3-macOS-x64.dmg) | Open the disk image and drag IliasSync to Applications. |
+| **Windows 10/11 · x64** | [Setup · EXE](https://github.com/schroedernils/ilias-sync/releases/download/v1.1.3/IliasSync-1.1.3-Windows-x64-Setup.exe) | Follow the installer, then open IliasSync from the Start menu. |
+| **Ubuntu/Debian · x64** | [Package · DEB](https://github.com/schroedernils/ilias-sync/releases/download/v1.1.3/IliasSync-1.1.3-Linux-x64.deb) | Install with your package manager, then open IliasSync from the app menu. |
+| **Other Linux distributions · x64** | [Archive · TAR.GZ](https://github.com/schroedernils/ilias-sync/releases/download/v1.1.3/IliasSync-1.1.3-Linux-x64.tar.gz) | Extract the archive. Run `install-desktop.sh` to add an app-menu entry; keep the extracted folder in place. |
 
 Requires macOS 13+, Windows 10/11 x64, or Linux with glibc 2.35+ and a graphical session. Linux password storage requires Secret Service or KWallet; scheduled checks require a systemd user session. Native Windows/Linux ARM packages and mobile apps are not included in this release.
 
@@ -52,7 +52,7 @@ Requires macOS 13+, Windows 10/11 x64, or Linux with glibc 2.35+ and a graphical
 
 Compare your download with `SHA256SUMS` in the [release](https://github.com/schroedernils/ilias-sync/releases/latest). macOS packages are ad-hoc signed but not notarized; Windows packages do not have an Authenticode signature. Your operating system may therefore require approval before opening the app.
 
-A [portable Windows ZIP](https://github.com/schroedernils/ilias-sync/releases/download/v1.1.2/IliasSync-1.1.2-Windows-x64.zip) is also available. **Extract the entire archive before starting the app.** Keep `IliasSync.exe` and `_internal` together; running the EXE directly inside the ZIP fails.
+A [portable Windows ZIP](https://github.com/schroedernils/ilias-sync/releases/download/v1.1.3/IliasSync-1.1.3-Windows-x64.zip) is also available. **Extract the entire archive before starting the app.** Keep `IliasSync.exe` and `_internal` together; running the EXE directly inside the ZIP fails.
 
 From 1.1.0, enable automatic app-update checks under **Settings → Updates**, or check manually from the app menu on macOS or Help on Windows/Linux. macOS also offers optional automatic download and installation; Windows uses the Setup installer, and supported Linux DEB installations open the package manager after verifying the download. Update packages are signed and verified before installation.
 

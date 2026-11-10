@@ -27,7 +27,7 @@ App vertraust; deaktivere keine systemweiten Schutzfunktionen.
 
 ## Windows
 
-Windows 10/11 x64. **Empfohlen:** `IliasSync-1.1.2-Windows-x64-Setup.exe` öffnen
+Windows 10/11 x64. **Empfohlen:** `IliasSync-1.1.3-Windows-x64-Setup.exe` öffnen
 und dem Installationsassistenten folgen. Die App wird für deinen Benutzer unter
 `%LOCALAPPDATA%\Programs\IliasSync` installiert, ohne Administratorrechte.
 Danach findest du IliasSync im Startmenü; eine Desktop-Verknüpfung ist optional.
@@ -47,7 +47,7 @@ x64, glibc 2.35+, grafische Sitzung. **Ubuntu 22.04+ / kompatible Debian-Systeme
 DEB über die grafische Paketverwaltung installieren oder im Download-Ordner:
 
 ```sh
-sudo apt install ./IliasSync-1.1.2-Linux-x64.deb
+sudo apt install ./IliasSync-1.1.3-Linux-x64.deb
 ```
 
 APT installiert die benötigten Systembibliotheken. Die App liegt unter
