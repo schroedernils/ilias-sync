@@ -63,39 +63,39 @@ def _lift(hex_color, amount):
 def stylesheet(c, frost=1):
     check = Path(__file__).parent / 'assets/icons/actions' / ('check-dark.svg' if QColor(c['on_accent']).lightness() < 128 else 'check-light.svg')
     pane = _frost(c['window'], frost)
+    # One window tint: nested layout carriers must not repeatedly attenuate
+    # the native backdrop or make full pages opaque.
+    carrier = 'transparent' if frost < 1 else pane
     rail = _frost(_lift(c['window'], 12) if QColor(c['text']).lightness() > 128 else c['sidebar'], frost)
     card = _frost(c.get('card', _lift(c['window'], 18)), frost)
     field = c.get('field', _lift(c['window'], 28))
     sheet = _frost(c['elevated'], 1 if frost == 1 else MENU_OPACITY)
     tooltip_opacity = 255 if frost == 1 else 250
     accent = QColor(c['accent'])
-    accent_hover = c.get('accent_hover') or (accent.lighter(110) if accent.lightness() > 128 else accent.darker(110)).name()
     accent_pressed = (accent.darker(112) if accent.lightness() > 128 else accent.darker(125)).name()
     elevated = c.get('elevated', c['surface'])
     item_hover = 'rgba(255, 255, 255, 0.30)' if QColor(c['text']).lightness() > 128 else 'rgba(20, 20, 20, 0.08)'
     # The commit control is the lightest solid action, so Save stays findable on a dark sheet.
     night = QColor(c['text']).lightness() > 128
     commit = '#d7ebff' if night else c['accent']
-    commit_hover = '#f4f9ff' if night else accent_hover
     commit_pressed = '#c5dff8' if night else accent_pressed
     commit_ink = c['on_accent']
-    pause_fill, pause_hover, pause_pressed, pause_ink = pause_colors(night)
+    pause_fill, _pause_hover, pause_pressed, pause_ink = pause_colors(night)
     stop_fill = '#6e1c34' if night else '#8d1234'
-    stop_hover = '#842443' if night else '#a31840'
     stop_pressed = '#551428' if night else '#70102a'
     stop_ink = '#fff4f6'
     return f"""
 QWidget {{ color: {c['text']}; font-size: 14px; }}
 QDialog {{ background: {pane}; }}
 QWidget#dialogBody, QDialog QScrollArea, QDialog QScrollArea > QWidget > QWidget {{ background: transparent; }}
-QMainWindow, QWidget#page {{ background: {pane}; }}
-QWidget#mainSurface {{ background: {pane}; }}
-QWidget#formPane, QFrame#surface {{ background: {pane}; border: none; border-radius: 0; }}
+QMainWindow {{ background: {pane}; }}
+QWidget#page, QWidget#mainSurface {{ background: {carrier}; }}
+QWidget#formPane, QFrame#surface {{ background: {carrier}; border: none; border-radius: 0; }}
 QFrame#surface QLabel, QWidget#formPane QLabel {{ background: transparent; border: none; }}
-QScrollArea, QScrollArea > QWidget > QWidget {{ background: {pane}; border: none; }}
+QScrollArea, QScrollArea > QWidget > QWidget {{ background: {carrier}; border: none; }}
 QTabWidget, QTabBar, QDialogButtonBox {{ background: transparent; border: none; }}
 QStackedWidget {{ background: transparent; border: none; }}
-QTabWidget::pane {{ border: none; border-top: 1px solid {c['border']}; padding-top: 16px; background: {c['window']}; }}
+QTabWidget::pane {{ border: none; border-top: 1px solid {c['border']}; padding-top: 16px; background: {carrier}; }}
 QDialog#settingsDialog QTabWidget::pane {{ background: transparent; border: none; padding-top: 4px; }}
 QDialog#settingsDialog QScrollArea, QDialog#settingsDialog QScrollArea > QWidget, QDialog#settingsDialog QWidget#dialogBody {{ background: transparent; border: none; }}
 QTabBar::tab {{ background: transparent; color: {c['faint']}; padding: 6px 10px; margin: 8px 4px 8px 0; border: none; border-radius: 8px; font-weight: 500; }}
@@ -139,7 +139,7 @@ QTimeEdit#weekTimeEdit:focus {{ border: 1px solid {c['accent']}; padding: 5px 6p
 QTimeEdit#weekTimeEdit QLineEdit {{ padding: 0; border: none; background: transparent; min-height: 0; }}
 QPushButton#weekAdd {{ padding: 0; min-height: 0; background: transparent; border: none; font-size: 19px; color: {c['accent']}; }}
 QPushButton#weekRemove {{ padding: 0; min-height: 0; background: transparent; border-color: transparent; color: {c['muted']}; font-size: 16px; }}
-QPushButton#weekRemove:hover {{ background: {c['hover']}; color: {c['error']}; }}
+QPushButton#weekRemove:hover {{ background: transparent; color: {c['muted']}; }}
 QPushButton#weekAdd:focus, QPushButton#weekRemove:focus {{ outline: none; }}
 QProgressBar {{ background: {c['inset']}; border: none; border-radius: 2px; }}
 QProgressBar::chunk {{ background: {c['accent']}; border-radius: 2px; }}
@@ -154,11 +154,11 @@ QPushButton:pressed {{ background: transparent; }}
 QPushButton:focus {{ outline: none; }}
 QPushButton:disabled {{ color: {c['disabled']}; background: transparent; border-color: {c['border']}; }}
 QPushButton#primary {{ background: {c['accent']}; color: {c['on_accent']}; border: 1px solid {c['accent']}; border-radius: 10px; }}
-QPushButton#primary:hover {{ background: {accent_hover}; border-color: {accent_hover}; }}
+QPushButton#primary:hover {{ background: {c['accent']}; border-color: {c['accent']}; }}
 QPushButton#primary:pressed {{ background: {accent_pressed}; border-color: {accent_pressed}; }}
 QPushButton#primary:focus {{ outline: none; }}
 QPushButton#commit {{ background: {commit}; color: {commit_ink}; border: 1px solid {commit}; border-radius: 10px; font-weight: 600; }}
-QPushButton#commit:hover {{ background: {commit_hover}; color: {commit_ink}; border-color: {commit_hover}; }}
+QPushButton#commit:hover {{ background: {commit}; color: {commit_ink}; border-color: {commit}; }}
 QPushButton#commit:pressed {{ background: {commit_pressed}; color: {commit_ink}; border-color: {commit_pressed}; }}
 QPushButton#commit:focus {{ outline: none; }}
 QPushButton#commit:disabled {{ background: {c['inset']}; color: {c['disabled']}; border-color: {c['border']}; }}
@@ -171,7 +171,7 @@ QPushButton#sidebarAction:hover {{ background: transparent; }}
 QPushButton#sidebarAction:focus {{ outline: none; border: none; }}
 QPushButton#toolbarControl {{ padding: 0 14px; min-height: 32px; }}
 QPushButton#syncAction, QPushButton#syncRecovery {{ background: {c['accent']}; color: {c['on_accent']}; border: 1px solid {c['accent']}; border-radius: 10px; padding: 0 14px; font-size: 14px; font-weight: 600; min-height: 36px; }}
-QPushButton#syncAction:hover, QPushButton#syncRecovery:hover {{ background: {accent_hover}; border-color: {accent_hover}; }}
+QPushButton#syncAction:hover, QPushButton#syncRecovery:hover {{ background: {c['accent']}; border-color: {c['accent']}; }}
 QPushButton#syncAction:pressed, QPushButton#syncRecovery:pressed {{ background: {accent_pressed}; border-color: {accent_pressed}; }}
 QPushButton#syncAction:focus, QPushButton#syncRecovery:focus {{ outline: none; }}
 QPushButton#syncAction:disabled, QPushButton#syncRecovery:disabled {{ background: {c['inset']}; color: {c['disabled']}; border-color: {c['border']}; }}
@@ -188,11 +188,11 @@ QPushButton#compactControl {{ background: transparent; border: none; border-radi
 QPushButton#compactControl:hover {{ background: transparent; color: {c['text']}; }}
 QPushButton#compactControl:focus {{ outline: none; border: none; }}
 QPushButton#pauseControl {{ background: {pause_fill}; color: {pause_ink}; border: 1px solid {pause_fill}; padding: 0; min-height: 0; border-radius: 10px; }}
-QPushButton#pauseControl:hover {{ background: {pause_hover}; border-color: {pause_hover}; color: {pause_ink}; }}
+QPushButton#pauseControl:hover {{ background: {pause_fill}; border-color: {pause_fill}; color: {pause_ink}; }}
 QPushButton#pauseControl:pressed {{ background: {pause_pressed}; border-color: {pause_pressed}; color: {pause_ink}; }}
 QPushButton#pauseControl:disabled {{ background: {c['inset']}; color: {c['disabled']}; border-color: {c['border']}; }}
 QPushButton#stopControl {{ background: {stop_fill}; color: {stop_ink}; border: 1px solid {stop_fill}; padding: 0; min-height: 0; border-radius: 10px; }}
-QPushButton#stopControl:hover {{ background: {stop_hover}; border-color: {stop_hover}; color: {stop_ink}; }}
+QPushButton#stopControl:hover {{ background: {stop_fill}; border-color: {stop_fill}; color: {stop_ink}; }}
 QPushButton#stopControl:pressed {{ background: {stop_pressed}; border-color: {stop_pressed}; color: {stop_ink}; }}
 QPushButton#stopControl:disabled {{ background: {c['inset']}; color: {c['disabled']}; border-color: {c['border']}; }}
 QPushButton#primary:disabled {{ background: {c['inset']}; color: {c['disabled']}; border-color: {c['border']}; }}
@@ -200,7 +200,7 @@ QPushButton#secondary {{ background: transparent; color: {c['text']}; border: 1p
 QPushButton#secondary:hover {{ background: transparent; color: {c['text']}; }}
 QPushButton#secondary:focus {{ outline: none; }}
 QPushButton#quiet {{ background: transparent; border: none; color: {c['text']}; text-align: left; padding: 0; min-height: 28px; font-weight: 600; }}
-QPushButton#quiet:hover {{ background: transparent; color: {accent_hover}; }}
+QPushButton#quiet:hover {{ background: transparent; color: {c['text']}; }}
 QPushButton#quiet:focus {{ border: none; }}
 QLineEdit, QTextEdit, QComboBox, QTimeEdit {{ background: {c['window']}; color: {c['text']}; padding: 8px 12px; border: 1px solid {c['input_border']}; border-radius: 8px; selection-background-color: {c['accent']}; selection-color: {c['on_accent']}; }}
 QLineEdit:focus, QTextEdit:focus, QComboBox:focus {{ border: 1px solid {c['accent']}; padding: 8px 12px; }}
@@ -231,7 +231,7 @@ QListWidget#helpTopics::item:focus {{ border-color: {c['accent']}; }}
 QTextBrowser#helpContent {{ background: transparent; border: none; padding: 8px 12px; }}
 QListWidget#sourceList {{ background: transparent; padding: 0; }}
 QListWidget#sourceList::item {{ padding: 0; margin: 0 0 4px 0; }}
-QTreeWidget, QTableWidget {{ background: {c['window']}; alternate-background-color: {c['window']}; border: none; border-radius: 0; gridline-color: transparent; outline: none; }}
+QTreeWidget, QTableWidget {{ background: {carrier}; alternate-background-color: {carrier}; border: none; border-radius: 0; gridline-color: transparent; outline: none; }}
 QTreeWidget::item:selected {{ background: {c['selection']}; color: {c['text']}; }}
 QTableWidget::item:selected, QTableWidget::item:selected:active, QTableWidget::item:selected:!active {{ background: transparent; color: {c['text']}; }}
 QTreeWidget#libraryNavigation {{ background: transparent; border: none; border-radius: 0; outline: none; selection-background-color: transparent; selection-color: {c['text']}; }}

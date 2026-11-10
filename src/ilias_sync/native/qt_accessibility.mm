@@ -98,7 +98,7 @@ extern "C" int ilias_blur_window(void *nativeView, int red, int green, int blue)
             [tint release];
         }
         tint.frame = area;
-        CGColorRef fill = CGColorCreateGenericRGB(red / 255.0, green / 255.0, blue / 255.0, dark ? 0.58 : 0.66);
+        CGColorRef fill = CGColorCreateGenericRGB(red / 255.0, green / 255.0, blue / 255.0, dark ? 0.26 : 0.34);
         tint.layer.backgroundColor = fill;
         CGColorRelease(fill);
         return 1;
