@@ -291,10 +291,26 @@ def test_compact_geometry_density_keyboard_and_sidebar_toggle(library_app, sourc
     window.files.setFocus()
     QTest.keyClick(window.files, Qt.Key.Key_Tab)
     assert library_app.focusWidget() is not window.files
-    window.toggle_sidebar()
+    toggle = window.sidebar_button
+
+    def check_sidebar_toggle_position():
+        point = toggle.mapTo(window, toggle.rect().topLeft())
+        workspace = window.split.widget(1)
+        start = workspace.mapTo(window, workspace.rect().topLeft())
+        title = window.source_title.mapTo(window, window.source_title.rect().topLeft())
+        assert 0 < point.x() - start.x() < 20
+        assert 0 < point.y() - start.y() < 12
+        assert point.y() + toggle.height() <= title.y()
+        assert title.x() == window.workspace_tabs.mapTo(window, window.workspace_tabs.rect().topLeft()).x()
+
+    check_sidebar_toggle_position()
+    QTest.mouseClick(toggle, Qt.MouseButton.LeftButton)
+    library_app.processEvents()
     assert not window.sidebar.isVisible()
-    assert window.sidebar_button.accessibleName() == 'Seitenleiste einblenden'
-    window.toggle_sidebar()
+    assert toggle.accessibleName() == 'Seitenleiste einblenden'
+    check_sidebar_toggle_position()
+    QTest.mouseClick(toggle, Qt.MouseButton.LeftButton)
+    library_app.processEvents()
     assert window.sidebar.isVisible()
     window.close()
 

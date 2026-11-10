@@ -154,13 +154,14 @@ class RunButton(FadeButton):
 
 
 class IconButton(FadeButton):
-    def __init__(self, name, symbol, callback):
+    def __init__(self, name, symbol, callback, *, button_size=34, icon_size=18):
         super().__init__('')
         self.symbol = symbol
+        self.icon_size = icon_size
         self.setObjectName('iconControl')
         self.setAccessibleName(t(name))
         set_hint(self, t(name))
-        self.setFixedSize(34, 34)
+        self.setFixedSize(button_size, button_size)
         self.clicked.connect(callback)
 
     def paintEvent(self, event):
@@ -170,7 +171,7 @@ class IconButton(FadeButton):
         color = self.palette().color(QPalette.ColorRole.WindowText)
         if not self.isEnabled():
             color.setAlpha(90)
-        paint_action(p, self, self.symbol, color, 18)
+        paint_action(p, self, self.symbol, color, self.icon_size)
 
 
 class MaterialSearch(QLineEdit):
@@ -1702,10 +1703,16 @@ class MainWindow(QMainWindow):
         column = QVBoxLayout(right)
         column.setContentsMargins(0, 0, 0, 0)
         column.setSpacing(0)
+        self.sidebar_toolbar = QWidget()
+        toolbar = QHBoxLayout(self.sidebar_toolbar)
+        toolbar.setContentsMargins(8, 4, 0, 0)
+        self.sidebar_button = IconButton('Hide sidebar', 'sidebar', self.toggle_sidebar, button_size=30, icon_size=14)
+        toolbar.addWidget(self.sidebar_button, alignment=Qt.AlignmentFlag.AlignLeft)
+        column.addWidget(self.sidebar_toolbar)
         body = QWidget()
         content = QVBoxLayout(body)
         self.content_layout = content
-        content.setContentsMargins(WORKSPACE_GUTTER, top_inset, WORKSPACE_GUTTER, 0)
+        content.setContentsMargins(WORKSPACE_GUTTER, 4, WORKSPACE_GUTTER, 0)
         content.setSpacing(10)
         self.empty_lead = QWidget()
         self.empty_lead.hide()
@@ -1713,8 +1720,6 @@ class MainWindow(QMainWindow):
         self.welcome_brand = BrandMark(size=40)
         content.addWidget(self.welcome_brand, alignment=Qt.AlignmentFlag.AlignHCenter)
         source_heading = QHBoxLayout()
-        self.sidebar_button = IconButton('Hide sidebar', 'sidebar', self.toggle_sidebar)
-        source_heading.addWidget(self.sidebar_button, alignment=Qt.AlignmentFlag.AlignVCenter)
         title_group = QVBoxLayout()
         title_group.setSpacing(2)
         self.source_title = ElidedLabel(t('Connect ILIAS'))
@@ -2304,7 +2309,7 @@ class MainWindow(QMainWindow):
         self.source_title.setAlignment(Qt.AlignmentFlag.AlignHCenter if not has_sources else Qt.AlignmentFlag.AlignLeft)
         self.source_host.setAlignment(Qt.AlignmentFlag.AlignHCenter if not has_sources else Qt.AlignmentFlag.AlignLeft)
         self.destination.hide()
-        self.sidebar_button.setVisible(has_sources)
+        self.sidebar_toolbar.setVisible(has_sources)
         self.management_button.setVisible(has_sources)
         for widget in (self.sync_footer, self.files, self.library_widget, self.library_footer, self.sync_button):
             widget.setVisible(has_sources)
