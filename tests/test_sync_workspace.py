@@ -96,7 +96,7 @@ def test_file_context_menu_reveals_the_clicked_entry_even_if_selection_changes(w
             folder.assert_not_called()
         else:
             folder.assert_called_once()
-            assert folder.call_args.args[0].toLocalFile() == str(target.parent)
+            assert Path(folder.call_args.args[0].toLocalFile()) == target.parent
             reveal.assert_not_called()
     assert window.workspace.currentIndex() == (0 if view == 'overview' else 1)
 
