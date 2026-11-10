@@ -5,13 +5,13 @@ from PySide6.QtCore import QEvent, QRect, QRectF, QSize, Qt, QVariantAnimation, 
 from PySide6.QtGui import QBrush, QColor, QFont, QFontMetrics, QPalette, QPainter, QPen
 from PySide6.QtWidgets import (QApplication, QBoxLayout, QFrame, QHBoxLayout, QLabel, QProgressBar, QSizePolicy, QStyle,
                               QStyledItemDelegate, QStyleOptionViewItem, QTableWidget, QVBoxLayout, QWidget,
-                              QTreeWidget, QTreeWidgetItem, QPushButton, QToolTip)
+                              QTreeWidget, QTreeWidgetItem, QToolTip)
 from PySide6.QtWidgets import QScrollArea
 
 from .branding import action_pixmap
 from .i18n import t
 from .hints import hint_text, set_hint
-from .motion import QuietDelegate, RowHover
+from .motion import FadeButton, QuietDelegate, RowHover
 from .theme import CARD_INSET, DARK, LIGHT, is_dark
 
 
@@ -579,7 +579,7 @@ class SyncPanel(QFrame):
         self.schedule = QLabel()
         self.schedule.setObjectName('statusMeta')
         self.schedule.setVisible(compact)
-        self.disclosure = QPushButton(t('Details'))
+        self.disclosure = FadeButton(t('Details'))
         self.disclosure.setObjectName('compactControl')
         self.disclosure.setCheckable(True)
         self.disclosure.setAccessibleName(t('Show synchronization details'))
@@ -591,7 +591,7 @@ class SyncPanel(QFrame):
         exception_row.setSpacing(8)
         self.exception = QLabel()
         self.exception.setObjectName('compactStatusDetail' if compact else 'subtitle')
-        self.exception_dismiss = QPushButton(t('Ignore'))
+        self.exception_dismiss = FadeButton(t('Ignore'))
         self.exception_dismiss.setObjectName('exceptionDismiss')
         set_hint(self.exception_dismiss, t('Ignore'), t('Skip these unavailable files in future syncs. Existing local copies stay.'))
         self.exception_dismiss.setAccessibleName(t('Skip these unavailable files in future syncs. Existing local copies stay.'))

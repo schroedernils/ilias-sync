@@ -1,12 +1,8 @@
-"""Short hover fades measured from the Cursor and Grok Bot interfaces.
-
-Those surfaces fade a wash in 140ms and settle a press in about 120ms.
-Qt stylesheets cannot interpolate those states, so the widgets animate them.
-"""
+"""Animated control feedback; Qt stylesheets cannot interpolate hover states."""
 from PySide6.QtCore import QEasingCurve, QEvent, QModelIndex, QObject, QPersistentModelIndex, QRectF, QVariantAnimation, Qt
 from PySide6.QtGui import QBitmap, QColor, QFont, QPainter, QPalette, QPen
 from PySide6.QtWidgets import (QApplication, QCheckBox, QGraphicsOpacityEffect, QMenu, QPushButton,
-                              QStyle, QStyledItemDelegate, QStyleOptionViewItem, QWidget)
+                              QStyle, QStyledItemDelegate, QStyleOptionButton, QStyleOptionViewItem, QWidget)
 
 from .i18n import t
 from .control_colors import pause_colors
@@ -186,8 +182,8 @@ class FadeButton(QPushButton):
         self._popup_lock = False
         self._keyboard_focus = False
         self._hover_animation = QVariantAnimation(self)
-        self._hover_animation.setDuration(90)
-        self._hover_animation.setEasingCurve(QEasingCurve.Type.OutCubic)
+        self._hover_animation.setDuration(180)
+        self._hover_animation.setEasingCurve(QEasingCurve.Type.InOutCubic)
         self._hover_animation.valueChanged.connect(self._set_hover)
 
     def _set_hover(self, value):
@@ -199,21 +195,27 @@ class FadeButton(QPushButton):
         if self._hover_animation.state() == self._hover_animation.State.Running and float(self._hover_animation.endValue()) == target:
             return
         if abs(self._hover - target) < 0.02:
+            self._hover_animation.stop()
             self._hover = target
             self.update()
             return
+        current = self._hover
         self._hover_animation.stop()
+        # Changing an animation at its old timestamp emits intermediate values.
+        # Configure it atomically so a quick leave/re-enter keeps the same ink.
+        self._hover_animation.blockSignals(True)
         self._hover_animation.setDuration(duration)
-        self._hover_animation.setStartValue(self._hover)
+        self._hover_animation.setStartValue(current)
         self._hover_animation.setEndValue(target)
         self._hover_animation.start()
+        self._hover_animation.blockSignals(False)
 
     def enterEvent(self, event):
         super().enterEvent(event)
         if self._hold_hover:
             return
         self._inside = True
-        self._fade(1.0, 90)
+        self._fade(1.0, 180)
 
     def leaveEvent(self, event):
         super().leaveEvent(event)
@@ -221,7 +223,7 @@ class FadeButton(QPushButton):
         self._pressed = False
         if not self._popup_lock:
             self._hold_hover = False
-        self._fade(0.0, 110)
+        self._fade(0.0, 220)
 
     def mousePressEvent(self, event):
         # A click must not replay the wash that is already showing.
@@ -238,32 +240,34 @@ class FadeButton(QPushButton):
         self._hold_hover = True
         self._inside = False
         self._pressed = False
-        self._hover_animation.stop()
-        self._hover = 0.0
-        self.update()
+        self._fade(0.0, 220)
 
     def release_popup(self):
         self._popup_lock = False
         self._hold_hover = False
         if self.underMouse():
             self._inside = True
-            self._fade(1.0, 90)
+            self._fade(1.0, 180)
 
     def paintEvent(self, event):
-        super().paintEvent(event)
         name = self.objectName()
-        hover = self._hover > 0 and self.isEnabled() and name not in {'primary', 'syncAction', 'quiet', 'commit', 'pauseControl', 'stopControl'}
+        colored = name in {'primary', 'syncAction', 'syncRecovery', 'commit', 'pauseControl', 'stopControl'}
+        hover = self._hover > 0 and self.isEnabled() and not self.property('shaped')
         focused = self._keyboard_focus and self.hasFocus() and self.isEnabled()
-        if not hover and not focused:
-            return
         painter = QPainter(self)
         painter.setRenderHint(QPainter.RenderHint.Antialiasing)
+        option = QStyleOptionButton()
+        self.initStyleOption(option)
+        option.state &= ~QStyle.StateFlag.State_MouseOver
+        self.style().drawControl(QStyle.ControlElement.CE_PushButtonBevel, option, painter, self)
         dark = self.palette().color(QPalette.ColorRole.Text).lightness() > 128
         radius = self.height() / 2 if name == 'iconControl' else 10
         if hover:
             painter.setPen(Qt.PenStyle.NoPen)
-            painter.setBrush(wash(dark, self._hover))
+            color = QColor(255, 255, 255, round(20 * self._hover)) if dark else QColor(20, 20, 20, round(16 * self._hover))
+            painter.setBrush(color if colored else wash(dark, self._hover))
             painter.drawRoundedRect(self.rect().adjusted(1, 1, -1, -1), radius, radius)
+        self.style().drawControl(QStyle.ControlElement.CE_PushButtonLabel, option, painter, self)
         if focused:
             painter.setBrush(Qt.BrushStyle.NoBrush)
             painter.setPen(QPen(self.palette().color(QPalette.ColorRole.ButtonText), 1.5))

@@ -1,7 +1,7 @@
 """Direct weekly schedule editing; all changes remain a settings draft."""
 from PySide6.QtCore import Qt, QTime, Signal
 from PySide6.QtWidgets import (
-    QWidget, QVBoxLayout, QHBoxLayout, QGridLayout, QLabel, QPushButton, QTimeEdit, QAbstractSpinBox, QSizePolicy,
+    QWidget, QVBoxLayout, QHBoxLayout, QGridLayout, QLabel, QTimeEdit, QAbstractSpinBox, QSizePolicy,
 )
 
 from .i18n import t
@@ -57,7 +57,7 @@ class WeeklySchedule(QWidget):
             empty = QLabel(t('No sync'))
             empty.setObjectName('subtitle')
             grid.addWidget(empty, 0, 0)
-            add = QPushButton('+')
+            add = FadeButton('+')
             add.setObjectName('weekAdd')
             add.setFixedSize(30, 30)
             add.setAccessibleName(t('Add time on {day}', day=t(name)))
@@ -97,7 +97,7 @@ class WeeklySchedule(QWidget):
         edit.setAccessibleName(t('Sync time on {day}', day=t(WEEKDAYS[day])))
         edit.timeChanged.connect(self.edited)
         line.addWidget(edit)
-        remove = QPushButton('×')
+        remove = FadeButton('×')
         remove.setObjectName('weekRemove')
         remove.setFixedSize(25, 30)
         remove.setAccessibleName(t('Remove time on {day}', day=t(WEEKDAYS[day])))
