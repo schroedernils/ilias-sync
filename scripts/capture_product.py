@@ -79,6 +79,8 @@ def main():
         app.setFont(QFontDatabase.systemFont(QFontDatabase.SystemFont.GeneralFont))
         app.setWindowIcon(app_icon())
         app.theme = Theme(app, "dark")
+        screen = max(app.screens(), key=lambda item: item.devicePixelRatio()) if args.hero else app.primaryScreen()
+        available = screen.availableGeometry()
         backdrop = None
         if args.native and not args.preview:
             # Keep private desktop contents out of public compositor captures.
@@ -86,12 +88,11 @@ def main():
                      'stop:0 #26373b, stop:0.5 #22272e, stop:1 #37303b')
             backdrop = QWidget(None, Qt.WindowType.FramelessWindowHint)
             backdrop.setStyleSheet(f'background: qlineargradient(x1:0,y1:0,x2:1,y2:1,{stops});')
-            backdrop.setGeometry(app.primaryScreen().availableGeometry().adjusted(2, 2, -2, -2))
+            backdrop.setGeometry(available.adjusted(2, 2, -2, -2))
             backdrop.show()
         window = MainWindow()
-        available = app.primaryScreen().availableGeometry()
         if args.hero:
-            window.resize(min(980, available.width() - 168), min(640, available.height() - 128))
+            window.resize(min(980, available.width() - 128), min(700, available.height() - 108))
         else:
             window.resize(980, 700)
         window.move(available.center() - window.rect().center())
@@ -116,7 +117,7 @@ def main():
             if activate:
                 widget.show()
                 if args.native:
-                    widget.move(app.primaryScreen().availableGeometry().center() - widget.rect().center())
+                    widget.move(available.center() - widget.rect().center())
                 widget.raise_()
                 widget.activateWindow()
             QTest.qWait(180)
@@ -124,8 +125,8 @@ def main():
                 bounds = widget.rect().translated(widget.mapToGlobal(QPoint()))
                 if framed:
                     safe = backdrop.geometry()
-                    horizontal = min(80, bounds.left() - safe.left(), safe.right() - bounds.right())
-                    vertical = min(60, bounds.top() - safe.top(), safe.bottom() - bounds.bottom())
+                    horizontal = min(60, bounds.left() - safe.left(), safe.right() - bounds.right())
+                    vertical = min(50, bounds.top() - safe.top(), safe.bottom() - bounds.bottom())
                     if min(horizontal, vertical) < 24:
                         raise RuntimeError('The display is too small to safely frame the whole window.')
                     bounds.adjust(-horizontal, -vertical, horizontal, vertical)
