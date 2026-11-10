@@ -470,3 +470,39 @@ def test_report_prefers_actual_exclusions_without_an_attention_task(app):
     assert dialog.sections.currentIndex() == 1
     assert dialog.sections.tabText(0) == 'Dateien'
     dialog.close()
+
+
+@pytest.mark.parametrize('section', [0, 2])
+def test_report_refresh_keeps_section_and_selected_historical_attempt(app, source, section):
+    from ilias_sync.gui import MainWindow
+    from ilias_sync.storage import Settings, data_dir, write_json, source_scope
+    settings = Settings()
+    settings.save_source(source)
+    root = data_dir() / 'sources' / source.id
+    old = {'state': 'Up to date', 'started': 50, 'finished': 60, 'scope': source_scope(source),
+           'result': {'counts': {'unchanged': 2}, 'skipped': {'forum': 1}}}
+    current = {**old, 'started': 100, 'finished': 110}
+    write_json(root / 'status.json', current)
+    write_json(root / 'history.json', [current, old])
+    window = MainWindow()
+    window.show()
+    window.workspace_tabs.setCurrentIndex(2)
+    report = window.report_widget
+    assert report.sections.currentIndex() == 1
+    report.sections.setCurrentIndex(section)
+    report.attempts.setCurrentIndex(1)
+    assert report.sections.currentIndex() == section
+    try:
+        for _ in range(3):
+            window.refresh()
+            app.processEvents()
+            report = window.report_widget
+            assert report.sections.currentIndex() == section
+            assert report.history[report.attempts.currentIndex()] == old
+        write_json(root / 'status.json', {**current, 'started': 200, 'finished': 210})
+        window.refresh()
+        app.processEvents()
+        assert window.report_widget.sections.currentIndex() == section
+        assert window.report_widget.history[window.report_widget.attempts.currentIndex()] == old
+    finally:
+        window.close()

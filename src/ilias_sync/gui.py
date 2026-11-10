@@ -406,8 +406,9 @@ class SyncReportDialog(QDialog):
             QTreeWidgetItem(self.exclusions, [t('No excluded content recorded'), ''])
         self.exclusions.setAccessibleDescription(t('Excluded types and groups are not failed file downloads.'))
         self.sections.setTabText(0, t('Needs attention') if has_issues or summary.tone in {'error','warning'} else t('Files'))
-        if self.sections.currentIndex() != 2:
+        if not getattr(self, '_rendered_attempt', False):
             self.sections.setCurrentIndex(1 if not has_issues and result.get('skipped') else 0)
+        self._rendered_attempt = True
         scope = facts.get('course_scope', [])
         scope_text = t('Courses included in this check') + ':\n' + '\n'.join(row['name'] + ' [' + row['id'] + ']' for row in scope) + '\n\n' if scope else ''
         intended = facts.get('intended_scope', [])
@@ -2802,7 +2803,15 @@ class MainWindow(QMainWindow):
         self.workspace_tabs.setCurrentIndex(2 if expanded else 0)
 
     def build_report(self, identity=None):
-        previous = identity or (self.report_source.currentData() if hasattr(self, 'report_source') else None)
+        previous_source = self.report_source.currentData() if hasattr(self, 'report_source') else None
+        previous = identity or previous_source
+        section, historical_attempt = None, None
+        if self.report_widget is not None and previous == previous_source:
+            section = self.report_widget.sections.currentIndex()
+            index = self.report_widget.attempts.currentIndex()
+            if index > 0:
+                historical_attempt = self.report_widget.history[index]
+        scroll = self.sync_panel.report_host.verticalScrollBar().value()
         host = self.sync_panel.report_layout
         while host.count():
             widget = host.takeAt(0).widget()
@@ -2820,7 +2829,10 @@ class MainWindow(QMainWindow):
         self.report_source.setVisible(len(choices) > 1)
         source_id = self.report_source.currentData()
         if not source_id:
+            self.report_widget = None
             return
+        if source_id != previous_source:
+            section, historical_attempt = None, None
         from .notifications import notices
         recorded_notices = notices(source_id)
         if recorded_notices:
@@ -2860,8 +2872,14 @@ class MainWindow(QMainWindow):
         history = [status, *[row for row in history if (row.get('finished'), row.get('started')) != (status.get('finished'), status.get('started'))]]
         self.report_widget = SyncReportDialog(status, self.activity.toPlainText() if active_id == source_id else '',
                                               self.sync_panel.report_host, history=history, embedded=True)
+        if historical_attempt in history:
+            self.report_widget.attempts.setCurrentIndex(history.index(historical_attempt))
+        if section is not None:
+            self.report_widget.sections.setCurrentIndex(section)
         host.addWidget(self.report_widget)
         self.report_widget.show()
+        if section is not None:
+            QTimer.singleShot(0, lambda: self.sync_panel.report_host.verticalScrollBar().setValue(scroll))
         self.report_source.currentIndexChanged.connect(lambda *_: self.build_report(self.report_source.currentData()))
 
     def toggle_sidebar(self):
