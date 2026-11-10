@@ -10,9 +10,70 @@
 static std::atomic_bool busy{false};
 static std::atomic_bool closed{true};
 static SPUUpdater *updater;
-static SPUStandardUserDriver *userDriver;
+@class IliasUpdateUserDriver;
+static IliasUpdateUserDriver *userDriver;
 static BOOL started = NO;
 static NSString *lastError;
+static int (*presentationGuard)(void);
+
+static BOOL canPresentUpdate(void)
+{
+    return !presentationGuard || presentationGuard();
+}
+
+@interface IliasUpdateUserDriver : SPUStandardUserDriver
+@property (copy) void (^pendingPresentation)(void);
+- (void)resumePresentation;
+@end
+
+@implementation IliasUpdateUserDriver
+- (void)resumePresentation
+{
+    if (closed.load() || !self.pendingPresentation || !canPresentUpdate()) return;
+    void (^show)(void) = self.pendingPresentation;
+    self.pendingPresentation = nil;
+    show();
+}
+
+- (void)showUpdatePermissionRequest:(SPUUpdatePermissionRequest *)request
+    reply:(void (^)(SUUpdatePermissionResponse *))reply
+{
+    __weak IliasUpdateUserDriver *driver = self;
+    self.pendingPresentation = ^{ [driver presentPermission:request reply:reply]; };
+    [self resumePresentation];
+}
+
+- (void)presentPermission:(SPUUpdatePermissionRequest *)request reply:(void (^)(SUUpdatePermissionResponse *))reply
+{
+    [super showUpdatePermissionRequest:request reply:reply];
+}
+
+- (void)showUpdateFoundWithAppcastItem:(SUAppcastItem *)item state:(SPUUserUpdateState *)state
+    reply:(void (^)(SPUUserUpdateChoice))reply
+{
+    __weak IliasUpdateUserDriver *driver = self;
+    self.pendingPresentation = ^{ [driver presentUpdate:item state:state reply:reply]; };
+    [self resumePresentation];
+}
+
+- (void)presentUpdate:(SUAppcastItem *)item state:(SPUUserUpdateState *)state
+    reply:(void (^)(SPUUserUpdateChoice))reply
+{
+    [super showUpdateFoundWithAppcastItem:item state:state reply:reply];
+}
+
+- (void)showUpdateInFocus
+{
+    if (self.pendingPresentation) [self resumePresentation];
+    else [super showUpdateInFocus];
+}
+
+- (void)dismissUpdateInstallation
+{
+    self.pendingPresentation = nil;
+    [super dismissUpdateInstallation];
+}
+@end
 
 @interface IliasUpdateDelegate : NSObject <SPUUpdaterDelegate>
 @property (copy) void (^pendingInstallation)(void);
@@ -24,7 +85,7 @@ static NSString *lastError;
     untilInvokingBlock:(void (^)(void))installHandler
 {
     if (closed.load()) return YES;
-    if (!busy.load()) return NO;
+    if (!busy.load() && canPresentUpdate()) return NO;
     self.pendingInstallation = installHandler;
     return YES;
 }
@@ -35,7 +96,7 @@ static NSString *lastError;
     // Sparkle still installs on actual process termination, even on YES.
     // The host must veto quitting while its sync FileLock is held.
     if (closed.load()) return YES;
-    if (!busy.load()) return NO;
+    if (!busy.load() && canPresentUpdate()) return NO;
     self.pendingInstallation = installHandler;
     return YES;
 }
@@ -45,7 +106,7 @@ static NSString *lastError;
     // Avoid reentering the host from set_busy(). Recheck because another sync
     // or close() may arrive before the main queue processes this block.
     dispatch_async(dispatch_get_main_queue(), ^{
-        if (closed.load() || busy.load()) return;
+        if (closed.load() || busy.load() || !canPresentUpdate()) return;
         void (^handler)(void) = self.pendingInstallation;
         self.pendingInstallation = nil;
         if (handler) handler();
@@ -79,7 +140,7 @@ extern "C" int ilias_updates_init(void)
             busy.store(false);
             closed.store(false);
             updateDelegate = [IliasUpdateDelegate new];
-            userDriver = [[SPUStandardUserDriver alloc] initWithHostBundle:host delegate:nil];
+            userDriver = [[IliasUpdateUserDriver alloc] initWithHostBundle:host delegate:nil];
             updater = [[SPUUpdater alloc] initWithHostBundle:host applicationBundle:host
                 userDriver:userDriver delegate:updateDelegate];
             if (updater) return 1;
@@ -161,6 +222,16 @@ extern "C" void ilias_updates_set_busy(int value)
     if (![NSThread isMainThread] || closed.load()) return;
     busy.store(value != 0);
     if (!value && updateDelegate.pendingInstallation) [updateDelegate resumeWhenIdle];
+    // Qt's timer keeps running while a Qt modal is open. Present on a later
+    // main-queue turn so polling never reenters Qt with an AppKit alert.
+    if (userDriver.pendingPresentation) {
+        dispatch_async(dispatch_get_main_queue(), ^{ [userDriver resumePresentation]; });
+    }
+}
+
+extern "C" void ilias_updates_set_presentation_guard(int (*guard)(void))
+{
+    if ([NSThread isMainThread] && !closed.load()) presentationGuard = guard;
 }
 
 extern "C" void ilias_updates_close(void)
@@ -169,6 +240,8 @@ extern "C" void ilias_updates_close(void)
         if (![NSThread isMainThread]) return;
         closed.store(true);
         busy.store(true);
+        presentationGuard = nullptr;
+        userDriver.pendingPresentation = nil;
         updateDelegate.pendingInstallation = nil;
         // SPUUpdater deallocation invalidates its timers and aborts its driver.
         // Keep the delegate alive through that abort; no preference is changed.

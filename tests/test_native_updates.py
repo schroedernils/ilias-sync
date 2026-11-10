@@ -37,6 +37,7 @@ def mac_library():
         setattr(library, 'ilias_updates_set_' + name,
                 Function(effect=lambda value, get=get: setattr(get, 'result', value)))
     library.ilias_updates_set_busy = Function()
+    library.ilias_updates_set_presentation_guard = Function()
     library.ilias_updates_close = Function()
     library.ilias_updates_last_error = Function(b'Sparkle configuration is invalid')
     return library
@@ -444,6 +445,19 @@ def test_sparkle_delegate_defers_resumes_and_discards_without_network(tmp_path):
 #import "''' + str(root / 'src/ilias_sync/native/updates.mm') + '''"
 #include <cassert>
 #include <thread>
+static int qtModal = 0;
+static int allowPresentation() { return !qtModal; }
+static int presentations = 0;
+@interface DriverProbe : IliasUpdateUserDriver
+@end
+@implementation DriverProbe
+- (void)presentUpdate:(SUAppcastItem *)item state:(SPUUserUpdateState *)state
+    reply:(void (^)(SPUUserUpdateChoice))reply
+{
+    ++presentations;
+    reply(SPUUserUpdateChoiceDismiss);
+}
+@end
 static void drain() {
     [[NSRunLoop currentRunLoop] runUntilDate:[NSDate dateWithTimeIntervalSinceNow:0.03]];
 }
@@ -456,6 +470,22 @@ int main() {
         SUAppcastItem *item = (SUAppcastItem *)[NSObject new];
         __block int installs = 0;
         void (^handler)(void) = ^{ ++installs; };
+        // Test the actual standard-driver subclass without displaying a window.
+        userDriver = [DriverProbe alloc];
+        ilias_updates_set_presentation_guard(allowPresentation);
+        qtModal = 1;
+        __block int replies = 0;
+        [userDriver showUpdateFoundWithAppcastItem:item state:(SPUUserUpdateState *)[NSObject new]
+            reply:^(SPUUserUpdateChoice choice) { assert(choice == SPUUserUpdateChoiceDismiss); ++replies; }];
+        [userDriver showUpdateInFocus];
+        ilias_updates_set_busy(0);
+        drain();
+        assert(presentations == 0 && replies == 0);
+        qtModal = 0;
+        ilias_updates_set_busy(0);
+        ilias_updates_set_busy(0);
+        drain();
+        assert(presentations == 1 && replies == 1);
         assert(![updateDelegate updater:sender shouldPostponeRelaunchForUpdate:item untilInvokingBlock:handler]);
         assert(![updateDelegate updater:sender willInstallUpdateOnQuit:item immediateInstallationBlock:handler]);
         ilias_updates_set_busy(1);

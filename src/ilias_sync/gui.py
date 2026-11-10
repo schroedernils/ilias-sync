@@ -1319,7 +1319,12 @@ class SettingsDialog(QDialog):
         self.tabs.addTab(schedule, t('Schedule'))
         self.tabs.addTab(self.notifications_page(), t('Notifications'))
         self.app_updates = getattr(parent, 'app_updates', None)
+        self.check_updates_after_close = False
+        from .updates import RELEASES_URL
         updates_page, update_form = self.page()
+        current_version = label('', 'sectionTitle')
+        current_version.setText(t('Installed version: {version}', version=__version__))
+        update_form.addRow(current_version)
         self.update_check = QCheckBox(t('Check for app updates automatically'))
         self.update_download = QCheckBox(t('Download and install app updates automatically'))
         supported = bool(self.app_updates and self.app_updates.supported)
@@ -1344,9 +1349,12 @@ class SettingsDialog(QDialog):
                                 t('App updates are available in installed releases.'))
             unavailable.setWordWrap(True)
             update_form.addRow(unavailable)
-        check_button = button('Check for app updates', lambda: self.app_updates.check() if self.app_updates else None)
-        check_button.setEnabled(supported)
-        update_form.addRow(check_button)
+        self.check_updates_button = button('Save and check for app updates', self.save_and_check_updates)
+        self.check_updates_button.setEnabled(supported)
+        update_form.addRow(self.check_updates_button)
+        open_release = button('Open downloads', lambda: QDesktopServices.openUrl(QUrl(RELEASES_URL + '/latest')))
+        open_release.setObjectName('secondary')
+        update_form.addRow(open_release)
         self.tabs.addTab(updates_page, t('Updates'))
         outer.addWidget(self.schedule_preview)
         self.error = label('', 'error')
@@ -1527,6 +1535,10 @@ class SettingsDialog(QDialog):
         if hasattr(app, 'theme'):
             app.theme.set_mode(self.settings.value.get('appearance', 'system'))
         super().reject()
+
+    def save_and_check_updates(self):
+        self.save()
+        self.check_updates_after_close = self.result() == QDialog.DialogCode.Accepted
 
     def save(self):
         from .policy import normalize_weekly
@@ -3175,6 +3187,9 @@ class MainWindow(QMainWindow):
                     self.app_updates = None
                 replacement.show()
                 self.close()
+            if dialog.check_updates_after_close and dialog.app_updates:
+                # Let Qt unwind its modal session before Sparkle opens a native window.
+                QTimer.singleShot(0, dialog.app_updates.check)
 
     def restore_schedule(self):
         try:

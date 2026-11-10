@@ -17,6 +17,7 @@ from filelock import FileLock, Timeout
 from .storage import data_dir
 
 _CAN_SHUTDOWN = ctypes.CFUNCTYPE(ctypes.c_int)
+_PRESENTATION_GUARD = ctypes.CFUNCTYPE(ctypes.c_int)
 _SHUTDOWN_REQUEST = ctypes.CFUNCTYPE(None)
 _owner = None  # SDKs are process singletons; retain their callbacks until close.
 _log = logging.getLogger(__name__)
@@ -58,6 +59,7 @@ class NativeUpdates:
         self._closed = threading.Event()
         self._busy = threading.Event()
         self._callbacks = ()
+        self._presentation_guard = None
         self._sync_lock_path = None
         self.shutdown_requested = shutdown_requested
         self.last_error = ''
@@ -105,6 +107,7 @@ class NativeUpdates:
         for name in ('set_auto_check', 'set_auto_download', 'set_busy'):
             _bind(library, 'ilias_updates_' + name, (ctypes.c_int,))
         _bind(library, 'ilias_updates_close')
+        _bind(library, 'ilias_updates_set_presentation_guard', (_PRESENTATION_GUARD,))
         _bind(library, 'ilias_updates_last_error', result=ctypes.c_char_p)
 
     @staticmethod
@@ -231,6 +234,12 @@ class NativeUpdates:
         if self.supported and self._platform == 'darwin':
             self._library.ilias_updates_set_busy(int(bool(busy)))
 
+    def set_presentation_guard(self, can_present: Callable[[], bool]):
+        _main_thread()
+        if self.supported and self._platform == 'darwin':
+            self._presentation_guard = _PRESENTATION_GUARD(can_present)
+            self._library.ilias_updates_set_presentation_guard(self._presentation_guard)
+
     def close(self):
         global _owner
         _main_thread()
@@ -246,5 +255,6 @@ class NativeUpdates:
                 self._library.win_sparkle_cleanup()
             self._library = None
         self._callbacks = ()
+        self._presentation_guard = None
         if _owner is self:
             _owner = None

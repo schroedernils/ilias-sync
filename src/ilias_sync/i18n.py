@@ -31,6 +31,13 @@ DE = {
     'The package manager could not be opened. Open the release page to install the update manually.':
         'Die Paketverwaltung konnte nicht geöffnet werden. Öffne die Release-Seite, um das Update selbst zu installieren.',
     'Check for app updates': 'Nach App-Updates suchen',
+    'Save and check for app updates': 'Speichern und nach Updates suchen',
+    'Installed version: {version}': 'Installierte Version: {version}',
+    'Open downloads': 'Downloads öffnen',
+    'Wait for the current sync to finish, then check for app updates again.':
+        'Warte, bis der laufende Sync fertig ist, und suche dann erneut nach App-Updates.',
+    'An update check is already running. Try again in a moment.':
+        'Die Updateprüfung läuft bereits. Versuche es gleich noch einmal.',
     'Check for app updates automatically': 'Automatisch nach App-Updates suchen',
     'Download and install app updates automatically': 'App-Updates automatisch laden und installieren',
     'Updates come from the official GitHub releases. Your materials, settings and schedule are kept.':

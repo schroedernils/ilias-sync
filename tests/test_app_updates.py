@@ -110,3 +110,56 @@ def test_language_rebuild_retains_single_updater_and_its_preferences(app):
     assert updater.window is replacement and updater.parent() is replacement
     assert window.app_updates is None
     replacement.close()
+
+
+def test_check_from_settings_saves_then_exits_the_modal_before_invoking_updater(app):
+    from PySide6.QtCore import QTimer
+    from ilias_sync.gui import MainWindow, SettingsDialog
+
+    window = MainWindow()
+    observed = []
+    updater = SimpleNamespace(supported=True, auto_check=False, auto_download=False,
+                              supports_auto_download=True, save_preferences=Mock(), refresh_busy=Mock(),
+                              check=lambda: observed.append(app.activeModalWidget()))
+    window.app_updates = updater
+
+    def click():
+        dialog = next(d for d in app.topLevelWidgets() if isinstance(d, SettingsDialog) and d.isVisible())
+        assert app.activeModalWidget() is dialog
+        dialog.update_check.setChecked(True)
+        dialog.check_updates_button.click()
+        assert not observed
+
+    QTimer.singleShot(0, click)
+    with patch('ilias_sync.gui.uninstall'), patch('ilias_sync.gui.registration_matches', return_value=True):
+        window.background(3)
+    app.processEvents()
+    assert observed == [None]
+    updater.save_preferences.assert_called_once_with(True, False)
+    window.close()
+
+
+def test_macos_manual_check_waits_for_modal_and_reports_a_busy_sync(app, monkeypatch):
+    from PySide6.QtWidgets import QDialog, QWidget
+    import ilias_sync.updates as updates
+
+    monkeypatch.setattr(updates, 'sys', SimpleNamespace(platform='darwin'))
+    window = QWidget()
+    controller = updates.UpdateController(window)
+    controller.backend = SimpleNamespace(supported=True, can_check=True, set_busy=Mock(), check=Mock(), close=Mock())
+    dialog = QDialog(window)
+    dialog.open()
+    controller.check()
+    controller.backend.check.assert_not_called()
+    assert controller.check_timer.isActive()
+    dialog.close()
+    controller.check_timer.stop()
+    with patch.object(updates.QMessageBox, 'information') as info:
+        with FileLock(updates.data_dir() / 'sync.lock', timeout=0):
+            controller.check()
+        info.assert_called_once()
+        controller.backend.check.assert_not_called()
+    controller.check()
+    controller.backend.check.assert_called_once()
+    controller.close()
+    window.close()
