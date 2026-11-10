@@ -16,7 +16,7 @@
   </p>
 </div>
 
-<img src="docs/images/app-macos.png" alt="The full IliasSync window on macOS in dark mode, showing course navigation, three recently updated files and synchronization controls.">
+<img src="docs/images/app-macos.webp" alt="The full IliasSync window on macOS in dark mode, showing course navigation, three recently updated files and synchronization controls.">
 <p align="center"><sub>Screenshots use sample data, with no private accounts or course materials. The app is available in English and German.</sub></p>
 
 IliasSync brings files from your selected ILIAS courses into one local library on **macOS, Windows and Linux**. See what was recently updated, find the document you need and open it in your usual app. Scheduled checks take care of downloading new and changed materials.
