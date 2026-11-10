@@ -1,5 +1,13 @@
 # Changelog
 
+## 1.1.3 — 2026-11-10
+
+- Animate the sidebar without losing its saved width. Put its toggle beside the macOS window controls and at the top left of the workspace on Windows and Linux.
+- Give macOS a subtly translucent title bar and more solid content surfaces. Refine the sidebar, sync button and hover feedback.
+- Reveal a file in its folder from both Overview and Materials. Clicking outside the search field releases focus without clearing the query.
+- Keep the selected report tab and historical attempt open when the library refreshes.
+- Put installers first in the release notes and bundle optional verification files while preserving signed update URLs.
+
 ## 1.1.2 — 2026-11-10
 
 - Fix macOS update controls that could stop responding when opened from Settings.
