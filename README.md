@@ -45,6 +45,8 @@ No separate IliasSync account, app telemetry or additional cloud service.
 
 Requires macOS 13+, Windows 10/11 x64, or Linux with glibc 2.35+ and a graphical session. Linux password storage requires Secret Service or KWallet; scheduled checks require a systemd user session. Native Windows/Linux ARM packages and mobile apps are not included in this release.
 
+**Already using IliasSync?** Enable automatic update checks under **Settings → Updates**, or choose **Check for app updates** from the app menu (macOS) or Help (Windows/Linux). Your course materials and saved schedule stay in place. [How app updates work →](docs/UPDATES.md)
+
 <details>
 <summary><strong>Package verification, portable Windows app and updates</strong></summary>
 

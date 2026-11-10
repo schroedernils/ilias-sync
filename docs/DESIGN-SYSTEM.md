@@ -4,9 +4,9 @@ These are the rules the interface already follows. Change the product by extendi
 
 ## Surfaces
 
-Window surfaces use `FROST` (0.76); dark rails are lifted 12 steps and cards 18. Menus and choice lists use a separate 0.97 opacity so content behind them cannot compete with their labels. High contrast makes them opaque.
+On macOS one window surface uses `FROST` (0.76). Nested layout carriers, scrolling pages and material tables remain transparent so they cannot multiply that opacity. Other desktop backends retain solid surfaces. Dark rails are lifted 12 steps and cards 18. Menus and choice lists use a separate 0.97 opacity so content behind them cannot compete with their labels. High contrast makes them opaque.
 
-The desktop behind the window is a smooth blur (radius 52) with a tint that keeps bright backgrounds from punching through. The blur view sits behind Qt’s view. Do not reparent that view or replace the window content view. Do not fade the whole window with `setWindowOpacity`; that fades the type as well. High contrast turns the frost fully opaque.
+The desktop behind the window is a smooth blur (radius 52) with a restrained native tint (0.26 dark, 0.34 light) that keeps bright backgrounds from punching through. The blur view sits behind Qt’s view. Do not reparent that view or replace the window content view. Do not fade the whole window with `setWindowOpacity`; that fades the type as well. High contrast turns the frost fully opaque.
 
 Accent buttons, the commit button and input borders stay solid so they remain readable on the veil.
 
@@ -30,7 +30,7 @@ Controls use a 10px radius. Rows, menus, popups and cards use 12px. Icon buttons
 
 Hover help is reserved for icon-only controls, important action consequences and full names/context that are visibly clipped. Do not repeat readable status headings, search placeholders, field contents or navigation labels. Keep exact sync times and next-run facts available in concise help and accessibility text. Useful hints use a short bold heading, at most one brief explanation, a narrow readable layout and a quiet rounded surface. Explanations and recovery remain available through the normal interface; hover is never required to operate the app.
 
-One wash for rows, menus and ghost buttons: white at alpha 78 on dark, black at alpha 28 on light. It fades in over 90ms and out over 110ms, and only while the pointer is over the control. In the sidebar that area is the name itself; the gutter to its left, including the disclosure, does not light up. A click does not replay it. Opening a menu clears the wash and restores it afterward only if the pointer is still on the control. Buttons do not get a blue focus ring. Text fields and combos still show an accent focus border.
+One wash for rows, menus and ghost buttons: white at alpha 78 on dark, black at alpha 28 on light. Button washes ease in over 180ms and out over 220ms; reversing direction starts at the current brightness. Colored actions use a subtler wash and keep their hue. Button labels and icons are painted above the wash, so they stay readable. In the sidebar that area is the name itself; the gutter to its left, including the disclosure, does not light up. A click does not replay it. Opening a menu clears the wash and restores it afterward only if the pointer is still on the control. Buttons do not get a blue focus ring. Text fields and combos still show an accent focus border.
 
 Help topics keep hover separate from selection, with the selected fill taking precedence. Pointer changes, leaving, scrolling and focus changes recompose the translucent dialog background so prior text and chips do not accumulate. Keyboard selection remains visible and continues to update the help article; the article viewport stays transparent.
 

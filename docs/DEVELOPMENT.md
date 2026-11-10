@@ -42,6 +42,17 @@ und [Prüfgrenzen](VERIFICATION.md).
 
 ## Release erstellen
 
+Die isolierte macOS-Vorschau öffnet Beispieldaten und verändert weder die installierte
+App noch deren Zeitplan. Synchronisierung ist darin durch einen Vorschauhinweis ersetzt:
+
+```sh
+.venv/bin/python scripts/capture_product.py --native --preview --language de
+```
+
+Aktuelle englische Produktbilder ohne private Desktop-Inhalte entstehen mit
+`.venv/bin/python scripts/capture_product.py --native`. Die native Aufnahme prüft
+den echten macOS-Compositor; die normale Aufnahme ohne `--native` rendert Qt offscreen.
+
 Die vorbereitete Updater-Integration benötigt einen bewusst eingerichteten
 öffentlichen Prüfschlüssel unter `updates/public-key.txt`. Der private Schlüssel
 gehört ausschließlich in den freigegebenen Signierprozess, niemals in Quellcode,
