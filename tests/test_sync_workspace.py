@@ -65,6 +65,42 @@ def test_recent_open_uses_identity_after_filters_change_order(window):
         assert Path(opened.call_args.args[0]).read_bytes() == b'5'
 
 
+@pytest.mark.parametrize('view', ['overview', 'materials'])
+@pytest.mark.parametrize('platform', ['darwin', 'linux'])
+def test_file_context_menu_reveals_the_clicked_entry_even_if_selection_changes(window, view, platform):
+    from types import SimpleNamespace
+    from ilias_sync import gui
+    from ilias_sync.i18n import t
+
+    table = window.recent_files if view == 'overview' else window.files
+    if view == 'materials':
+        window.workspace_tabs.setCurrentIndex(1)
+    # Right-click the date/size cell, whose metadata lives in column zero.
+    expected_entry = table.item(0, 0).data(gui.Qt.ItemDataRole.UserRole + 1)
+    target = window.file_target(expected_entry)
+    point = table.visualItemRect(table.item(0, 1)).center()
+
+    def choose(menu, *_):
+        table.selectRow(1)
+        window.files.selectRow(window.files.rowCount() - 1)
+        label = t('Show in Finder' if platform == 'darwin' else 'Open containing folder')
+        next(action for action in menu.actions() if action.text() == label).trigger()
+
+    with patch.object(gui, 'sys', SimpleNamespace(platform=platform)), \
+            patch.object(gui.MotionMenu, 'exec', choose), \
+            patch.object(gui.subprocess, 'run') as reveal, \
+            patch.object(gui.QDesktopServices, 'openUrl') as folder:
+        (window.recent_menu if view == 'overview' else window.file_menu)(point)
+        if platform == 'darwin':
+            reveal.assert_called_once_with(['/usr/bin/open', '-R', str(target)], check=False)
+            folder.assert_not_called()
+        else:
+            folder.assert_called_once()
+            assert folder.call_args.args[0].toLocalFile() == str(target.parent)
+            reveal.assert_not_called()
+    assert window.workspace.currentIndex() == (0 if view == 'overview' else 1)
+
+
 def test_sync_actions_are_one_fixed_section_and_busy_start_never_pauses(window, source):
     from PySide6.QtCore import QPoint
     assert window.sync_panel.isAncestorOf(window.sync_button)

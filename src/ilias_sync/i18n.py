@@ -34,6 +34,7 @@ DE = {
     'Save and check for app updates': 'Speichern und nach Updates suchen',
     'Installed version: {version}': 'Installierte Version: {version}',
     'Open downloads': 'Downloads öffnen',
+    'Show in Finder': 'Im Finder anzeigen',
     'Wait for the current sync to finish, then check for app updates again.':
         'Warte, bis der laufende Sync fertig ist, und suche dann erneut nach App-Updates.',
     'An update check is already running. Try again in a moment.':

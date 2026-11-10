@@ -1943,7 +1943,7 @@ class MainWindow(QMainWindow):
         about.triggered.connect(self.about)
         file_menu = self.menuBar().addMenu(t('File'))
         file_menu.addAction(t('Open file'), self.open_current_file, QKeySequence(QKeySequence.StandardKey.Open))
-        file_menu.addAction(t('Open containing folder'), self.reveal_file)
+        file_menu.addAction(t('Show in Finder') if sys.platform == 'darwin' else t('Open containing folder'), self.reveal_file)
         file_menu.addSeparator()
         file_menu.addAction(t('Add ILIAS'), self.add)
         view_menu = self.menuBar().addMenu(t('View'))
@@ -2129,8 +2129,11 @@ class MainWindow(QMainWindow):
         item = self.recent_files.itemAt(point)
         if item:
             self.recent_files.selectRow(item.row())
+            entry = self.recent_files.item(item.row(), 0).data(Qt.ItemDataRole.UserRole + 1)
             menu = MotionMenu(self)
-            menu.addAction(t('Open file'), self.open_recent)
+            menu.addAction(t('Open file'), lambda checked=False: self.open_entry(entry))
+            menu.addAction(t('Show in Finder') if sys.platform == 'darwin' else t('Open containing folder'),
+                           lambda checked=False: self.reveal_entry(entry))
             menu.addAction(t('View all materials'), lambda: self.workspace_tabs.setCurrentIndex(1))
             menu.exec(self.recent_files.viewport().mapToGlobal(point))
 
@@ -2667,7 +2670,11 @@ class MainWindow(QMainWindow):
             return None
 
     def open_file(self):
-        entry = self.open_candidate()
+        self.open_entry(self.open_candidate())
+
+    def open_entry(self, entry):
+        if not entry:
+            return
         target = self.file_target(entry)
         if target is None:
             return
@@ -2679,19 +2686,31 @@ class MainWindow(QMainWindow):
                                   source_id=entry['_source_id'], entry=entry)
 
     def reveal_file(self):
-        target = self.file_target()
+        if self.workspace.currentIndex() == 0:
+            item = self.recent_files.item(self.recent_files.currentRow(), 0)
+            entry = item.data(Qt.ItemDataRole.UserRole + 1) if item else None
+        else:
+            entry = self.selected_entry()
+        self.reveal_entry(entry)
+
+    def reveal_entry(self, entry):
+        target = self.file_target(entry) if entry else None
         if target:
-            QDesktopServices.openUrl(QUrl.fromLocalFile(str(target.parent)))
+            if sys.platform == 'darwin' and target.is_file():
+                subprocess.run(['/usr/bin/open', '-R', str(target)], check=False)
+            else:
+                QDesktopServices.openUrl(QUrl.fromLocalFile(str(target.parent)))
 
     def file_menu(self, point):
         item = self.files.itemAt(point)
         if not item:
             return
         self.files.selectRow(item.row())
-        menu = MotionMenu(self)
-        menu.addAction(t('Open file'), self.open_file)
-        menu.addAction(t('Open containing folder'), self.reveal_file)
         entry = self.selected_entry()
+        menu = MotionMenu(self)
+        menu.addAction(t('Open file'), lambda checked=False: self.open_entry(entry))
+        menu.addAction(t('Show in Finder') if sys.platform == 'darwin' else t('Open containing folder'),
+                       lambda checked=False: self.reveal_entry(entry))
         if entry and entry.get('course_id') and self.sources.scope() != (entry['_source_id'], entry['course_id']):
             menu.addSeparator()
             menu.addAction(t('Show course'), lambda: self.sources.select_scope(entry['_source_id'], entry['course_id']))
