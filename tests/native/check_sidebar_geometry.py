@@ -44,7 +44,9 @@ with tempfile.TemporaryDirectory(prefix='ilias-sidebar-state-') as temporary:
     assert toggle.geometry().bottom() < window.windowHandle().safeAreaMargins().top()
     for sidebar_visible in (False, True):
         QTest.mouseClick(window.windowHandle(), Qt.MouseButton.LeftButton, pos=toggle.geometry().center())
-        QTest.qWait(window.sidebar_animation.duration() + 35)
+        assert window.view_state['sidebar_hidden'] != sidebar_visible
+        window.sidebar_animation.setCurrentTime(window.sidebar_animation.duration())
+        app.processEvents()
         assert window.sidebar.isVisible() == sidebar_visible
 
     def check_titlebar(widget):

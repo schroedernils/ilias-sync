@@ -305,12 +305,16 @@ def test_compact_geometry_density_keyboard_and_sidebar_toggle(library_app, sourc
 
     check_sidebar_toggle_position()
     QTest.mouseClick(toggle, Qt.MouseButton.LeftButton)
-    QTest.qWait(window.sidebar_animation.duration() + 30)
+    assert window.view_state['sidebar_hidden']
+    window.sidebar_animation.setCurrentTime(window.sidebar_animation.duration())
+    library_app.processEvents()
     assert not window.sidebar.isVisible()
     assert toggle.accessibleName() == 'Seitenleiste einblenden'
     check_sidebar_toggle_position()
     QTest.mouseClick(toggle, Qt.MouseButton.LeftButton)
-    QTest.qWait(window.sidebar_animation.duration() + 30)
+    assert not window.view_state['sidebar_hidden']
+    window.sidebar_animation.setCurrentTime(window.sidebar_animation.duration())
+    library_app.processEvents()
     assert window.sidebar.isVisible()
     window.close()
 
