@@ -52,7 +52,7 @@ jobs:
         with:
           python-version: '3.12'
       - name: Install update signer
-        run: python -m pip install cryptography==50.0.2
+        run: python -m pip install cryptography==50.0.2 markdown-it-py==4.2.0
       - uses: actions/download-artifact@v4
         with:
           run-id: ${{ inputs.run_id }}

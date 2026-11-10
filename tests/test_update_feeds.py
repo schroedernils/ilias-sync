@@ -1,7 +1,6 @@
 import base64
 from copy import deepcopy
 import hashlib
-import html
 import json
 from pathlib import Path
 import plistlib
@@ -225,14 +224,19 @@ def test_unsafe_or_nonstable_versions_are_rejected(release, version):
 
 
 def test_release_notes_are_escaped_in_xml_and_rendered_html(release):
-    notes = 'Fix "quotes" & <script>alert("unsafe")</script>\nSchröder </description><enclosure url="evil" />'
+    notes = ('Fix "quotes" & <script>alert("unsafe")</script>\nSchröder </description><enclosure url="evil" />\n\n'
+             '- **Safer updates**\n- [Read more](https://example.test)\n\n'
+             '![tracking](https://example.test/pixel.png) [unsafe](javascript:alert(1))')
     generate(release, notes)
     for name in ('macOS-arm64.xml', 'macOS-x64.xml', 'windows-x64.xml'):
         root = ET.parse(release.assets / name).getroot()
         assert len(root.findall('./channel/item/enclosure')) == 1
         rendered = root.findtext('./channel/item/description')
-        assert rendered == '<pre>' + html.escape(notes) + '</pre>'
-        assert '<script>' not in rendered
+        assert '<ul>' in rendered and '<strong>Safer updates</strong>' in rendered
+        assert '<a href="https://example.test">Read more</a>' in rendered
+        assert '&lt;script&gt;' in rendered and '<script>' not in rendered
+        assert 'Schröder' in rendered and '<pre>' not in rendered
+        assert '<img' not in rendered and 'href="javascript:' not in rendered
 
 
 def test_urls_are_pinned_to_official_github_release_source(release, monkeypatch):

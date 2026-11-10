@@ -6,7 +6,6 @@ import base64
 import binascii
 from dataclasses import dataclass
 import hashlib
-import html
 import json
 import os
 from pathlib import Path
@@ -14,6 +13,7 @@ import re
 import xml.etree.ElementTree as ET
 
 from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PrivateKey
+from markdown_it import MarkdownIt
 
 
 REPOSITORY_URL = 'https://github.com/schroedernils/ilias-sync'
@@ -126,8 +126,10 @@ def _appcast(version: str, platform: str, package: SignedPackage, release_notes:
     ET.SubElement(item, f'{{{SPARKLE_NAMESPACE}}}minimumSystemVersion').text = (
         '10.0' if platform == 'Windows-x64' else '13.0.0'
     )
-    # Escape notes as HTML as well as XML, since native updaters render description HTML.
-    ET.SubElement(item, 'description').text = '<pre>' + html.escape(release_notes or f'IliasSync {version}') + '</pre>'
+    # Native updaters render HTML. Disable raw HTML and remote images and let
+    # ElementTree escape the rendered fragment for the XML transport.
+    renderer = MarkdownIt('commonmark', {'html': False}).disable('image')
+    ET.SubElement(item, 'description').text = renderer.render(release_notes or f'IliasSync {version}')
     ET.SubElement(item, 'enclosure', {
         'url': package.url, 'length': str(package.size), 'type': 'application/octet-stream',
         f'{{{SPARKLE_NAMESPACE}}}edSignature': package.signature,

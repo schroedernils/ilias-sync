@@ -11,8 +11,11 @@ evidence and the distinction between native update installation and mock tests.
 
 - **macOS:** Sparkle asks whether to check automatically, with automatic download
   and installation offered separately. **Settings → Updates** changes those
-  choices, and the app menu supports a manual check. Sparkle owns its native
-  preferences; starting the app never resets them. System profiling is disabled.
+  choices, and the app menu supports a manual check. In Settings, **Save and
+  check for app updates** saves the changes and closes Settings before handing
+  off to Sparkle. Automatic update prompts wait for modal IliasSync dialogs to
+  close. Sparkle owns its native preferences; starting the app never resets
+  them. System profiling is disabled. **Open downloads** offers a manual fallback.
 - **Windows:** WinSparkle offers opt-in automatic checks and a native update
   prompt. The signed Setup package updates the existing installation after the
   user accepts. The GUI receives shutdown requests through a queued signal and
@@ -92,8 +95,9 @@ a release.
 XML uses the namespace
 `http://www.andymatuschak.org/xml-namespaces/sparkle`. Each enclosure includes the
 version-specific HTTPS URL, byte length and `sparkle:edSignature`; version and
-short version are item elements. Release notes are embedded and escaped as both
-HTML and XML. The Windows feed offers the Setup installer, not the portable ZIP.
+short version are item elements. Release notes are rendered as CommonMark HTML
+with raw HTML and images disabled, then escaped for XML. The Windows feed offers
+the Setup installer, not the portable ZIP.
 This follows [Sparkle's archive signing and appcast format](https://sparkle-project.org/documentation/publishing/)
 and [WinSparkle's compatible EdDSA signing](https://github.com/vslavik/winsparkle/blob/v0.9.4/README.md).
 
