@@ -527,7 +527,9 @@ class SourceDialog(SurfaceDialog):
         self.pages = []
         self.forms = []
         for _ in range(3):
-            scroll = QScrollArea()
+            scroll = TranslucentScrollArea()
+            scroll.viewport().setObjectName("sourceDialogViewport")
+            scroll.viewport().setAutoFillBackground(False)
             scroll.setWidgetResizable(True)
             pane = QWidget()
             pane.setObjectName("page")
@@ -535,6 +537,7 @@ class SourceDialog(SurfaceDialog):
             form.setContentsMargins(0, 6, 0, 6)
             form.setSpacing(16)
             scroll.setWidget(pane)
+            pane.setAutoFillBackground(False)
             self.stack.addWidget(scroll)
             self.pages.append(pane)
             self.forms.append(form)
@@ -660,7 +663,8 @@ class SourceDialog(SurfaceDialog):
     def update_step(self):
         index = self.stack.currentIndex()
         self.step_label.setVisible(self.existing is None or self.signin_recovery)
-        self.step_label.setText(self.existing.name if self.signin_recovery else t("Step {step} of 3", step=index + 1))
+        self.step_label.setText(self.existing.name if self.signin_recovery else f"{index + 1}/3")
+        self.step_label.setAccessibleName(self.existing.name if self.signin_recovery else t("Step {step} of 3", step=index + 1))
         self.heading.setText(t('Renew sign-in') if self.signin_recovery else t('University settings') if self.existing else t(["Your university", "Sign in to ILIAS", "Choose your files"][index]))
         self.back_button.setEnabled(index > 0)
         self.back_button.setVisible(self.existing is None)

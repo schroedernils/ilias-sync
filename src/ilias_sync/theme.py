@@ -20,9 +20,9 @@ DARK = dict(window='#181818', surface='#181818', elevated='#1e1e1e', inset='#202
             success='#83cfa3', warning='#f1b467', sidebar='#141414', input_border='#818181')
 
 # Frosted surfaces rely on the native Cocoa backdrop.
-FROST = 0.87
-TITLEBAR_OPACITY = 0.62
-MENU_OPACITY = 0.98
+FROST = 0.90
+TITLEBAR_OPACITY = 0.67
+MENU_OPACITY = 0.99
 WORKSPACE_GUTTER = 22
 CARD_INSET = 14
 SYNC_CONTROL_HEIGHT = 40
@@ -105,6 +105,7 @@ def stylesheet(c, frost=1):
 QWidget {{ color: {c['text']}; font-size: 14px; }}
 QDialog {{ background: {pane}; }}
 QWidget#dialogBody, QDialog QScrollArea, QDialog QScrollArea > QWidget > QWidget {{ background: transparent; }}
+QWidget#sourceDialogViewport {{ background: transparent; }}
 QMainWindow {{ background: {pane}; }}
 QWidget#page, QWidget#mainSurface {{ background: {carrier}; }}
 QWidget#formPane, QFrame#surface {{ background: {carrier}; border: none; border-radius: 0; }}
@@ -161,7 +162,7 @@ QPushButton#weekAdd:focus, QPushButton#weekRemove:focus {{ outline: none; }}
 QProgressBar {{ background: {c['inset']}; border: none; border-radius: 2px; }}
 QProgressBar::chunk {{ background: {c['accent']}; border-radius: 2px; }}
 QLabel#sectionTitle {{ font-size: 15px; font-weight: 600; }}
-QLabel#step {{ color: {c['accent']}; font-size: 12px; font-weight: 600; }}
+QLabel#step {{ color: {c['muted']}; font-size: 12px; font-weight: 500; }}
 QLabel#status {{ padding: 12px 14px; border-radius: 8px; background: {c['inset']}; }}
 QLabel#error {{ color: {c['error']}; }}
 QLabel#success {{ color: {c['success']}; }}
