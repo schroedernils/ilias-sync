@@ -17,7 +17,7 @@ class SyncSummary:
 
 
 def sync_summary(status, material_count):
-    from .recovery import needs_signin
+    from .recovery import COURSE_LINK_DETAIL, needs_signin
     result = status.get('result') or {}
     counts = result.get('material_counts', result.get('counts', {}))
     state = status.get('state', '')
@@ -31,6 +31,8 @@ def sync_summary(status, material_count):
     if needs_signin(status):
         return SyncSummary(t('Sign in to continue'), t('Check the saved sign-in details. Your local files are still available.'),
                            'error', 'signin')
+    if status.get('failure_kind') == 'course_links':
+        return SyncSummary(t('Check the saved course links'), t(COURSE_LINK_DETAIL), 'error', 'courses')
     if state == 'Needs attention' or result.get('errors'):
         return SyncSummary(t('Synchronization incomplete'),
                            message(status['message']) if status.get('message') else

@@ -1,9 +1,18 @@
 """Read-only library projections. Browsing never changes synchronization targets."""
+from hashlib import sha256
 from pathlib import PurePosixPath
 
 from .i18n import t
+from .course_links import course_link, course_link_issues, is_manual_course
 from .presentation import SyncSummary, is_course_info, sync_summary
 from .storage import data_dir, read_json, source_scope
+
+
+def cached_courses(source):
+    rows = read_json(data_dir() / 'sources' / source.id / 'courses.json', [])
+    saved = {course_link(source.url, url)[0] for url in source.targets}
+    return [row for row in rows if not course_link(source.url, row.get('url', ''))[1]
+            and (not is_manual_course(row) or row.get('url') in saved)]
 
 
 def load_library(sources):
@@ -11,7 +20,7 @@ def load_library(sources):
     libraries = {}
     for source in sources:
         state = data_dir() / 'sources' / source.id
-        cached = read_json(state / 'courses.json', [])
+        cached = cached_courses(source)
         courses = {row['id']: row['name'] for row in cached}
         entries = []
         for identity, value in read_json(state / 'manifest.json', {'files': {}})['files'].items():
@@ -30,8 +39,19 @@ def load_library(sources):
         for entry in entries:
             if not entry.get('course_name'):
                 entry['course_name'] = courses.get(entry.get('course_id'), '')
-        libraries[source.id] = {'source': source, 'courses': courses, 'entries': entries,
-                                'status': read_json(state / 'status.json', {})}
+        status = read_json(state / 'status.json', {})
+        invalid = course_link_issues(source)
+        # Older builds surfaced this exact failed pseudo-course as an auth error.
+        # Keep the recorded attempt unchanged; offer the repair in the library.
+        attempted = (status.get('evidence') or {}).get('course_scope', [])
+        invalid_ids = {sha256(course_link(source.url, row['path'])[0].encode()).hexdigest()[:12]
+                       for row in invalid}
+        if (status.get('message') == 'Sign-in expired or was rejected by ILIAS.'
+                and any(row['id'] in invalid_ids for row in attempted)):
+            evidence = status['evidence']
+            status = {**status, 'login_required': False, 'state': 'Needs attention', 'message': '',
+                      'failure_kind': 'course_links', 'evidence': {**evidence, 'check_issues': invalid}}
+        libraries[source.id] = {'source': source, 'courses': courses, 'entries': entries, 'status': status}
     return libraries
 
 

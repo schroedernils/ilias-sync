@@ -14,6 +14,7 @@ SIGN_IN_MESSAGES = {
     'A download returned a login page. Sign in again.',
     'Sign in again. No password is stored for this source.',
 }
+COURSE_LINK_DETAIL = 'A saved link is not a course and was skipped. Remove or replace it under Choose courses. Your saved files stay available.'
 
 
 def needs_signin(status):
@@ -54,6 +55,10 @@ def recovery_plan(status):
             (t('1. Update the password or import a fresh browser session.'),
              t('2. Save and check. IliasSync tests the sign-in by checking this university.'),
              t('3. The new result confirms whether syncing works again.')))
+    if kind == 'course_links':
+        return RecoveryPlan('course_links', 'courses', t('Review course links'), t(COURSE_LINK_DETAIL),
+            (t('1. Remove the marked link or replace it with an ILIAS course, group, or folder link.'),
+             t('2. Save to check again. Downloaded files will be kept.')))
     if status.get('recovery') == 'folders':
         return RecoveryPlan('folders', 'folders', t('Check folder names'),
             t('Two folders would use the same name. Your existing files have been kept.'),

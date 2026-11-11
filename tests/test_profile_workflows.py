@@ -85,6 +85,38 @@ def test_course_save_keeps_non_discovered_manual_links_and_allows_explicit_remov
     dialog.findChild(QDialogButtonBox).button(QDialogButtonBox.StandardButton.Save).click()
     assert settings.sources()[0].targets == [courses[0]['url']]
 
+
+def test_course_dialog_recovers_legacy_web_link_and_rejects_pasting_it(app, source):
+    from hashlib import sha256
+    from ilias_sync.gui import CoursesDialog
+    from PySide6.QtWidgets import QDialog, QDialogButtonBox, QPushButton
+
+    link = source.url + '/ilias.php?baseClass=ilLinkResourceHandlerGUI&ref_id=4675434&cmd=calldirectlink'
+    key = sha256(link.encode()).hexdigest()[:12]
+    course = {'id': 'crs-1', 'name': 'LDS', 'url': source.url + '/go/crs/1'}
+    old = {'id': key, 'name': 'Course ' + key, 'url': link}
+    settings = Settings()
+    settings.save_source(source)
+    dialog = CoursesDialog([course], source, settings, None)
+    save = lambda d: d.findChild(QDialogButtonBox).button(QDialogButtonBox.StandardButton.Save).click()
+    dialog.extra.setText(link)
+    save(dialog)
+    assert dialog.result() != QDialog.DialogCode.Accepted
+    assert settings.sources()[0].targets == []
+    dialog.reject()
+
+    settings.value['sources'][0]['targets'] = [link]
+    dialog = CoursesDialog([course, old], settings.sources()[0], settings, None)
+    assert dialog.listing.count() == dialog.saved_links.count() == 1
+    assert link in dialog.saved_links.item(0).text()
+    next(b for b in dialog.findChildren(QPushButton) if b.text() == 'Link bearbeiten').click()
+    assert dialog.extra.text() == link
+    next(b for b in dialog.findChildren(QPushButton) if b.text() == 'Link entfernen').click()
+    save(dialog)
+    saved = settings.sources()[0]
+    assert dialog.result() == QDialog.DialogCode.Accepted
+    assert saved.automatic_courses and saved.targets == []
+
 def test_profile_validation_precedes_vault_and_write_failures_restore_config(app, source, tmp_path):
     from ilias_sync.gui import SourceDialog
     from ilias_sync.profile_service import commit_profile

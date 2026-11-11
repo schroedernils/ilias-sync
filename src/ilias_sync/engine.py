@@ -15,6 +15,7 @@ import certifi
 from bs4 import BeautifulSoup
 
 from .control import CURRENT, checkpoint
+from .course_links import course_link, course_link_issues
 from .page_index import PageData, PageIndex, decode_element, encode_element
 from .security import LoginRequired, get_password
 from .storage import Archive, Source, clean_filename, clean_name, data_dir, write_json
@@ -41,7 +42,7 @@ def memberships(soup, base):
         name = link.get_text(" ", strip=True)
         if parsed and parsed[0] in {"crs", "grp"} and name and urlparse(url).netloc == urlparse(base).netloc:
             key = "-".join(parsed)
-            found.setdefault(key, {"id": key, "name": name, "url": url})
+            found.setdefault(key, {"id": key, "name": name, "url": url, "manual": False})
     return list(found.values())
 
 
@@ -237,6 +238,16 @@ def make_crawler(source: Source, emit=lambda event: None, *, discover=False):
                     accepted = (link_export or unavailable_link) if expects_export else logged_in
                     if accepted:
                         return data
+                    if expects_export and logged_in:
+                        raise CrawlError('ILIAS did not return the requested link export.')
+                # An unexpected page can lack the usual ILIAS chrome even
+                # when the session is fine. Check before attempting sign-in.
+                dashboard = source.url + '/ilias.php?baseClass=ilDashboardGUI&cmd=show&view=2'
+                if url != dashboard:
+                    async with self.session.get(dashboard) as response:
+                        response.raise_for_status()
+                        if IliasPage.is_logged_in(IliasSoup(soupify(await response.read()), str(response.url))):
+                            raise CrawlError('ILIAS returned an unexpected page while the session was active.')
                 if not attempt:
                     await self.authenticate(auth)
             raise LoginRequired("Sign-in expired or was rejected by ILIAS.")
@@ -380,27 +391,26 @@ def make_crawler(source: Source, emit=lambda event: None, *, discover=False):
                 raise CrawlError('Course list exceeded its page limit. Add specific course links.')
             self.roots = list(found.values())
             self.membership_complete = True
-            write_json(data_dir() / 'sources' / source.id / 'courses.json', self.roots)
             # Also retain explicitly selected folder/course URLs, including institutions with a custom dashboard.
             selected = []
             for url in source.targets:
-                absolute = urljoin(source.url + "/", url)
-                if urlparse(absolute).netloc != urlparse(source.url).netloc:
-                    raise ValueError("A selected course belongs to a different ILIAS server.")
+                absolute, problem = course_link(source.url, url)
+                if problem:
+                    continue
                 identity = ref(absolute)
                 key = "-".join(identity) if identity else hashlib.sha256(absolute.encode()).hexdigest()[:12]
-                selected.append(next((r for r in self.roots if r["id"] == key),
-                                     {"id": key, "name": "Course " + key, "url": absolute}))
+                selected.append(found.get(key, {"id": key, "name": "Course " + key,
+                                                 "url": absolute, "manual": True}))
+            combined = list({r['id']: r for r in [*self.roots, *selected]}.values())
+            write_json(data_dir() / 'sources' / source.id / 'courses.json', combined)
             if discover:
-                known = {r['id'] for r in self.roots}
-                self.roots.extend(r for r in selected if r['id'] not in known)
-                write_json(data_dir() / 'sources' / source.id / 'courses.json', self.roots)
+                self.roots = combined
                 return
-            roots = self.roots if source.automatic_courses else selected
+            roots = combined if source.automatic_courses else list({r['id']: r for r in selected}.values())
             self.active_roots = roots
             from .naming import course_folders
             self.course_folders = course_folders(source, roots, persist=True)
-            if not roots:
+            if not roots and not course_link_issues(source):
                 raise CrawlError("No courses found. Add a direct course or folder link in source settings.")
             emit({'event': 'progress', 'message': 'Checking known content pages…'})
             for index, root in enumerate(roots, 1):
@@ -574,7 +584,7 @@ async def synchronize(source: Source, emit=lambda event: None, *, discover=False
                                       for identity, reason in crawler.download_issues.items() if identity in crawler.files],
                   "skipped": dict(crawler.skipped), "warnings": len(crawler.report.encountered_warnings),
                   "errors": len(crawler.report.encountered_errors), "seconds": round(time.monotonic() - start, 2),
-                  "partial": not crawler.error_free}
+                  "partial": not crawler.error_free, 'course_link_issues': course_link_issues(source)}
         result['pages'] = {'checked': len(crawler.page_index.used_urls), 'parsed': crawler.page_index.parsed,
                            'reused': crawler.page_index.reused,
                            'empty_meetings': len(crawler.page_index.empty_meetings)}

@@ -29,13 +29,14 @@ from .surfaces import SurfaceDialog, SurfaceFrame, paint_window_background
 from .branding import BrandMark, action_pixmap, app_icon, paint_action
 from .motion import FadeButton, MotionMenu, PopupChipDelegate, Switch, SyncCluster, clip_round, popup
 from .control import active_run, send_command
+from .course_links import course_link, is_manual_course
 from .theme import CARD_INSET, DARK, LIGHT, SYNC_CONTROL_HEIGHT, WORKSPACE_GUTTER, Theme, popup_color, uses_native_backdrop
 from .i18n import message, set_language, t
 from .scheduler import command, ensure_schedule, install, registration_matches, uninstall
 from .security import import_session, store_password
 from .storage import Settings, Source, data_dir, exclude_files, excluded_files, read_json, write_json, source_scope
 from .library_widgets import MaterialDelegate, MaterialTable, SyncPanel, ElidedLabel, LibraryNavigation
-from .library import load_library, course_key, source_summary, library_summary
+from .library import cached_courses, load_library, course_key, source_summary, library_summary
 from .recovery import recovery_plan
 from .presentation import (brief_stamp, file_size, is_course_info, local_time, sync_summary, schedule_expectation, schedule_brief,
                           filtered_result, warning_facts, progress_copy, file_context)
@@ -409,8 +410,12 @@ class SyncReportDialog(SurfaceDialog):
         facts = result or status.get('evidence') or {}
         for detail in facts.get('check_issues', []):
             path = t('Course list') if detail['path'] == 'Course list' else detail['path']
-            row = QTreeWidgetItem(self.issues, [path, reasons.get(detail.get('reason'), reasons['check_failed'])])
+            row = QTreeWidgetItem(self.issues, [path, t(detail['message']) if detail.get('message')
+                                               else reasons.get(detail.get('reason'), reasons['check_failed'])])
             row.setToolTip(0, path)
+        for detail in result.get('course_link_issues', []):
+            row = QTreeWidgetItem(self.issues, [detail['path'], t(detail['message'])])
+            row.setToolTip(0, detail['path'])
         if not details and result.get('unavailable'):
             QTreeWidgetItem(self.issues, [t('{count} files unavailable', count=result['unavailable']), t('No filenames recorded in this older result.')])
         if counts.get('conflict'):
@@ -882,6 +887,8 @@ class CoursesDialog(SurfaceDialog):
         layout.setContentsMargins(24, 22, 24, 20)
         layout.setSpacing(12)
         layout.addWidget(label("Choose courses", "title"))
+        courses = [course for course in courses
+                   if course.get('url') and not is_manual_course(course) and not course_link(source.url, course['url'])[1]]
         layout.addWidget(label(t("{count} courses and groups", count=len(courses)), "subtitle"))
         search = QLineEdit()
         search.setPlaceholderText(t("Search courses…"))
@@ -907,9 +914,13 @@ class CoursesDialog(SurfaceDialog):
         self.automatic = auto
         self.search = search
         extra = QLineEdit()
-        extra.setPlaceholderText(t("Missing a course? Paste its ILIAS link here."))
-        layout.addWidget(extra)
+        extra.setPlaceholderText(t("Paste a link to an ILIAS course, group, or folder"))
+        extra.setAccessibleName(t('Manual course link'))
+        self.extra = extra
         known_urls = {course['url'] for course in courses}
+        manual_heading = label('Manually added links', 'subtitle')
+        manual_heading.setBuddy(extra)
+        layout.addWidget(manual_heading)
         self.saved_links = QListWidget()
         self.saved_links.setAccessibleName(t('Additional saved links'))
         for url in source.targets:
@@ -918,27 +929,95 @@ class CoursesDialog(SurfaceDialog):
                 item.setFlags(item.flags() | Qt.ItemFlag.ItemIsUserCheckable)
                 item.setCheckState(Qt.CheckState.Checked)
                 item.setData(Qt.ItemDataRole.AccessibleDescriptionRole, url)
+                item.setData(Qt.ItemDataRole.UserRole, url)
+                if problem := course_link(source.url, url)[1]:
+                    item.setText(t('Invalid link') + ' · ' + url)
+                    item.setToolTip(t(problem))
+                    item.setData(Qt.ItemDataRole.AccessibleDescriptionRole, t(problem))
                 self.saved_links.addItem(item)
         self.saved_links.setMaximumHeight(95)
         self.saved_links.setVisible(bool(self.saved_links.count()))
         layout.addWidget(self.saved_links)
+        edit_row = QHBoxLayout()
+        edit_row.addWidget(extra, 1)
+        editing = None
+
+        def edit_link():
+            nonlocal editing
+            editing = self.saved_links.currentItem()
+            if editing:
+                extra.setText(editing.data(Qt.ItemDataRole.UserRole))
+                extra.setFocus()
+                extra.selectAll()
+
+        def remove_link():
+            nonlocal editing
+            item = self.saved_links.currentItem()
+            if item is None:
+                return
+            if item is editing:
+                editing = None
+                extra.clear()
+            self.saved_links.takeItem(self.saved_links.row(item))
+            self.saved_links.setVisible(bool(self.saved_links.count()))
+            show_issue()
+
+        edit = button('Edit link', edit_link)
+        remove = button('Remove link', remove_link)
+        edit_row.addWidget(edit)
+        edit_row.addWidget(remove)
+        layout.addLayout(edit_row)
+        feedback = label('', 'subtitle')
+        feedback.setWordWrap(True)
+        layout.addWidget(feedback)
+
+        def show_issue(*_):
+            edit.setVisible(bool(self.saved_links.count()))
+            remove.setVisible(bool(self.saved_links.count()))
+            edit.setEnabled(self.saved_links.currentItem() is not None)
+            remove.setEnabled(self.saved_links.currentItem() is not None)
+            issue = next((course_link(source.url, self.saved_links.item(i).data(Qt.ItemDataRole.UserRole))[1]
+                          for i in range(self.saved_links.count())
+                          if course_link(source.url, self.saved_links.item(i).data(Qt.ItemDataRole.UserRole))[1]), '')
+            if extra.text().strip():
+                issue = course_link(source.url, extra.text().strip())[1] or issue
+            feedback.setText(t(issue))
+            feedback.setVisible(bool(issue))
+
+        self.saved_links.currentItemChanged.connect(show_issue)
+        self.saved_links.itemDoubleClicked.connect(lambda _: edit_link())
+        extra.textChanged.connect(show_issue)
+        if self.saved_links.count():
+            invalid_row = next((i for i in range(self.saved_links.count())
+                                if self.saved_links.item(i).toolTip()), 0)
+            self.saved_links.setCurrentRow(invalid_row)
+        show_issue()
         buttons = save_buttons()
         layout.addWidget(buttons)
 
         def save():
-            source.automatic_courses = auto.isChecked()
-            source.targets = [listing.item(i).data(Qt.ItemDataRole.UserRole) for i in range(listing.count())
-                              if listing.item(i).checkState() == Qt.CheckState.Checked]
-            source.targets += [self.saved_links.item(i).text() for i in range(self.saved_links.count())
-                               if self.saved_links.item(i).checkState() == Qt.CheckState.Checked]
-            if extra.text().strip():
-                source.targets.append(extra.text().strip())
-                source.automatic_courses = False
+            entered = extra.text().strip()
+            if entered and (problem := course_link(source.url, entered)[1]):
+                feedback.setText(t(problem))
+                feedback.show()
+                extra.setFocus()
+                return
+            selected = [] if auto.isChecked() else [
+                listing.item(i).data(Qt.ItemDataRole.UserRole) for i in range(listing.count())
+                if listing.item(i).checkState() == Qt.CheckState.Checked]
+            selected.extend(item.data(Qt.ItemDataRole.UserRole) for i in range(self.saved_links.count())
+                            if (item := self.saved_links.item(i)).checkState() == Qt.CheckState.Checked
+                            and not (entered and item is editing))
+            if entered and not (auto.isChecked() and entered in known_urls):
+                selected.append(entered)
+            candidate = replace(source, automatic_courses=auto.isChecked(), targets=list(dict.fromkeys(selected)))
             try:
-                settings.save_source(source)
+                settings.save_source(candidate)
+                self.source = candidate
                 self.accept()
             except ValueError as exc:
-                QMessageBox.warning(self, t("Select courses"), message(str(exc)))
+                feedback.setText(message(str(exc)))
+                feedback.show()
         buttons.accepted.connect(save)
         buttons.rejected.connect(self.reject)
 
@@ -2818,6 +2897,12 @@ class MainWindow(QMainWindow):
             self.folder_mapping(verify=True) if self.selected() and self.selected().id == identity else self.folder_mapping(source, verify=True)
         elif plan.action == 'storage':
             self.edit(source=source, storage=True, verify=True)
+        elif plan.action == 'courses':
+            dialog = CoursesDialog(cached_courses(source), source, self.settings, self)
+            if dialog.exec() == QDialog.DialogCode.Accepted:
+                self.refresh()
+                if not any(course_link(dialog.source.url, url)[1] for url in dialog.source.targets):
+                    self.begin_repair(dialog.source, plan.kind)
         elif plan.action == 'browser':
             QDesktopServices.openUrl(QUrl(source.url))
         else:
@@ -3225,7 +3310,7 @@ class MainWindow(QMainWindow):
             verified = (not exit_code and latest.get('finished', 0) >= repair['started'] and
                         latest.get('state') in {'Up to date', 'Completed with warnings'} and
                         latest.get('scope') == source_scope(self.job[1]) and
-                        result is not None and not result.get('errors'))
+                    result is not None and not result.get('errors') and not result.get('course_link_issues'))
             repair['phase'] = 'verified' if verified else 'failed'
             repair['finished'] = latest.get('finished')
             if verified and repair['kind'] == 'missing':

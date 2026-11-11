@@ -500,6 +500,30 @@ DE.update({
 })
 
 
+DE.update({
+    'This is a link to external content, not an ILIAS course. Copy the course, group, or folder link instead.':
+        'Dieser Weblink führt zu externen Inhalten. Kopiere stattdessen den Link zum ILIAS-Kurs, zur Gruppe oder zum Ordner.',
+    'Paste a course, group, or folder link from this university.':
+        'Füge den Link zu einem Kurs, einer Gruppe oder einem Ordner dieser Hochschule ein.',
+    'This link points to an item, not an ILIAS course, group, or folder.':
+        'Dieser Link führt zu einem einzelnen Inhalt. Verwende den Link zum Kurs, zur Gruppe oder zum Ordner.',
+    'Check the saved course links': 'Gespeicherte Kurslinks prüfen',
+    'Review course links': 'Kurslinks prüfen',
+    'A saved link is not a course and was skipped. Remove or replace it under Choose courses. Your saved files stay available.':
+        'Ein gespeicherter Link wurde übersprungen. Entferne oder ersetze ihn unter „Kurse auswählen“. Deine gespeicherten Dateien bleiben verfügbar.',
+    '1. Remove the marked link or replace it with an ILIAS course, group, or folder link.':
+        '1. Entferne den markierten Link oder ersetze ihn durch den Link zu einem ILIAS-Kurs, einer Gruppe oder einem Ordner.',
+    '2. Save to check again. Downloaded files will be kept.':
+        '2. Speichere, um erneut zu prüfen. Heruntergeladene Dateien bleiben erhalten.',
+    'Paste a link to an ILIAS course, group, or folder': 'Link zu einem ILIAS-Kurs, einer Gruppe oder einem Ordner einfügen',
+    'Manually added links': 'Manuell hinzugefügte Links',
+    'Manual course link': 'Manueller Kurslink',
+    'Invalid link': 'Ungeeigneter Link',
+    'Edit link': 'Link bearbeiten',
+    'Remove link': 'Link entfernen',
+})
+
+
 def set_language(language):
     global LANGUAGE
     LANGUAGE = language if language in {"de", "en"} else "de"

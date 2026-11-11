@@ -104,6 +104,49 @@ async def test_full_synthetic_sync_and_repeat(source, monkeypatch):
     assert 'Saving course information…' in messages
 
 
+async def test_legacy_direct_web_link_cannot_interrupt_valid_course_sync(source, monkeypatch):
+    from types import SimpleNamespace
+    from ilias_sync.__main__ import worker
+    from ilias_sync.storage import Settings, data_dir, read_json
+
+    invalid = source.url + '/ilias.php?baseClass=ilLinkResourceHandlerGUI&ref_id=4675434&cmd=calldirectlink'
+
+    class Session(FixtureSession):
+        def get(self, url, **kwargs):
+            assert 'calldirectlink' not in str(url)
+            return super().get(url, **kwargs)
+
+    settings = Settings()
+    settings.save_source(source)
+    settings.value['sources'][0].update(automatic_courses=False, targets=[source.url + '/go/crs/123', invalid])
+    settings.save()
+    monkeypatch.setattr('aiohttp.ClientSession', Session)
+    assert await worker(SimpleNamespace(probe=None, profile=source.id, sync=True, discover=False)) == 0
+    status = read_json(data_dir() / 'sources' / source.id / 'status.json', {})
+    assert status['state'] == 'Completed with warnings'
+    assert status['failure_kind'] == 'course_links' and not status['login_required']
+    assert status['result']['material_counts'] == {'added': 1}
+    assert status['result']['course_link_issues'][0]['path'] == invalid
+    assert not status['last_success']
+
+
+async def test_unexpected_course_page_checks_session_before_reauth(source, monkeypatch):
+    from PFERD.crawl.crawler import CrawlError
+
+    class Session(FixtureSession):
+        def get(self, url, **kwargs):
+            if 'Dashboard' in str(url):
+                return super().get(url, **kwargs)
+            return Response(url, b'<html><p>Unexpected response</p></html>')
+
+    crawler = make_crawler(source, lambda _: None)
+    crawler.session = Session()
+    crawler.authenticate = AsyncMock()
+    with pytest.raises(CrawlError, match='while the session was active'):
+        await crawler._fetch_page(source.url + '/go/crs/123')
+    crawler.authenticate.assert_not_awaited()
+
+
 async def test_nested_folder_progress_identifies_current_course_and_folder(source, monkeypatch):
     folder = '<div class="ilContainerListItemOuter"><img class="ilListItemIcon" src="fold.svg" alt="Ordner"/>' \
              '<div class="il_ContainerListItem"><a class="il_ContainerItemTitle" href="/go/fold/456">Material</a></div></div>'

@@ -234,6 +234,13 @@ class Settings:
 
     def validate_source(self, source: Source):
         source.validate()
+        from .course_links import course_link
+        saved = self.value['sources']
+        previous = next((s for s in saved if s['id'] == source.id and s['url'] == source.url), {})
+        # Legacy links remain editable; new invalid links must never be persisted.
+        for url in source.targets:
+            if url not in previous.get('targets', ()) and (problem := course_link(source.url, url)[1]):
+                raise ValueError(problem)
         for other in self.sources():
             if other.id != source.id:
                 a, b = Path(other.destination).resolve(), Path(source.destination).resolve()

@@ -71,11 +71,13 @@ async def worker(args):
                     emit({"event": "result", "result": result})
                     continue
                 incomplete = result["partial"] or result["warnings"] or result["errors"]
-                partial = incomplete or result.get('unavailable', 0)
+                partial = incomplete or result.get('unavailable', 0) or result.get('course_link_issues')
                 failures = previous.get("failures", 0) + 1 if incomplete else 0
                 status = {"state": "Completed with warnings" if partial else "Up to date", "finished": time.time(),
                           "next_run": next_scheduled_run(settings.value, failures, clock=batch_started), "failures": failures,
                           "login_required": False, "result": result}
+                if result.get('course_link_issues'):
+                    status['failure_kind'] = 'course_links'
                 status['next_run'] = max(status['next_run'], result.get('http', {}).get('retry_at', 0))
                 record_attempt(path.parent, {**status, 'started': started, 'scope': source_scope(source)}, previous)
                 emit({"event": "result", "profile": source.id, "result": status})
