@@ -89,6 +89,9 @@ def test_course_save_keeps_non_discovered_manual_links_and_allows_explicit_remov
 def test_course_dialog_recovers_legacy_web_link_and_rejects_pasting_it(app, source):
     from hashlib import sha256
     from ilias_sync.gui import CoursesDialog
+    from ilias_sync.library import load_library
+    from ilias_sync.recovery import recovery_plan
+    from ilias_sync.storage import write_json
     from PySide6.QtWidgets import QDialog, QDialogButtonBox, QPushButton
 
     link = source.url + '/ilias.php?baseClass=ilLinkResourceHandlerGUI&ref_id=4675434&cmd=calldirectlink'
@@ -106,7 +109,16 @@ def test_course_dialog_recovers_legacy_web_link_and_rejects_pasting_it(app, sour
     dialog.reject()
 
     settings.value['sources'][0]['targets'] = [link]
-    dialog = CoursesDialog([course, old], settings.sources()[0], settings, None)
+    saved_source = settings.sources()[0]
+    state = data_dir() / 'sources' / source.id
+    write_json(state / 'courses.json', [course, old])
+    write_json(state / 'status.json', {'login_required': True, 'state': 'Sign in again',
+               'message': 'Sign-in expired or was rejected by ILIAS.',
+               'evidence': {'course_scope': [{'id': key, 'name': old['name']}]}})
+    library = load_library([saved_source])[source.id]
+    assert key not in library['courses']
+    assert recovery_plan(library['status']).action == 'courses'
+    dialog = CoursesDialog([course, old], saved_source, settings, None)
     assert dialog.listing.count() == dialog.saved_links.count() == 1
     assert link in dialog.saved_links.item(0).text()
     next(b for b in dialog.findChildren(QPushButton) if b.text() == 'Link bearbeiten').click()

@@ -406,7 +406,7 @@ def make_crawler(source: Source, emit=lambda event: None, *, discover=False):
             if discover:
                 self.roots = combined
                 return
-            roots = combined if source.automatic_courses else list({r['id']: r for r in selected}.values())
+            roots = self.roots if source.automatic_courses else list({r['id']: r for r in selected}.values())
             self.active_roots = roots
             from .naming import course_folders
             self.course_folders = course_folders(source, roots, persist=True)

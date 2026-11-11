@@ -521,6 +521,8 @@ DE.update({
     'Invalid link': 'Ungeeigneter Link',
     'Edit link': 'Link bearbeiten',
     'Remove link': 'Link entfernen',
+    'Saving a manual link switches to manual course selection. Your checked courses stay selected.':
+        'Beim Speichern eines eigenen Links wechselst du zur manuellen Kursauswahl. Angekreuzte Kurse bleiben ausgewählt.',
 })
 
 

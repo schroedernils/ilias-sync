@@ -29,7 +29,7 @@ from .surfaces import SurfaceDialog, SurfaceFrame, paint_window_background
 from .branding import BrandMark, action_pixmap, app_icon, paint_action
 from .motion import FadeButton, MotionMenu, PopupChipDelegate, Switch, SyncCluster, clip_round, popup
 from .control import active_run, send_command
-from .course_links import course_link, is_manual_course
+from .course_links import course_link, course_link_issues, is_manual_course
 from .theme import CARD_INSET, DARK, LIGHT, SYNC_CONTROL_HEIGHT, WORKSPACE_GUTTER, Theme, popup_color, uses_native_backdrop
 from .i18n import message, set_language, t
 from .scheduler import command, ensure_schedule, install, registration_matches, uninstall
@@ -983,14 +983,19 @@ class CoursesDialog(SurfaceDialog):
             issue = next((course_link(source.url, self.saved_links.item(i).data(Qt.ItemDataRole.UserRole))[1]
                           for i in range(self.saved_links.count())
                           if course_link(source.url, self.saved_links.item(i).data(Qt.ItemDataRole.UserRole))[1]), '')
-            if extra.text().strip():
-                issue = course_link(source.url, extra.text().strip())[1] or issue
-            feedback.setText(t(issue))
-            feedback.setVisible(bool(issue))
+            entered = extra.text().strip()
+            if entered:
+                issue = course_link(source.url, entered)[1] or issue
+            copy = t(issue)
+            if not copy and entered and auto.isChecked() and entered not in known_urls:
+                copy = t('Saving a manual link switches to manual course selection. Your checked courses stay selected.')
+            feedback.setText(copy)
+            feedback.setVisible(bool(copy))
 
         self.saved_links.currentItemChanged.connect(show_issue)
         self.saved_links.itemDoubleClicked.connect(lambda _: edit_link())
         extra.textChanged.connect(show_issue)
+        auto.toggled.connect(show_issue)
         if self.saved_links.count():
             invalid_row = next((i for i in range(self.saved_links.count())
                                 if self.saved_links.item(i).toolTip()), 0)
@@ -1006,15 +1011,16 @@ class CoursesDialog(SurfaceDialog):
                 feedback.show()
                 extra.setFocus()
                 return
-            selected = [] if auto.isChecked() else [
+            automatic = auto.isChecked() and not (entered and entered not in known_urls)
+            selected = [] if automatic else [
                 listing.item(i).data(Qt.ItemDataRole.UserRole) for i in range(listing.count())
                 if listing.item(i).checkState() == Qt.CheckState.Checked]
             selected.extend(item.data(Qt.ItemDataRole.UserRole) for i in range(self.saved_links.count())
                             if (item := self.saved_links.item(i)).checkState() == Qt.CheckState.Checked
                             and not (entered and item is editing))
-            if entered and not (auto.isChecked() and entered in known_urls):
+            if entered and not automatic:
                 selected.append(entered)
-            candidate = replace(source, automatic_courses=auto.isChecked(), targets=list(dict.fromkeys(selected)))
+            candidate = replace(source, automatic_courses=automatic, targets=list(dict.fromkeys(selected)))
             try:
                 settings.save_source(candidate)
                 self.source = candidate
@@ -2905,7 +2911,7 @@ class MainWindow(QMainWindow):
             dialog = CoursesDialog(cached_courses(source), source, self.settings, self)
             if dialog.exec() == QDialog.DialogCode.Accepted:
                 self.refresh()
-                if not any(course_link(dialog.source.url, url)[1] for url in dialog.source.targets):
+                if not course_link_issues(dialog.source):
                     self.begin_repair(dialog.source, plan.kind)
         elif plan.action == 'browser':
             QDesktopServices.openUrl(QUrl(source.url))
@@ -3314,7 +3320,7 @@ class MainWindow(QMainWindow):
             verified = (not exit_code and latest.get('finished', 0) >= repair['started'] and
                         latest.get('state') in {'Up to date', 'Completed with warnings'} and
                         latest.get('scope') == source_scope(self.job[1]) and
-                    result is not None and not result.get('errors') and not result.get('course_link_issues'))
+                        result is not None and not result.get('errors') and not result.get('course_link_issues'))
             repair['phase'] = 'verified' if verified else 'failed'
             repair['finished'] = latest.get('finished')
             if verified and repair['kind'] == 'missing':
