@@ -1,5 +1,12 @@
 # Changelog
 
+## 1.1.4 — 2026-11-11
+
+- Reject ILIAS web links and individual file links in course selection. Previously saved links that cannot be synced are skipped without interrupting valid courses.
+- Show manually added links separately so they can be inspected, edited, or removed. The sync status links directly to course-link recovery.
+- Check whether the ILIAS session is still active before treating an unexpected page as a sign-in problem.
+- Use a compact setup step indicator and slightly more opaque macOS surfaces, with a subtle backdrop in sign-in dialogs.
+
 ## 1.1.3 — 2026-11-10
 
 - Animate the sidebar without losing its saved width. Put its toggle beside the macOS window controls and at the top left of the workspace on Windows and Linux.

@@ -101,7 +101,9 @@ def test_course_dialog_recovers_legacy_web_link_and_rejects_pasting_it(app, sour
     settings = Settings()
     settings.save_source(source)
     dialog = CoursesDialog([course], source, settings, None)
-    save = lambda d: d.findChild(QDialogButtonBox).button(QDialogButtonBox.StandardButton.Save).click()
+    def save(d):
+        d.findChild(QDialogButtonBox).button(QDialogButtonBox.StandardButton.Save).click()
+
     dialog.extra.setText(link)
     save(dialog)
     assert dialog.result() != QDialog.DialogCode.Accepted
