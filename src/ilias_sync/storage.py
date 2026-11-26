@@ -11,6 +11,7 @@ import time
 from copy import deepcopy
 import unicodedata
 from dataclasses import asdict, dataclass, field
+from datetime import datetime, timezone
 from pathlib import Path
 from urllib.parse import urlparse
 from uuid import UUID, uuid4
@@ -152,7 +153,16 @@ def sha256(path: Path):
     return h.hexdigest()
 
 
-def copy_file(source: Path, target: Path, *, replace=False):
+def path_key(path):
+    return unicodedata.normalize('NFC', path).casefold()
+
+
+def dated_version_name(stamp, digest, suffix):
+    date = datetime.fromtimestamp(stamp, timezone.utc).strftime('%Y-%m-%d %H-%M-%S UTC')
+    return f'{date} {digest[:8]}{suffix}'
+
+
+def copy_file(source: Path, target: Path, *, replace=False, expected=None):
     target.parent.mkdir(parents=True, exist_ok=True)
     fd, name = tempfile.mkstemp(prefix=".sync-", dir=target.parent)
     try:
@@ -163,6 +173,8 @@ def copy_file(source: Path, target: Path, *, replace=False):
         if sha256(Path(name)) != sha256(source):
             raise OSError("Copied file failed its integrity check.")
         if replace:
+            if expected is not None and sha256(target) != expected:
+                raise OSError("The local file changed during synchronization. Existing files were kept.")
             os.replace(name, target)
         else:
             # Same-filesystem exclusive publish, so an unrelated file is never replaced.
@@ -285,6 +297,12 @@ class Archive:
         if pending:
             self._finish_file_rename(pending)
 
+    def _claimed(self, identity, relative):
+        root = self.destination.resolve()
+        return any(key != identity and path_key(row['path']) == path_key(relative) and
+                   Path(row.get('root', root)).resolve() == root
+                   for key, row in self.manifest['files'].items())
+
     def _copy_name(self, identity, target, digest):
         """Keep unrelated/local files separate without exposing private IDs."""
         root = self.destination.resolve()
@@ -295,9 +313,7 @@ class Archive:
             candidate = target.with_name(target.stem + suffix + target.suffix)
             relative = candidate.relative_to(root).as_posix()
             candidate = safe_path(root, relative)
-            if any(key != identity and row['path'].casefold() == relative.casefold() and
-                   Path(row.get('root', self.destination)).resolve() == root
-                   for key, row in self.manifest['files'].items()):
+            if self._claimed(identity, relative):
                 continue
             owned = (old.get('path') == relative and Path(old.get('root', root)).resolve() == root) or (
                 previous_intent == {'path': relative, 'sha256': digest, 'root': str(root)})
@@ -305,22 +321,32 @@ class Archive:
                 return candidate
         raise OSError('No free filename is available for the separate download.')
 
-    def _readable_copy_name(self, identity):
-        """Migrate only the app's own unedited legacy hash names, recoverably."""
+    def _readable_copy_name(self, identity, proposed):
+        """Remove an obsolete conflict suffix only from an unedited, managed file."""
         old = self.manifest['files'].get(identity)
-        if not old:
+        if not old or old.get('borrowed'):
             return
         path = safe_path(self.destination, old['path'])
+        expected = Path(proposed).name
+        recorded = Path(old.get('original_path') or proposed).name
         marker = hashlib.sha256(identity.encode()).hexdigest()[:8]
-        stem = re.sub(r' \[ILIAS ' + marker + r'-[a-f0-9]{8}\]$', '', path.stem)
-        if stem == path.stem or not path.is_file() or sha256(path) != old['sha256']:
+        legacy = re.sub(r' \[ILIAS ' + marker + r'-[a-f0-9]{8}\]$', '', path.stem)
+        readable = re.sub(r' \(ILIAS(?: \d+)?\)$', '', path.stem)
+        if legacy != path.stem:
+            plain = path.with_name(legacy + path.suffix)
+        elif readable != path.stem and readable + path.suffix == expected == recorded:
+            plain = path.with_name(expected)
+        else:
             return
-        plain = path.with_name(stem + path.suffix)
         plain_relative = plain.relative_to(self.destination.resolve()).as_posix()
-        another_owner = any(key != identity and row['path'].casefold() == plain_relative.casefold() and
-                            Path(row.get('root', self.destination)).resolve() == self.destination.resolve()
-                            for key, row in self.manifest['files'].items())
-        target = plain if not plain.exists() and not another_owner else self._copy_name(identity, plain, old['sha256'])
+        if plain.exists() or self._claimed(identity, plain_relative):
+            if legacy == path.stem:
+                return
+            target = self._copy_name(identity, plain, old['sha256'])
+        else:
+            target = safe_path(self.destination, plain_relative)
+        if not path.is_file() or sha256(path) != old['sha256']:
+            return
         pending = {'identity': identity, 'root': str(self.destination.resolve()), 'old': old['path'],
                    'new': target.relative_to(self.destination.resolve()).as_posix(), 'sha256': old['sha256']}
         write_json(self.file_rename_path, pending)
@@ -338,6 +364,7 @@ class Archive:
         entry = self.manifest['files'][identity]
         if entry['path'] not in {pending['old'], pending['new']}:
             raise OSError('The filename changed during recovery. Existing files were kept.')
+        self._remember_location(entry, root, pending['old'])
         entry['path'] = pending['new']
         entry['target_stat'] = [after.stat().st_size, after.stat().st_mtime_ns]
         write_json(self.path, self.manifest)
@@ -349,6 +376,55 @@ class Archive:
         if before.is_file() and sha256(before) == digest:
             before.unlink()
         self.file_rename_path.unlink(missing_ok=True)
+
+    @staticmethod
+    def _remember_location(entry, root, relative):
+        location = {'root': str(root.resolve()), 'path': relative}
+        locations = entry.setdefault('prior_locations', [])
+        if location not in locations:
+            locations.append(location)
+
+    def relocate_material(self, identity, destination, relative):
+        """Move an intact owned download to its confirmed repository folder."""
+        old = self.manifest['files'].get(identity, {})
+        root = Path(destination).resolve()
+        if (not old or old.get('borrowed') or old.get('route') or relative == old['path']
+                or Path(old.get('root', self.destination)).resolve() != root):
+            return False
+        before, after = safe_path(root, old['path']), safe_path(root, relative)
+        if (after.exists() or self._claimed(identity, relative) or not before.is_file()
+                or sha256(before) != old['sha256']):
+            return False
+        pending = {'identity': identity, 'root': str(root), 'old': old['path'], 'new': relative, 'sha256': old['sha256']}
+        write_json(self.file_rename_path, pending)
+        self._finish_file_rename(pending)
+        course_root = root / before.relative_to(root).parts[0]
+        folder = before.parent
+        while folder.is_relative_to(course_root) and folder != course_root:
+            try:
+                folder.rmdir()
+            except OSError:
+                break
+            folder = folder.parent
+        return True
+
+    def mark_retained(self, checked_courses, observed, excluded):
+        changed = False
+        for identity, entry in self.manifest['files'].items():
+            if (identity.startswith('generated:') or identity in observed or entry.get('retained_locally')
+                    or entry.get('course_id') not in checked_courses
+                    or entry.get('original_path', entry['path']) in excluded):
+                continue
+            root = Path(entry.get('root', self.destination))
+            try:
+                exists = safe_path(root, entry['path']).is_file()
+            except (ValueError, OSError):
+                continue
+            if exists:
+                entry['retained_locally'] = True
+                changed = True
+        if changed:
+            write_json(self.path, self.manifest)
 
     def rename_folder(self, root, old, new):
         if old == new:
@@ -379,6 +455,8 @@ class Archive:
             for field_name in ('path', 'original_path'):
                 relative = entry.get(field_name, '')
                 if relative.startswith(old + '/'):
+                    if field_name == 'path':
+                        self._remember_location(entry, root, relative)
                     entry[field_name] = new + relative[len(old):]
         for entry in self.journal.values():
             if Path(entry.get('root', self.destination)).resolve() == root.resolve() and entry['path'].startswith(old + '/'):
@@ -399,8 +477,9 @@ class Archive:
             del self.manifest['files'][identity]
         self._publication_metadata = {'root':str(self.destination.resolve()), 'route':route, **(metadata or {})}
         if moved:
-            self._publication_metadata['prior_locations'] = [*old.get('prior_locations', []),
-                                                              {'root':old.get('root',str(original_destination)), 'path':old['path']}]
+            prior = {'prior_locations': list(old.get('prior_locations', []))}
+            self._remember_location(prior, Path(old.get('root', original_destination)), old['path'])
+            self._publication_metadata.update(prior, versions=list(old.get('versions', [])))
         try:
             action = self._publish(identity, raw, proposed)
             entry = self.manifest['files'][identity]
@@ -417,7 +496,7 @@ class Archive:
             self.destination = original_destination
 
     def _publish(self, identity: str, raw: Path, proposed: str):
-        self._readable_copy_name(identity)
+        self._readable_copy_name(identity, proposed)
         old = self.manifest["files"].get(identity)
         relative = old["path"] if old else proposed
         target = safe_path(self.destination, relative)
@@ -428,39 +507,70 @@ class Archive:
                 return "unchanged"
         digest = sha256(raw)
         action = "added"
-        if target.exists():
+        borrowed = bool(old and old.get('borrowed'))
+        if self._claimed(identity, relative):
+            target = self._publish_separate(identity, raw, proposed, digest)
+            action, borrowed = 'conflict', False
+        elif target.exists():
             actual = sha256(target)
-            owned = old is not None or self.journal.get(identity) == {"path": relative, "sha256": digest, "root": str(self.destination.resolve())}
-            if actual == digest and owned:
-                action = "unchanged"
-            elif old and actual == old["sha256"]:
-                history = safe_path(self.destination, "Versions/" + relative + "/" + actual[:16] + target.suffix)
-                if not history.exists():
-                    copy_file(target, history)
-                elif sha256(history) != actual:
-                    raise OSError("An archived version is corrupt. No file was replaced.")
-                copy_file(raw, target, replace=True)
+            intended = self.journal.get(identity) == {
+                'path': relative, 'sha256': digest, 'root': str(self.destination.resolve())}
+            if actual == digest:
+                borrowed = borrowed or (old is None and not intended)
+                action = 'updated' if old and not borrowed and old['sha256'] != digest else 'unchanged'
+            elif old and not borrowed and actual == old["sha256"]:
+                self._archive_version(old, target)
+                copy_file(raw, target, replace=True, expected=actual)
                 action = "updated"
             else:
-                # Base all further protection copies on the original name,
-                # rather than appending nested suffixes to earlier copies.
-                target = self._copy_name(identity, safe_path(self.destination, proposed), digest)
-                relative = target.relative_to(self.destination.resolve()).as_posix()
-                action = "conflict"
-                if not target.exists():
-                    self._intent(identity, relative, digest)
-                    copy_file(raw, target)
-                elif sha256(target) != digest:
-                    raise OSError("A conflict copy has unexpected contents.")
+                target = self._publish_separate(identity, raw, proposed, digest)
+                action, borrowed = 'conflict', False
         else:
             self._intent(identity, relative, digest)
             copy_file(raw, target)
-        self.manifest["files"][identity] = {**(old or {}), **self._publication_metadata, "path": relative, "sha256": digest, "raw_stat": raw_stat,
-                                           "target_stat": [target.stat().st_size, target.stat().st_mtime_ns]}
+            borrowed = False
+        relative = target.relative_to(self.destination.resolve()).as_posix()
+        if old and old['path'] != relative:
+            self._remember_location(old, self.destination, old['path'])
+        self.manifest["files"][identity] = {
+            **(old or {}), **self._publication_metadata, "path": relative, "sha256": digest, "raw_stat": raw_stat,
+            "target_stat": [target.stat().st_size, target.stat().st_mtime_ns], "borrowed": borrowed}
         if action != 'unchanged':
             self.manifest['files'][identity].update(changed_at=time.time(), change=action)
         write_json(self.path, self.manifest)
         return action
+
+    def _publish_separate(self, identity, raw, proposed, digest):
+        target = self._copy_name(identity, safe_path(self.destination, proposed), digest)
+        if not target.exists():
+            self._intent(identity, target.relative_to(self.destination.resolve()).as_posix(), digest)
+            copy_file(raw, target)
+        elif sha256(target) != digest:
+            raise OSError("A conflict copy has unexpected contents.")
+        return target
+
+    def _archive_version(self, entry, target):
+        digest = entry['sha256']
+        folder = 'Versions/' + entry['path']
+        legacy = safe_path(self.destination, f'{folder}/{digest[:16]}{target.suffix}')
+        published = entry.get('changed_at') or target.stat().st_mtime
+        if legacy.exists():
+            if sha256(legacy) != digest:
+                raise OSError("An archived version is corrupt. No file was replaced.")
+            history = legacy
+        else:
+            history = safe_path(self.destination, f'{folder}/{dated_version_name(published, digest, target.suffix)}')
+            if not history.exists():
+                copy_file(target, history)
+            if sha256(history) != digest:
+                raise OSError("An archived version is corrupt. No file was replaced.")
+        record = {'root': str(self.destination.resolve()), 'path': history.relative_to(self.destination.resolve()).as_posix(),
+                  'published': published, 'sha256': digest}
+        versions = entry.setdefault('versions', [])
+        if record not in versions:
+            versions.append(record)
+            # Record the complete backup before replacing the current bytes.
+            write_json(self.path, self.manifest)
 
     def _intent(self, identity, path, digest):
         self.journal[identity] = {"path": path, "sha256": digest, "root": str(self.destination.resolve())}

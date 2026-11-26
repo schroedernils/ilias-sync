@@ -40,7 +40,7 @@ def test_rerouting_keeps_annotations_and_publishes_to_new_folder(tmp_path):
     assert entry['prior_locations'][0]['path'] == 'Course/Intro.pdf'
 
 
-def test_rule_update_does_not_adopt_identical_unmanaged_target(tmp_path):
+def test_rule_update_reuses_identical_unmanaged_target_without_overwriting_it(tmp_path):
     raw = tmp_path/'raw.pdf'
     raw.write_bytes(b'%PDF-1.4 remote')
     archive = Archive(tmp_path/'state', tmp_path/'default')
@@ -49,7 +49,8 @@ def test_rule_update_does_not_adopt_identical_unmanaged_target(tmp_path):
     destination.mkdir()
     unmanaged = destination/'Intro.pdf'
     unmanaged.write_bytes(raw.read_bytes())
-    assert archive.publish('file:7', raw, 'Intro.pdf', destination=destination, route='new-rule') == 'conflict'
+    assert archive.publish('file:7', raw, 'Intro.pdf', destination=destination, route='new-rule') == 'unchanged'
+    assert list(destination.iterdir()) == [unmanaged]
     raw.write_bytes(b'%PDF-1.4 changed')
     archive.publish('file:7', raw, 'Intro.pdf', destination=destination, route='new-rule')
     assert unmanaged.read_bytes() == b'%PDF-1.4 remote'

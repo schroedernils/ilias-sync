@@ -24,26 +24,28 @@ Quellkonfiguration und Ausgang des anschließenden Laufs; frühere erfolgreiche 
 
 Downloads werden in privaten App-Daten zwischengespeichert, geprüft und erst dann
 atomar am Ziel veröffentlicht. Abbrüche lassen vollständig gespeicherte Dateien
-stehen. Verschwindet ein Objekt in ILIAS, wird die lokale Kopie nicht gelöscht.
+stehen. Verlinkt ILIAS dieselbe Datei in einem Materialordner und einer Sitzung,
+hat der Materialordner Vorrang. Ist ein bereits heruntergeladenes Blatt nach
+einer vollständigen Prüfung nicht mehr gelistet, bleibt es an seinem Platz und
+erscheint unter Materialien mit dem Hinweis **Lokal behalten**. Das gilt auch
+für frühere Blätter in derselben Aufgabensammlung.
 
-Ältere Inhalte liegen unter `Versions/<ursprünglicher Pfad>/<Hash>.<Endung>`.
-Zur Wiederherstellung kopierst du die gewünschte Version in einen separaten
-Ordner. Versionen sind normale Dateien und werden nicht automatisch bereinigt.
-Der Speicherbedarf kann daher wachsen.
+Wähle unter **Materialien** eine Datei und öffne **Versionen**. Dort kannst du die
+aktuelle Fassung und die von IliasSync gesicherten Fassungen öffnen. Bei älteren
+Archivkopien zeigt die App das Speicherdatum. Über **Archivordner öffnen** erreichst
+du auch Archivdateien, die sich keiner aktuellen Datei eindeutig zuordnen lassen.
+Neue Sicherungen tragen einen Zeitstempel im Dateinamen. Zur Wiederherstellung
+kopierst du die gewünschte Fassung aus `Versions/` in einen separaten Ordner.
 
-Normale Downloads behalten ihren Dateinamen. Liegt dort schon eine nicht zugeordnete
-oder lokal bearbeitete Datei, wird die Serverversion separat als `Dateiname (ILIAS).pdf`
-abgelegt. Weitere notwendige Kopien heißen beispielsweise `Dateiname (ILIAS 2).pdf`.
-Das gilt auch für identische Dateien nach einem vollständigen Onboarding-Reset: Ohne
-die frühere Zuordnung darf die App eine vorhandene Datei nicht später überschreiben.
-Unterschiedliche ILIAS-Objekte werden nicht allein wegen gleicher Dateinamen oder
-gleicher Inhalte zusammengelegt.
+Normale Downloads behalten ihren Dateinamen. Eine bytegleiche vorhandene Datei
+kann die App zum Öffnen verwenden. Ändert sich die Serverfassung später, legt die
+App sie als separate Kopie ab und erhält das Original. Das gilt auch nach einem
+vollständigen Reset. Unterschiedliche ILIAS-Objekte behalten jeweils ihre eigene
+Zuordnung, auch bei gleichen Namen oder Inhalten.
 
-Ab 1.0.4 erhalten unveränderte, eindeutig von der App verwaltete Schutzkopien mit dem
-alten `[ILIAS …]`-Hashnamen beim nächsten Sync einen lesbaren Namen. Ist der normale
-Dateiname frei und nicht anderweitig zugeordnet, wird er verwendet; sonst bleibt der
-lesbare Zusatz `(ILIAS)`. Eigene Bearbeitungen und vorhandene Originaldateien bleiben
-unangetastet. Ein Wiederherstellungsjournal sichert die Umbenennung bei Unterbrechung ab.
+Unveränderte, eindeutig verwaltete Kopien wechseln beim nächsten Sync zurück zum
+normalen Dateinamen, sobald dieser frei ist. Ist er belegt, bleibt der Zusatz
+`(ILIAS)`. Ein Wiederherstellungsjournal sichert die Umbenennung bei Unterbrechung ab.
 
 Unter **Hochschule verwalten (…) → Ordner zuordnen** ist **Kurs-IDs im Ordnernamen
 anzeigen** standardmäßig ausgeschaltet. Bei gleichnamigen Kursen unterscheiden

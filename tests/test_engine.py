@@ -104,6 +104,117 @@ async def test_full_synthetic_sync_and_repeat(source, monkeypatch):
     assert 'Saving course information…' in messages
 
 
+async def test_repository_copy_wins_over_session_and_survives_removed_links(source, monkeypatch):
+    from ilias_sync.storage import Archive, clean_name, data_dir, read_json
+
+    title = '2026-10-20, 15:45 - 17:15: Lecture'
+    sheet = file_html().replace('>Lecture<', '>sheet_01<')
+    course = '<a href="/go/crs/123">Algorithms</a>'
+    meeting = ('<div class="ilContainerListItemOuter"><img class="ilListItemIcon" src="icon_sess.svg" alt="Sitzung"/>'
+               f'<div class="il_ContainerListItem"><a class="il_ContainerItemTitle" href="/go/sess/91">{title}</a></div></div>')
+    folder = ('<div class="ilContainerListItemOuter"><img class="ilListItemIcon" src="fold.svg" alt="Ordner"/>'
+              '<div class="il_ContainerListItem"><a class="il_ContainerItemTitle" href="/go/fold/456">Übungsblätter</a></div></div>')
+    nested = folder.replace('456', '789').replace('Übungsblätter', 'Aufgaben 1-6')
+    listed_in_folder, listed_in_meeting = True, True
+    downloads = []
+
+    class Session(FixtureSession):
+        def get(self, url, **kwargs):
+            if 'Dashboard' in url:
+                return Response(url, page(course))
+            if '/go/crs/123' in url:
+                return Response(url, page(meeting + folder))
+            if '/go/fold/456' in url:
+                return Response(url, page(nested))
+            if '/go/fold/789' in url:
+                return Response(url, page(sheet if listed_in_folder else '<p>Empty</p>'))
+            if '/go/sess/91' in url:
+                return Response(url, page(sheet if listed_in_meeting else '<p>Empty</p>'))
+            if 'sendfile' in url:
+                downloads.append(url)
+                return Response(url, b'%PDF-1.4 original', kind='application/pdf')
+            return super().get(url, **kwargs)
+
+    monkeypatch.setattr('aiohttp.ClientSession', Session)
+    root = Path(source.destination)
+    state = data_dir() / 'sources' / source.id
+    raw = data_dir() / 'old.pdf'
+    raw.write_bytes(b'%PDF-1.4 original')
+    old = f'Algorithms/{clean_name(title, 50)}/sheet 01.pdf'
+    archive = Archive(state, root)
+    archive.publish('file:987', raw, old, metadata={'course_id': 'crs-123', 'original_path': old})
+    canonical = 'Algorithms/Übungsblätter/Aufgaben 1-6/sheet 01.pdf'
+
+    def entry():
+        return read_json(archive.path, {})['files']['file:987']
+
+    await synchronize(source)
+    assert len(downloads) == 1
+    assert entry()['path'] == canonical
+    assert not (root / old).exists() and (root / canonical).is_file()
+    assert entry()['prior_locations'][0]['path'] == old
+
+    listed_in_folder = False
+    await synchronize(source)
+    assert entry()['original_path'] == canonical and not entry()['retained_locally']
+    listed_in_meeting = False
+    await synchronize(source)
+    assert entry()['retained_locally'] and (root / canonical).is_file()
+    listed_in_folder = True
+    await synchronize(source)
+    assert not entry()['retained_locally']
+    assert list(root.rglob('*.pdf')) == [root / canonical]
+
+
+async def test_submissions_and_feedback_with_the_same_exercise_ref_are_independent(source, monkeypatch):
+    from pathlib import PurePath
+    from PFERD.crawl.ilias.kit_ilias_html import IliasElementType, IliasPageElement
+
+    downloads = []
+
+    class Session(FixtureSession):
+        def get(self, url, **kwargs):
+            downloads.append(str(url))
+            marker = str(url).rsplit('=', 1)[-1].encode()
+            return Response(url, b'%PDF-1.4 copy ' + marker, kind='application/pdf')
+
+    def crawler_with_exercise(source, emit, *, discover):
+        crawler = make_crawler(source, emit, discover=discover)
+
+        async def traverse():
+            course = {'id': 'crs-123', 'name': 'Algorithms', 'url': source.url + '/go/crs/123'}
+            crawler.current = course
+            crawler.active_roots = [course]
+            crawler.course_folders = {course['id']: course['name']}
+            base = source.url + '/ilias.php?ref_id=42&'
+            fixtures = [
+                ('Blatt 01', 'cmdClass=ilExSubmissionFileGUI&ass_id=11&cmd=download&delivered=7', b'7'),
+                ('Blatt 02', 'cmdClass=ilExSubmissionFileGUI&ass_id=12&cmd=download&delivered=8', b'8'),
+                ('Blatt 02', 'cmdClass=ilExSubmissionGUI&ass_id=12&cmd=downloadFeedbackFile&file=9', b'9'),
+            ]
+            for folder, query, marker in fixtures:
+                filename = 'Feedback.pdf' if marker == b'9' else 'Lösung.pdf'
+                element = IliasPageElement(IliasElementType.FILE, base + query, filename)
+                task = await crawler._handle_file(element, PurePath(course['id'], folder, filename))
+                if task:
+                    await task
+                same_link = IliasPageElement(element.type, base + 'cmdNode=changed&' + query, filename)
+                assert await crawler._handle_file(same_link, PurePath(course['id'], folder, filename)) is None
+
+        crawler._run = traverse
+        return crawler
+
+    monkeypatch.setattr('aiohttp.ClientSession', Session)
+    monkeypatch.setattr('ilias_sync.engine.make_crawler', crawler_with_exercise)
+    result = await synchronize(source)
+    assert result['material_counts'] == {'added': 3}
+    assert len(downloads) == 3
+    course = Path(source.destination) / 'Algorithms'
+    assert (course / 'Blatt 01/Lösung.pdf').read_bytes().endswith(b'7')
+    assert (course / 'Blatt 02/Lösung.pdf').read_bytes().endswith(b'8')
+    assert (course / 'Blatt 02/Feedback.pdf').read_bytes().endswith(b'9')
+
+
 async def test_legacy_direct_web_link_cannot_interrupt_valid_course_sync(source, monkeypatch):
     from types import SimpleNamespace
     from ilias_sync.__main__ import worker

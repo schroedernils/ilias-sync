@@ -91,9 +91,9 @@ def info_sections():
          "Das Umbenennen eines verwalteten Ordners nimmt dagegen dessen lokale Inhalte mit. "
          "Abbrechen verwirft ungespeicherte Änderungen.\n\n"
          "Bei erkannten eigenen Bearbeitungen bleibt deine Datei erhalten; die neue Serverfassung bekommt "
-         "eine separate ILIAS-Kopie mit dem lesbaren Namenszusatz (ILIAS). Das gilt auch für vorhandene Dateien, "
-         "die nach einem vollständigen Reset nicht mehr zugeordnet sind. Unter Ordner zuordnen kannst du Kurs-IDs "
-         "im Ordnernamen einschalten; standardmäßig sind sie aus. Ersetzte frühere Inhalte liegen unter Versions im jeweiligen Zielordner. "
+         "eine separate ILIAS-Kopie mit dem Namenszusatz (ILIAS). Eine vorhandene bytegleiche Datei kannst du "
+         "direkt öffnen. Unter Ordner zuordnen kannst du Kurs-IDs im Ordnernamen einschalten. "
+         "Wähle eine Datei unter Materialien und öffne Versionen, um gesicherte Fassungen zu sehen. "
          "Kopiere eine gewünschte Fassung zur Wiederherstellung in einen separaten Ordner. "
          "Versionen und verschwundene Serverdateien werden nicht automatisch gelöscht."
          if de else
@@ -103,9 +103,9 @@ def info_sections():
          "A new destination creates new copies on the next sync; existing copies at the old location remain. "
          "Renaming a managed folder instead moves its local contents with it. Cancel discards unsaved changes.\n\n"
          "When local edits are detected, your file is kept and the new server version gets a separate copy with "
-         "a readable (ILIAS) filename suffix. This also protects files no longer tracked after a complete reset. "
-         "Folder mapping lets you enable course IDs in folder names; they are off by default. "
-         "Replaced earlier contents are stored under Versions in the relevant destination. "
+         "a readable (ILIAS) filename suffix. You can open an existing byte-identical file directly. "
+         "Folder mapping lets you enable course IDs in folder names. "
+         "Select a file in Materials and choose Versions to see saved copies. "
          "To recover a version, copy it into a separate folder. Versions and files removed from ILIAS "
          "are not automatically deleted."),
         ("Offline & Cloud" if de else "Offline & cloud",

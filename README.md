@@ -100,7 +100,9 @@ Automatic checks need an awake computer, a signed-in user and a network connecti
 
 Use **University actions (⋯) → Folder mapping** to customize names and destinations for courses, subfolders or individual files. Technical course IDs are **off by default**; **Show course IDs in folder names** makes them optional. Courses with identical names receive readable numbered suffixes.
 
-Ordinary downloads keep their filenames. If an existing file is untracked or locally edited, a separate download may use a readable suffix such as `(ILIAS)` to protect it. Earlier versions are retained under `Versions/`. Keep a separate working copy for ongoing annotations.
+Browse materials by course folder or filename in numeric order. When ILIAS links one file in a material folder and a calendar session, the material folder takes priority. Previously downloaded materials stay in that folder and are marked **Kept locally** if they are no longer listed after a complete check. Select a file and choose **Versions** to open the current copy or an earlier version saved on this device. The archive also lives under `Versions/`.
+
+Ordinary downloads keep their filenames. A byte-identical existing file can be used as a read-only reference. If the local file differs from the ILIAS download, a separate copy may use a suffix such as `(ILIAS)` to protect it. Keep a separate working copy for ongoing annotations.
 
 New destinations take effect on the next run; copies at previous destinations remain. A Google Drive, OneDrive or other cloud folder can be used as a destination. Its cloud client handles uploading and offline availability; IliasSync cannot confirm either. Keep files downloaded locally if you need to study offline.
 

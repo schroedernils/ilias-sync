@@ -150,6 +150,7 @@ class MaterialDelegate(QStyledItemDelegate):
 
 def material_context(entry, scope):
     """Course/source context leads in aggregate views; folders lead within a course."""
+    retained = t('Kept locally') if entry.get('retained_locally') else ''
     parent = str(PurePosixPath(entry['path']).parent)
     if scope == 'course':
         logical = entry.get('logical', '')
@@ -158,14 +159,14 @@ def material_context(entry, scope):
             parent = parent.split('/', 1)[1]
         elif parent == entry.get('course_name') or logical:
             parent = ''
-        return parent if parent != '.' else ''
+        return ' · '.join(part for part in (parent if parent != '.' else '', retained) if part)
     parts = [entry.get('_source_name', '')] if scope == 'global' else []
     parts.append(entry.get('course_name') or (parent if parent != '.' else ''))
     logical = entry.get('logical', '')
     folder = str(PurePosixPath(logical).parent) if logical else parent
     if '/' in folder:
         parts.append(folder.split('/', 1)[1])
-    return ' · '.join(part for part in parts if part)
+    return ' · '.join(part for part in [*parts, retained] if part)
 
 
 def file_family(path):

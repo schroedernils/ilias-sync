@@ -1,6 +1,20 @@
 """Small explicit UI catalog; file names and server-provided course names stay intact."""
 LANGUAGE = "de"
 DE = {
+    'Kept locally': 'Lokal behalten',
+    'All folders': 'Alle Ordner',
+    'Archived copy': 'Archivierte Kopie',
+    'Course folder': 'Kursordner',
+    'Current copy': 'Aktuelle Kopie',
+    'Date': 'Datum',
+    'Earlier version': 'Frühere Version',
+    'File versions': 'Dateiversionen',
+    'No earlier versions are linked to this file.': 'Für diese Datei sind keine früheren Versionen zugeordnet.',
+    'Open archive folder': 'Archivordner öffnen',
+    'The archived copy could not be opened.': 'Die archivierte Kopie konnte nicht geöffnet werden.',
+    'Version': 'Version',
+    'Versions': 'Versionen',
+    'Versions saved by IliasSync on this device.': 'Mit IliasSync auf diesem Gerät gesicherte Fassungen.',
     'Updates': 'Updates',
     'Help': 'Hilfe',
     'Update preferences could not be saved. Please try again.': 'Die Update-Einstellungen konnten nicht gespeichert werden. Versuche es erneut.',

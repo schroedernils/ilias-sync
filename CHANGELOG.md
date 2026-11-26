@@ -1,5 +1,13 @@
 # Changelog
 
+## 1.1.5 — 2026-11-26
+
+- Prefer course material folders when the same file is also linked from a dated session. Move intact managed downloads to the confirmed folder when it is free.
+- Sort course materials by filename in numeric order and filter by course folder. Keep previously downloaded files in their folder when ILIAS stops listing them.
+- Open current and earlier local copies from the file’s Versions menu. New archive names include the date.
+- Recognize individual submissions and feedback files within the same exercise.
+- Reuse byte-identical local files without taking ownership, and simplify obsolete conflict names when the normal name is free.
+
 ## 1.1.4 — 2026-11-11
 
 - Reject ILIAS web links and individual file links in course selection. Previously saved links that cannot be synced are skipped without interrupting valid courses.

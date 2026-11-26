@@ -78,7 +78,7 @@ def test_clicking_the_heading_releases_search_focus_without_resetting_the_query(
         window.close()
 
 
-def test_every_scope_and_view_defaults_to_newest_material_first(library_app, source, tmp_path):
+def test_material_sort_defaults_to_course_name_order_and_global_recency(library_app, source, tmp_path):
     from PySide6.QtCore import Qt
     from ilias_sync.gui import MainWindow
     first_state = university(source)
@@ -86,7 +86,8 @@ def test_every_scope_and_view_defaults_to_newest_material_first(library_app, sou
     second_state = university(second)
     for state, dates in [(first_state, [100, 300, 0]), (second_state, [200, 400, 0])]:
         manifest = read_json(state / 'manifest.json', {})
-        for entry, changed in zip(manifest['files'].values(), dates):
+        for entry, changed, sheet in zip(manifest['files'].values(), dates, (1, 10, 2)):
+            entry['path'] = entry['path'].replace('Lecture.pdf', f'Sheet {sheet}.pdf')
             if changed:
                 entry['changed_at'] = changed
         write_json(state / 'manifest.json', manifest)
@@ -102,15 +103,25 @@ def test_every_scope_and_view_defaults_to_newest_material_first(library_app, sou
         assert dates == sorted(dates, reverse=True)
         assert not window.files.isColumnHidden(2)
 
+    def assert_default(scope, view):
+        if scope[1] and view != 'recent':
+            assert window.files_header.sortIndicatorSection() == 0
+            assert window.files_header.sortIndicatorOrder() == Qt.SortOrder.AscendingOrder
+            if view in {'all', 'materials'}:
+                assert [Path(e['path']).name for e in visible_entries(window)] == [
+                    'Sheet 1.pdf', 'Sheet 2.pdf', 'Sheet 10.pdf']
+        else:
+            assert_newest()
+
     assert_newest()
     for scope in [(source.id, ''), (second.id, 'crs-1'), ('', '')]:
         window.files.sortItems(0, Qt.SortOrder.AscendingOrder)
         window.sources.select_scope(*scope)
-        assert_newest()
+        assert_default(scope, 'materials')
         for view in ['recent', 'info', 'all', 'materials']:
             window.files.sortItems(1, Qt.SortOrder.AscendingOrder)
             window.library_view.setCurrentIndex(window.library_view.findData(view))
-            assert_newest()
+            assert_default(scope, view)
         window.files.sortItems(0, Qt.SortOrder.AscendingOrder)
         window.refresh()
         assert window.files_header.sortIndicatorSection() == 0

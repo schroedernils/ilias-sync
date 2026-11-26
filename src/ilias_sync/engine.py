@@ -4,6 +4,8 @@ from __future__ import annotations
 import asyncio
 import hashlib
 import io
+import json
+import re
 import time
 from collections import Counter
 from configparser import ConfigParser
@@ -18,12 +20,11 @@ from .control import CURRENT, checkpoint
 from .course_links import course_link, course_link_issues
 from .page_index import PageData, PageIndex, decode_element, encode_element
 from .security import LoginRequired, get_password
-from .storage import Archive, Source, clean_filename, clean_name, data_dir, write_json
+from .storage import Archive, Source, clean_filename, clean_name, data_dir, path_key, write_json
 from .http_policy import shared_budget
 
 
 def ref(url):
-    import re
     match = re.search(r"/(crs|grp|fold)/(\d+)", url)
     if match:
         return match[1], match[2]
@@ -32,6 +33,42 @@ def ref(url):
     if match:
         return match[1], match[2]
     return None
+
+
+def file_identity(element):
+    """An exercise reference identifies a whole exercise, not a downloaded file."""
+    query = {key.casefold(): values[0] for key, values in parse_qs(urlparse(element.url).query).items()}
+    controller = query.get('cmdclass', '').casefold()
+    identifier = {'ilexsubmissionfilegui': 'delivered', 'ilexsubmissiongui': 'file'}.get(controller)
+    if identifier and all(key in query for key in ('ref_id', 'ass_id', identifier)):
+        parts = [controller, query['ref_id'], query['ass_id'], query[identifier]]
+        return 'submission:' + hashlib.sha256(json.dumps(parts).encode()).hexdigest()
+    return element.type.value + ':' + element.id()
+
+
+def occurrence_rank(item):
+    rank = {'collection': 0, 'other': 1, 'session': 2}
+    path = item['logical']
+    return rank[item['placement']], path.count('/'), path_key(path), path
+
+
+def meeting_folder(label):
+    match = re.fullmatch(r'(\d{4}-\d{2}-\d{2}),\s*(\d{2}):(\d{2})\s*[-–]\s*\d{2}:\d{2}:\s*(.+)', label)
+    if match:
+        date, hour, minute, title = match.groups()
+        return clean_name(f'{date} {hour}-{minute} {title}', 65)
+    return clean_name(label, 65)
+
+
+def retain_collection(item, previous):
+    """Keep the established material folder if only a session link is currently visible."""
+    collection = previous.get('collection') or {}
+    path, logical = collection.get('path'), collection.get('logical')
+    if (previous.get('placement') == 'collection' and item.get('placement') == 'session'
+            and previous.get('course_id') == item['course_id'] and path and logical
+            and Path(path).name == Path(item['path']).name):
+        return {**item, 'placement': 'collection', 'path': path, 'logical': logical}
+    return item
 
 
 def memberships(soup, base):
@@ -129,10 +166,10 @@ def make_crawler(source: Source, emit=lambda event: None, *, discover=False):
             self.files = {}
             self.skipped = Counter()
             self.current = None
-            self.seen = set()
             self.download_issues = {}
             self.course_label = ""
             self.page_labels = {}
+            self.container_types = {}
             self.empty_meetings = set()
             self.course_folders = {}
             self.active_roots = []
@@ -302,6 +339,8 @@ def make_crawler(source: Source, emit=lambda event: None, *, discover=False):
 
         @anoncritical
         async def _crawl_ilias_page(self, url, current_element, cl, expected_course_id=None, crawl_nested_courses=False):
+            if current_element is not None:
+                self.container_types[cl.path] = current_element.type
             # Keep the pinned PFERD traversal contract: stage navigation, pagination, description,
             # deterministic deduplication, then bounded child tasks. Only parsing is cached.
             if expected_course_id is not None:
@@ -445,26 +484,42 @@ def make_crawler(source: Source, emit=lambda event: None, *, discover=False):
             return await super()._handle_ilias_element(parent_path, element, crawl_nested_courses)
 
         async def _handle_file(self, element, element_path, is_video=False):
-            identity = element.type.value + ":" + element.id()
-            if identity in self.seen:
+            identity = file_identity(element)
+            folders = element_path.parts[1:-1]
+            container_types = [self.container_types.get(PurePath(*element_path.parts[:i]))
+                               for i in range(2, len(element_path.parts))]
+            placement = ('session' if T.MEETING in container_types else
+                         'collection' if T.FOLDER in container_types else 'other')
+            course_id = self.current['id']
+            filename = clean_filename(element.name, 100)
+
+            def parts_for(shorten_meetings):
+                names = [meeting_folder(name) if shorten_meetings and kind == T.MEETING else clean_name(name, 50)
+                         for name, kind in zip(folders, container_types)]
+                parts = [self.course_folders[course_id], *names, filename]
+                # Preserve the established depth cap for portable download paths.
+                return parts if len(parts) <= 5 else parts[:3] + parts[-2:]
+
+            parts = parts_for(True)
+            path = '/'.join(parts)
+            legacy_path = '/'.join(parts_for(False))
+            if path in self.excluded or legacy_path in self.excluded:
                 return None
-            self.seen.add(identity)
+            item = {'path': path, 'course_id': course_id, 'course_name': self.current['name'],
+                    'logical': '/'.join([course_id, *parts[1:]]), 'placement': placement}
+            sessions = {(course_id, path), (course_id, legacy_path)} if placement == 'session' else set()
+            previous = self.files.get(identity)
+            if previous:
+                previous['sessions'].update(sessions)
+                # Repository folders win over calendar cross-links, independent of traversal order.
+                if occurrence_rank(item) < occurrence_rank(previous):
+                    previous.update(item)
+                return None
             emit({"event": "progress", "message": "Checking " + self.page_labels.get(
                 element.url, " / ".join([self.course_label, element.name]))})
             tag = hashlib.sha256(identity.encode()).hexdigest()[:20]
             raw = PurePath("files", tag, clean_name(element.name, 110))
-            parts = [self.course_folders[self.current['id']]]
-            parts.extend(clean_name(p, 50) for p in element_path.parts[1:-1])
-            parts.append(clean_filename(element.name, 100))
-            # Cap depth and names for Windows; discarded hierarchy is still in the source link.
-            if len(parts) > 5:
-                parts = parts[:3] + parts[-2:]
-            path = "/".join(parts)
-            if path in self.excluded:
-                return None
-            self.files[identity] = {"raw": raw, "path": path, "url": element.url,
-                                    "course_id": self.current['id'], "course_name": self.current['name'],
-                                    "logical": '/'.join([self.current['id'], *parts[1:]])}
+            self.files[identity] = {**item, 'sessions': sessions, 'raw': raw, 'url': element.url}
             return await super()._handle_file(element, raw, is_video)
 
         async def _stream_from_url(self, element, sink, bar, is_video):
@@ -478,7 +533,7 @@ def make_crawler(source: Source, emit=lambda event: None, *, discover=False):
                         pass
                     else:
                         if response.status >= 400:
-                            identity = element.type.value + ':' + element.id()
+                            identity = file_identity(element)
                             self.download_issues[identity] = ('server_missing' if response.status in (404, 410) else
                                                               'access_denied' if response.status in (401, 403) else 'transfer_failed')
                         response.raise_for_status()
@@ -486,10 +541,10 @@ def make_crawler(source: Source, emit=lambda event: None, *, discover=False):
                         if not html_error:
                             first = await response.content.read(1024)
                             if extension == ".pdf" and not first.lstrip().startswith(b"%PDF-"):
-                                self.download_issues[element.type.value + ':' + element.id()] = 'invalid_content'
+                                self.download_issues[file_identity(element)] = 'invalid_content'
                                 raise CrawlError("Server returned an invalid PDF.")
                             if extension == ".zip" and not first.startswith(b"PK"):
-                                self.download_issues[element.type.value + ':' + element.id()] = 'invalid_content'
+                                self.download_issues[file_identity(element)] = 'invalid_content'
                                 raise CrawlError("Server returned an invalid ZIP.")
                             if response.content_length:
                                 bar.set_total(response.content_length)
@@ -545,6 +600,8 @@ async def synchronize(source: Source, emit=lambda event: None, *, discover=False
         emit({"event": "progress", "message": "Saving files…"})
         for identity, item in crawler.files.items():
             await checkpoint()
+            old = archive.manifest['files'].get(identity, {})
+            item = retain_collection(item, old)
             if item["path"] in excluded:
                 continue
             raw = state / "cache" / item["raw"]
@@ -553,9 +610,19 @@ async def synchronize(source: Source, emit=lambda event: None, *, discover=False
                 continue
             from .routing import route_file
             destination, relative, route = route_file(source, identity, item['course_id'], item['logical'], item['path'])
+            placement = item.get('placement')
+            if placement == 'collection' and not route:
+                old_path = re.sub(r' \(ILIAS(?: \d+)?\)(?=\.[^./]+$|$)', '', old.get('path', ''))
+                matched_session = any((old.get('course_id'), path) in item.get('sessions', ())
+                                      for path in (old.get('original_path'), old_path))
+                if old.get('course_id') == item['course_id'] and (matched_session or old.get('placement') == 'session'):
+                    archive.relocate_material(identity, destination, relative)
             action = archive.publish(identity, raw, relative, destination=destination, route=route,
                                      metadata={'course_id':item['course_id'], 'course_name':item['course_name'],
                                                'logical':item['logical'], 'original_path':item['path'],
+                                               'placement':placement, 'retained_locally':False,
+                                               'collection': ({'path': item['path'], 'logical': item['logical']}
+                                                              if placement == 'collection' else None),
                                                'folder_names_applied': dict(source.folder_names)})
             counts[action] += 1
             material_counts[action] += 1
@@ -572,8 +639,10 @@ async def synchronize(source: Source, emit=lambda event: None, *, discover=False
                 original = path.as_posix().split('/')
                 relative = '/'.join([crawler.course_folders.get(original[0], original[0]), *original[1:]])
                 relative = named_path(source, path.as_posix(), relative)
-                counts[archive.publish("generated:" + str(path), raw, "Course info/" + relative,
+                published = "Course info/" + relative
+                counts[archive.publish("generated:" + str(path), raw, published,
                                        metadata={'course_id': original[0],
+                                                 'original_path': published,
                                                  'folder_names_applied': dict(source.folder_names)})] += 1
         result = {"counts": dict(counts), "material_counts": dict(material_counts), "files": sum(counts.values()), "unavailable": len(unavailable),
                   "unavailable_items": [crawler.files[identity]['path'] for identity in unavailable],
@@ -588,7 +657,12 @@ async def synchronize(source: Source, emit=lambda event: None, *, discover=False
         result['pages'] = {'checked': len(crawler.page_index.used_urls), 'parsed': crawler.page_index.parsed,
                            'reused': crawler.page_index.reused,
                            'empty_meetings': len(crawler.page_index.empty_meetings)}
-        result.update(crawler.check_evidence())
+        evidence = crawler.check_evidence()
+        result.update(evidence)
+        if (evidence['enumeration_complete'] and not evidence['check_issues']
+                and not (result['partial'] or result['warnings'] or result['errors'] or result['unavailable'])):
+            checked = {course['id'] for course in evidence['course_scope']}
+            archive.mark_retained(checked, crawler.files.keys(), excluded)
         write_json(state / "last-result.json", result)
         return result
     except BaseException as exc:

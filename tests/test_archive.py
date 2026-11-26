@@ -43,15 +43,83 @@ def test_user_annotations_survive(tmp_path):
     assert archive.manifest['files']['file:1']['path'] == 'Course/lecture (ILIAS).pdf'
 
 
-def test_unmanaged_identical_file_is_not_adopted(tmp_path):
+def test_unmanaged_identical_file_is_reused_without_ownership(tmp_path):
     raw, archive = setup(tmp_path)
     target = tmp_path / "out/Course/lecture.pdf"
     target.parent.mkdir()
     target.write_bytes(raw.read_bytes())
-    assert archive.publish("file:1", raw, "Course/lecture.pdf") == "conflict"
+    assert archive.publish("file:1", raw, "Course/lecture.pdf") == "unchanged"
+    assert list(target.parent.iterdir()) == [target]
+    assert archive.manifest['files']['file:1']['borrowed']
+    archive = Archive(archive.state, archive.destination)
     raw.write_bytes(b"remote update")
-    archive.publish("file:1", raw, "Course/lecture.pdf")
+    assert archive.publish("file:1", raw, "Course/lecture.pdf") == "conflict"
     assert target.read_bytes() == b"%PDF-1.4 original"
+    assert target.with_name('lecture (ILIAS).pdf').read_bytes() == b"remote update"
+
+
+def test_existing_conflict_returns_to_clean_name_with_history(tmp_path):
+    from ilias_sync.library import version_history
+    raw, archive = setup(tmp_path)
+    plain = archive.destination / 'Course/lecture.pdf'
+    plain.parent.mkdir()
+    plain.write_bytes(b'personal content')
+    archive.publish('file:1', raw, 'Course/lecture.pdf')
+    old_path = 'Course/lecture (ILIAS).pdf'
+    older = archive.destination / 'Versions' / old_path / '0123456789abcdef.pdf'
+    older.parent.mkdir(parents=True)
+    older.write_bytes(b'legacy version')
+    plain.unlink()
+    raw.write_bytes(b'updated content')
+    assert archive.publish('file:1', raw, 'Course/lecture.pdf') == 'updated'
+    assert plain.read_bytes() == b'updated content'
+    assert not (archive.destination / old_path).exists()
+    archive = Archive(archive.state, archive.destination)
+    entry = {**archive.manifest['files']['file:1'], '_identity': 'file:1'}
+    versions = version_history(entry, [entry])
+    assert {v.path.read_bytes() for v in versions} == {b'%PDF-1.4 original', b'legacy version'}
+    assert next(v for v in versions if not v.legacy).path.name[:4].isdigit()
+
+
+def test_interrupted_update_keeps_the_version_and_reuses_the_current_file(tmp_path, monkeypatch):
+    from ilias_sync import storage
+    raw, archive = setup(tmp_path)
+    archive.publish('file:1', raw, 'Course/lecture.pdf')
+    assert not archive.manifest['files']['file:1'].get('versions')
+    raw.write_bytes(b'updated content')
+    original = storage.write_json
+
+    def interrupted(path, value):
+        if path == archive.path and value['files']['file:1']['sha256'] == sha256(raw):
+            raise OSError('interrupted after replacing current file')
+        original(path, value)
+
+    with monkeypatch.context() as patch:
+        patch.setattr(storage, 'write_json', interrupted)
+        with pytest.raises(OSError, match='interrupted'):
+            archive.publish('file:1', raw, 'Course/lecture.pdf')
+    archive = Archive(archive.state, archive.destination)
+    assert archive.publish('file:1', raw, 'Course/lecture.pdf') == 'updated'
+    entry = archive.manifest['files']['file:1']
+    assert len(entry['versions']) == 1
+    assert (archive.destination / entry['versions'][0]['path']).read_bytes() == b'%PDF-1.4 original'
+    assert len(list((archive.destination / 'Course').iterdir())) == 1
+
+
+def test_legacy_course_info_versions_are_visible_at_the_new_course_name(tmp_path):
+    from ilias_sync.library import version_history
+    from ilias_sync.storage import dated_version_name
+    entry = {'_identity': 'generated:crs-42/Chapter/Description.html', '_destination': str(tmp_path),
+             'course_id': 'crs-42', 'path': 'Course info/Algorithms/Chapter/Description (ILIAS).html'}
+    legacy = tmp_path / 'Versions/Course info/crs-42/Chapter/Description.html/0123456789abcdef.html'
+    legacy.parent.mkdir(parents=True)
+    legacy.write_text('Old course information')
+    assert [version.path for version in version_history(entry, [entry])] == [legacy.resolve()]
+    stamp = 1793265628
+    dated = legacy.with_name(dated_version_name(stamp, sha256(legacy), '.html'))
+    legacy.rename(dated)
+    version, = version_history(entry, [entry])
+    assert (version.path, version.stamp) == (dated.resolve(), stamp)
 
 
 def test_identical_objects_have_independent_ownership(tmp_path):

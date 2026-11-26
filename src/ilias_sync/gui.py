@@ -34,9 +34,10 @@ from .theme import CARD_INSET, DARK, LIGHT, SYNC_CONTROL_HEIGHT, WORKSPACE_GUTTE
 from .i18n import message, set_language, t
 from .scheduler import command, ensure_schedule, install, registration_matches, uninstall
 from .security import import_session, store_password
-from .storage import Settings, Source, data_dir, exclude_files, excluded_files, read_json, write_json, source_scope
+from .storage import Settings, Source, data_dir, exclude_files, excluded_files, read_json, safe_path, write_json, source_scope
 from .library_widgets import MaterialDelegate, MaterialTable, SyncPanel, ElidedLabel, LibraryNavigation
-from .library import cached_courses, load_library, course_key, source_summary, library_summary
+from .library import (cached_courses, load_library, course_key, source_summary, library_summary, material_folder,
+                      natural_name_key, version_history)
 from .recovery import recovery_plan
 from .presentation import (brief_stamp, file_size, is_course_info, local_time, sync_summary, schedule_expectation, schedule_brief,
                           filtered_result, warning_facts, progress_copy, file_context)
@@ -307,6 +308,59 @@ class FileFilterDialog(QWidget):
         self.search.clear()
         for widget in (self.course, self.kind, self.size):
             widget.setCurrentIndex(0)
+
+
+class FileVersionsDialog(SurfaceDialog):
+    def __init__(self, entry, versions, open_entry, parent=None):
+        super().__init__(parent)
+        self.setWindowTitle(t('File versions'))
+        self.resize(550, 340)
+        layout = QVBoxLayout(self)
+        layout.setContentsMargins(24, 22, 24, 20)
+        layout.addWidget(label(Path(entry['path']).name, 'title'))
+        layout.addWidget(label('Versions saved by IliasSync on this device.', 'subtitle'))
+        rows = QTreeWidget()
+        rows.setAccessibleName(t('File versions'))
+        rows.setRootIsDecorated(False)
+        rows.setHeaderLabels([t('Version'), t('Date'), t('Size')])
+        rows.header().setSectionResizeMode(0, QHeaderView.ResizeMode.Stretch)
+        rows.header().setSectionResizeMode(1, QHeaderView.ResizeMode.ResizeToContents)
+        rows.header().setSectionResizeMode(2, QHeaderView.ResizeMode.ResizeToContents)
+        current = QTreeWidgetItem([t('Current copy'), local_time(entry['changed_at']) if entry.get('changed_at') else '—',
+                                   file_size(entry.get('target_stat', [0])[0])])
+        rows.addTopLevelItem(current)
+        for version in versions:
+            item = QTreeWidgetItem([t('Archived copy') if version.legacy else t('Earlier version'),
+                                    local_time(version.stamp), file_size(version.size)])
+            item.setData(0, Qt.ItemDataRole.UserRole, str(version.path))
+            rows.addTopLevelItem(item)
+        rows.setCurrentItem(current)
+        layout.addWidget(rows, 1)
+        if not versions:
+            layout.addWidget(label('No earlier versions are linked to this file.', 'subtitle'))
+
+        def open_selected():
+            item = rows.currentItem()
+            if item is current:
+                open_entry(entry)
+            elif item:
+                path = Path(item.data(0, Qt.ItemDataRole.UserRole))
+                if not path.is_file() or not launch_local(path):
+                    QMessageBox.warning(self, t('File versions'), t('The archived copy could not be opened.'))
+
+        rows.itemDoubleClicked.connect(open_selected)
+        controls = QDialogButtonBox(QDialogButtonBox.StandardButton.Close)
+        controls.rejected.connect(self.reject)
+        controls.addButton(button('Open file', open_selected, True), QDialogButtonBox.ButtonRole.ActionRole)
+        try:
+            archive = safe_path(Path(entry.get('root') or entry['_destination']), 'Versions')
+        except ValueError:
+            archive = None
+        if archive and archive.is_dir():
+            controls.addButton(button('Open archive folder',
+                                      lambda: QDesktopServices.openUrl(QUrl.fromLocalFile(str(archive)))),
+                               QDialogButtonBox.ButtonRole.ActionRole)
+        layout.addWidget(controls)
 
 
 class SyncReportDialog(SurfaceDialog):
@@ -1879,6 +1933,14 @@ class MainWindow(QMainWindow):
             self.library_view.addItem(t(title), value)
         self.library_view.currentIndexChanged.connect(self.change_library_view)
         heading.addWidget(self.library_view)
+        self.library_folder = Dropdown()
+        self.library_folder.setAccessibleName(t('Course folder'))
+        self.library_folder.setSizeAdjustPolicy(QComboBox.SizeAdjustPolicy.AdjustToMinimumContentsLengthWithIcon)
+        self.library_folder.setMinimumContentsLength(15)
+        self.library_folder.setMaximumWidth(260)
+        self.library_folder.currentIndexChanged.connect(self.apply_file_filters)
+        self.library_folder.hide()
+        heading.addWidget(self.library_folder)
         heading.addStretch()
         library.addLayout(heading)
         self.library_widget = QWidget()
@@ -1927,6 +1989,9 @@ class MainWindow(QMainWindow):
         self.clear_filters_button.hide()
         footer.addWidget(self.clear_filters_button)
         footer.addStretch()
+        self.file_versions_button = button('Versions', lambda: self.show_file_versions(self.selected_entry()))
+        self.file_versions_button.setObjectName('compactControl')
+        footer.addWidget(self.file_versions_button)
         self.file_open_button = button('Open file', self.open_file)
         self.file_open_button.setObjectName('compactControl')
         footer.addWidget(self.file_open_button)
@@ -2234,6 +2299,7 @@ class MainWindow(QMainWindow):
             menu.addAction(t('Open file'), lambda checked=False: self.open_entry(entry))
             menu.addAction(t('Show in Finder') if sys.platform == 'darwin' else t('Open containing folder'),
                            lambda checked=False: self.reveal_entry(entry))
+            menu.addAction(t('File versions'), lambda checked=False: self.show_file_versions(entry))
             menu.addAction(t('View all materials'), lambda: self.workspace_tabs.setCurrentIndex(1))
             menu.exec(self.recent_files.viewport().mapToGlobal(point))
 
@@ -2457,9 +2523,10 @@ class MainWindow(QMainWindow):
         self.adapt_search()
         entries = [entry for identity, library in self.libraries.items() if not source or identity == source.id
                    for entry in library['entries'] if not scope[1] or entry.get('course_id') == scope[1]]
+        self.load_course_folders(entries if scope[1] else [], reset=scope_changed)
         column, order = self.files_header.sortIndicatorSection(), self.files_header.sortIndicatorOrder()
         if scope_changed:
-            column, order = 2, Qt.SortOrder.DescendingOrder
+            column, order = self.default_material_sort()
         selected = self.selected_entry()
         selected_key = (selected['_source_id'], selected['_identity']) if selected else None
         self.files.setUpdatesEnabled(False)
@@ -2468,7 +2535,7 @@ class MainWindow(QMainWindow):
         self.files.library_scope = 'course' if scope[1] else 'source' if source else 'global'
         for row, entry in enumerate(entries):
             item = FileCell(entry['path'])
-            item.setData(Qt.ItemDataRole.UserRole, (Path(entry['path']).name.casefold(), entry['path'].casefold()))
+            item.setData(Qt.ItemDataRole.UserRole, (natural_name_key(Path(entry['path']).name), entry['path'].casefold()))
             item.setData(Qt.ItemDataRole.UserRole + 1, entry)
             item.setData(Qt.ItemDataRole.AccessibleTextRole,
                          entry['path'] + ' · ' + entry['_source_name'] + ' · ' + file_context(entry))
@@ -2639,15 +2706,23 @@ class MainWindow(QMainWindow):
             self.file_search.setFocus()
             self.file_search.selectAll()
 
+    def default_material_sort(self):
+        if self.sources.scope()[1] and self.library_view.currentData() != 'recent':
+            return 0, Qt.SortOrder.AscendingOrder
+        return 2, Qt.SortOrder.DescendingOrder
+
     def change_library_view(self, *_):
         if not hasattr(self, 'files'):
             return
         self.apply_file_filters()
         self.adapt_columns()
-        self.files.sortItems(2, Qt.SortOrder.DescendingOrder)
+        self.files.sortItems(*self.default_material_sort())
 
     def clear_file_filters(self):
         self.file_filters = {'search': '', 'course': '', 'kind': '', 'size': ''}
+        self.library_folder.blockSignals(True)
+        self.library_folder.setCurrentIndex(0)
+        self.library_folder.blockSignals(False)
         if self.filter_panel:
             for widget in (self.filter_panel.course, self.filter_panel.kind, self.filter_panel.size):
                 widget.blockSignals(True)
@@ -2655,6 +2730,22 @@ class MainWindow(QMainWindow):
                 widget.blockSignals(False)
         self.file_search.clear()
         self.apply_file_filters()
+
+    def load_course_folders(self, entries, *, reset):
+        selected = None if reset else self.library_folder.currentData()
+        folders = set()
+        for entry in entries:
+            parts = material_folder(entry).split('/')
+            if parts[0]:
+                folders.update('/'.join(parts[:i]) for i in range(1, len(parts) + 1))
+        self.library_folder.blockSignals(True)
+        self.library_folder.clear()
+        self.library_folder.addItem(t('All folders'), '')
+        for folder in sorted(folders, key=natural_name_key):
+            self.library_folder.addItem(folder.replace('/', ' / '), folder)
+        self.library_folder.setCurrentIndex(max(0, self.library_folder.findData(selected)))
+        self.library_folder.blockSignals(False)
+        self.library_folder.setVisible(bool(folders))
 
     def apply_file_filters(self):
         if not hasattr(self, 'files'):
@@ -2665,6 +2756,7 @@ class MainWindow(QMainWindow):
             self.file_search.setText(filters['search'])
             self.file_search.blockSignals(False)
         view = self.library_view.currentData()
+        selected_folder = self.library_folder.currentData()
         visible, eligible = 0, 0
         for row in range(self.files.rowCount()):
             item = self.files.item(row, 0)
@@ -2675,6 +2767,9 @@ class MainWindow(QMainWindow):
             info = is_course_info(entry)
             in_view = (view == 'all' or view == 'materials' and not info or view == 'info' and info or
                        view == 'recent' and not info and bool(entry.get('changed_at')))
+            if selected_folder:
+                folder = material_folder(entry)
+                in_view = in_view and (folder == selected_folder or folder.startswith(selected_folder + '/'))
             eligible += bool(in_view)
             size_ok = (not filters['size'] or
                        filters['size'] == 'small' and size <= 1024 ** 2 or
@@ -2689,12 +2784,12 @@ class MainWindow(QMainWindow):
         active = any(filters.values())
         self.files_header.filter_button.setChecked(active)
         set_hint(self.files_header.filter_button, t('Filters active') if active else t('Filter files'))
-        self.clear_filters_button.setVisible(active)
+        self.clear_filters_button.setVisible(active or bool(selected_folder))
         self.file_count.setText(t('{visible} of {total} files', visible=visible, total=eligible) if active else
                                 t('1 file') if visible == 1 else t('{count} files', count=visible))
         if visible:
             self.files.set_empty('', '')
-        elif active:
+        elif active or selected_folder:
             self.files.set_empty(t('No matching materials'), t('Try another search or clear the filters.'))
         elif view == 'recent':
             self.files.set_empty(t('No recent changes yet'), t('New and updated materials will appear here after a sync.'))
@@ -2762,12 +2857,12 @@ class MainWindow(QMainWindow):
     def update_file_actions(self):
         if hasattr(self, 'file_open_button'):
             self.file_open_button.setEnabled(self._first_visible_entry() is not None)
+            self.file_versions_button.setEnabled(self.selected_entry() is not None)
 
     def file_target(self, entry=None):
         entry = self.selected_entry() if entry is None else entry
         if not entry:
             return None
-        from .storage import safe_path
         try:
             return safe_path(Path(entry.get('root', entry['_destination'])), entry['path'])
         except ValueError:
@@ -2777,6 +2872,11 @@ class MainWindow(QMainWindow):
 
     def open_file(self):
         self.open_entry(self.open_candidate())
+
+    def show_file_versions(self, entry):
+        if entry:
+            siblings = self.libraries[entry['_source_id']]['entries']
+            FileVersionsDialog(entry, version_history(entry, siblings), self.open_entry, self).exec()
 
     def open_entry(self, entry):
         if not entry:
@@ -2817,6 +2917,7 @@ class MainWindow(QMainWindow):
         menu.addAction(t('Open file'), lambda checked=False: self.open_entry(entry))
         menu.addAction(t('Show in Finder') if sys.platform == 'darwin' else t('Open containing folder'),
                        lambda checked=False: self.reveal_entry(entry))
+        menu.addAction(t('File versions'), lambda checked=False: self.show_file_versions(entry))
         if entry and entry.get('course_id') and self.sources.scope() != (entry['_source_id'], entry['course_id']):
             menu.addSeparator()
             menu.addAction(t('Show course'), lambda: self.sources.select_scope(entry['_source_id'], entry['course_id']))

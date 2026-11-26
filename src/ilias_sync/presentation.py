@@ -204,6 +204,8 @@ def file_context(entry):
     context = str(path.parent).replace('/', '  /  ')
     if context == '.':
         context = entry.get('course_name', '')
+    if entry.get('retained_locally'):
+        context = ' · '.join(part for part in (context, t('Kept locally')) if part)
     if entry.get('changed_at'):
         change = {'added': t('New'), 'updated': t('Updated'), 'conflict': t('Separate ILIAS copy')}.get(entry.get('change'), '')
         return ' · '.join(part for part in (change, local_time(entry['changed_at']), context) if part)
